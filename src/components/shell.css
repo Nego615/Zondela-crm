@@ -23,16 +23,16 @@
 }
 
 .shell-brand-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  background: var(--accent);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  /* The mark's own teal roof would vanish against the rail, so it keeps the
+     cream ground it has in the logo. */
+  background: var(--brand-cream);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
+  flex-shrink: 0;
 }
 
 .shell-brand-name {
@@ -40,6 +40,17 @@
   font-weight: 600;
   font-size: 14px;
   letter-spacing: -0.01em;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.shell-brand-sub {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  color: var(--brand-olive);
 }
 
 .shell-nav {

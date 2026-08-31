@@ -21,16 +21,14 @@
 }
 
 .login-brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: var(--brand-cream);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display);
-  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .login-sub {

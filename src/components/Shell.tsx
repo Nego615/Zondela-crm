@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import BrandMark from './BrandMark'
 import './shell.css'
 
 const NAV_ITEMS = [
@@ -26,8 +27,13 @@ export default function Shell() {
     <div className="shell">
       <aside className="shell-rail">
         <div className="shell-brand">
-          <span className="shell-brand-mark">Z</span>
-          <span className="shell-brand-name">Zondela CRM</span>
+          <span className="shell-brand-mark">
+            <BrandMark size={22} />
+          </span>
+          <span className="shell-brand-name">
+            Zondela House
+            <span className="shell-brand-sub">CRM</span>
+          </span>
         </div>
 
         <nav className="shell-nav">

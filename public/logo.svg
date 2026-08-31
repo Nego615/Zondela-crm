@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="640" height="640" role="img" aria-label="Zondela House — est. 2026">
+  <title>Zondela House</title>
+  <rect width="640" height="640" fill="#F7F3EA"/>
+
+  <!-- double keyline -->
+  <circle cx="320" cy="320" r="244" fill="none" stroke="#3C4A47" stroke-width="3"/>
+  <circle cx="320" cy="320" r="234" fill="none" stroke="#3C4A47" stroke-width="1.5"/>
+
+  <!-- house mark -->
+  <g transform="translate(118 258) scale(1.75)">
+    <rect x="14" y="35" width="36" height="19" fill="#A9463A"/>
+    <g stroke="#F7F3EA" stroke-width="1.6" stroke-linecap="square">
+      <path d="M14 41.3h36M14 47.6h36"/>
+      <path d="M26 35v6.3M38 35v6.3"/>
+      <path d="M20 41.3v6.3M44 41.3v6.3"/>
+      <path d="M26 47.6v6.4M38 47.6v6.4"/>
+    </g>
+    <g stroke="#8FA83C" stroke-width="2.6" stroke-linecap="round">
+      <path d="M28.6 40v9M35.4 40v9M28.6 44.5h6.8"/>
+    </g>
+    <path d="M5 35 32 13.5 59 35" fill="none" stroke="#14564D" stroke-width="7"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M32 15.5c0-6.6 5.4-11.4 11.6-11.5 1 6.8-4 12-11.6 11.5z" fill="#8FA83C"/>
+    <path d="M34 13.6 41.2 6.6" fill="none" stroke="#6F8630" stroke-width="1.2" stroke-linecap="round"/>
+  </g>
+
+  <!-- wordmark. Archivo is the brand face; the fallbacks keep the file legible
+       where it is opened as a bare image and no webfont is available. -->
+  <g fill="#14564D" font-family="Archivo, 'Archivo Semi Expanded', Helvetica, Arial, sans-serif" font-weight="600">
+    <text x="246" y="316" font-size="58" letter-spacing="1.5">ZONDELA</text>
+    <text x="252" y="378" font-size="52" letter-spacing="1.5">HOUSE</text>
+  </g>
+
+  <text x="320" y="502" text-anchor="middle" fill="#8A8F8B" font-size="19" letter-spacing="5.5"
+        font-family="Inter, Helvetica, Arial, sans-serif" font-weight="500">EST. 2026</text>
+</svg>

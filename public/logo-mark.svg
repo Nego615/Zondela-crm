@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Zondela House mark">
+  <title>Zondela House</title>
+  <!-- brick body -->
+  <rect x="14" y="35" width="36" height="19" fill="#A9463A"/>
+  <!-- mortar courses -->
+  <g stroke="#F7F3EA" stroke-width="1.6" stroke-linecap="square">
+    <path d="M14 41.3h36M14 47.6h36"/>
+    <path d="M26 35v6.3M38 35v6.3"/>
+    <path d="M20 41.3v6.3M44 41.3v6.3"/>
+    <path d="M26 47.6v6.4M38 47.6v6.4"/>
+  </g>
+  <!-- H monogram -->
+  <g stroke="#8FA83C" stroke-width="2.6" stroke-linecap="round">
+    <path d="M28.6 40v9M35.4 40v9M28.6 44.5h6.8"/>
+  </g>
+  <!-- gabled roof -->
+  <path d="M5 35 32 13.5 59 35" fill="none" stroke="#14564D" stroke-width="7"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- leaf at the apex -->
+  <path d="M32 15.5c0-6.6 5.4-11.4 11.6-11.5 1 6.8-4 12-11.6 11.5z" fill="#8FA83C"/>
+  <path d="M34 13.6 41.2 6.6" fill="none" stroke="#6F8630" stroke-width="1.2" stroke-linecap="round"/>
+</svg>

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import BrandMark from '../components/BrandMark'
 import '../components/ui.css'
 import './login.css'
 
@@ -48,8 +49,10 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card card">
         <div className="login-brand">
-          <span className="login-brand-mark">Z</span>
-          <h1>Zondela CRM</h1>
+          <span className="login-brand-mark">
+            <BrandMark size={26} />
+          </span>
+          <h1>Zondela House</h1>
         </div>
         <p className="login-sub">
           {mode === 'sign_in' ? 'Sign in to your pipeline.' : 'Create your team account.'}

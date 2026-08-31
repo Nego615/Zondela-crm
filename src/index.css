@@ -1,34 +1,50 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
 
 :root {
-  --ink: #16213d;
-  --ink-soft: #2a3757;
-  --paper: #fbf9f4;
-  --paper-dim: #f2efe7;
+  /* Brand palette, sampled from the Zondela House logo: teal is the roof and
+     wordmark, brick the house body, olive the leaf and H monogram, cream the
+     ground the mark sits on. See BRAND.md. */
+  --brand-teal: #14564d;
+  --brand-teal-deep: #0c3b35;
+  --brand-teal-bright: #1f7a6c;
+  --brand-teal-tint: #e2edea;
+  --brand-brick: #a9463a;
+  --brand-brick-deep: #8f3830;
+  --brand-brick-tint: #f6e7e2;
+  --brand-olive: #8fa83c;
+  --brand-olive-deep: #5c6f26;
+  --brand-olive-tint: #eef1de;
+  --brand-cream: #f7f3ea;
+  --brand-slate: #3c4a47;
+
+  --ink: var(--brand-teal-deep);
+  --ink-soft: #17544b;
+  --paper: var(--brand-cream);
+  --paper-dim: #efe9dc;
   --card: #ffffff;
-  --line: #e4e0d6;
-  --line-strong: #d0cbbb;
-  --text: #1c1a17;
+  --line: #e2dccd;
+  --line-strong: #cfc7b4;
+  --text: #22201c;
   --text-soft: #6b665c;
   --text-muted: #9b9587;
 
-  --stage-lead: #7a7ecb;
-  --stage-lead-bg: #eceafb;
-  --stage-contacted: #2f8fd6;
-  --stage-contacted-bg: #e4f1fb;
-  --stage-visit: #c98a2c;
-  --stage-visit-bg: #fbf0dd;
-  --stage-proposal: #b8562f;
-  --stage-proposal-bg: #fbe9e0;
-  --stage-negotiation: #a83a63;
-  --stage-negotiation-bg: #fbe4ec;
-  --stage-won: #3f8f5c;
-  --stage-won-bg: #e4f4ea;
-  --stage-lost: #8a8578;
-  --stage-lost-bg: #eeece5;
+  --stage-lead: #5a6b72;
+  --stage-lead-bg: #e9eef0;
+  --stage-contacted: #2a7296;
+  --stage-contacted-bg: #e3eff5;
+  --stage-visit: #8a6018;
+  --stage-visit-bg: #f8efdc;
+  --stage-proposal: var(--brand-brick);
+  --stage-proposal-bg: var(--brand-brick-tint);
+  --stage-negotiation: #8c4a63;
+  --stage-negotiation-bg: #f3e6ec;
+  --stage-won: var(--brand-olive-deep);
+  --stage-won-bg: var(--brand-olive-tint);
+  --stage-lost: #6b665c;
+  --stage-lost-bg: #edeae2;
 
-  --accent: #b8562f;
-  --accent-hover: #9c4826;
+  --accent: var(--brand-brick);
+  --accent-hover: var(--brand-brick-deep);
   --danger: #b23b3b;
 
   --font-display: 'Archivo', system-ui, sans-serif;
@@ -88,11 +104,11 @@ a {
 }
 
 ::selection {
-  background: var(--stage-proposal-bg);
+  background: var(--brand-teal-tint);
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--brand-teal-bright);
   outline-offset: 2px;
 }
 
