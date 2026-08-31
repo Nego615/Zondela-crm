@@ -1,16 +1,24 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useFollowUps, useCompanies, useProfiles } from '../hooks/useCrmData'
 import '../components/ui.css'
 
 type Filter = 'pending' | 'overdue' | 'done' | 'all'
+
+const FILTERS: Filter[] = ['pending', 'overdue', 'done', 'all']
+const isFilter = (v: string | null): v is Filter => v !== null && (FILTERS as string[]).includes(v)
 
 export default function FollowUps() {
   const { followUps, loading, updateFollowUp } = useFollowUps()
   const { companies } = useCompanies()
   const { profiles } = useProfiles()
   const navigate = useNavigate()
-  const [filter, setFilter] = useState<Filter>('pending')
+  // The dashboard links straight to a filter (…?filter=overdue), so the tile
+  // and the list it opens agree. Anything unrecognised falls back to pending.
+  const [params, setParams] = useSearchParams()
+  const fromUrl = params.get('filter')
+  const filter: Filter = isFilter(fromUrl) ? fromUrl : 'pending'
+  const setFilter = (next: Filter) => setParams(next === 'pending' ? {} : { filter: next }, { replace: true })
 
   const companyName = (id: string) => companies.find((c) => c.id === id)?.name || 'Unknown company'
   const repName = (id: string | null) => profiles.find((p) => p.id === id)?.full_name || '—'
@@ -37,7 +45,7 @@ export default function FollowUps() {
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-        {(['pending', 'overdue', 'done', 'all'] as Filter[]).map((f) => (
+        {FILTERS.map((f) => (
           <button key={f} className={`btn btn-sm ${filter === f ? 'btn-primary' : ''}`} onClick={() => setFilter(f)}>
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </button>

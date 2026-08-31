@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import Shell from './components/Shell'
+import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 import Pipeline from './pages/Pipeline'
 import Companies from './pages/Companies'
@@ -48,7 +49,8 @@ function AppRoutes() {
           </RequireAuth>
         }
       >
-        <Route index element={<Pipeline />} />
+        <Route index element={<Dashboard />} />
+        <Route path="pipeline" element={<Pipeline />} />
         <Route path="companies" element={<Companies />} />
         <Route path="companies/:id" element={<CompanyDetail />} />
         <Route path="visits" element={<Visits />} />

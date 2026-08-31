@@ -1,16 +1,23 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSiteVisits, useCompanies, useProfiles } from '../hooks/useCrmData'
 import '../components/ui.css'
 
 type Filter = 'upcoming' | 'past' | 'all'
+
+const FILTERS: Filter[] = ['upcoming', 'past', 'all']
+const isFilter = (val: string | null): val is Filter => val !== null && (FILTERS as string[]).includes(val)
 
 export default function Visits() {
   const { visits, loading, updateVisit } = useSiteVisits()
   const { companies } = useCompanies()
   const { profiles } = useProfiles()
   const navigate = useNavigate()
-  const [filter, setFilter] = useState<Filter>('upcoming')
+  // Kept in the URL so the dashboard can link to a specific view.
+  const [params, setParams] = useSearchParams()
+  const fromUrl = params.get('filter')
+  const filter: Filter = isFilter(fromUrl) ? fromUrl : 'upcoming'
+  const setFilter = (next: Filter) => setParams(next === 'upcoming' ? {} : { filter: next }, { replace: true })
 
   const companyName = (id: string) => companies.find((c) => c.id === id)?.name || 'Unknown company'
   const repName = (id: string | null) => profiles.find((p) => p.id === id)?.full_name || '—'
@@ -36,7 +43,7 @@ export default function Visits() {
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-        {(['upcoming', 'past', 'all'] as Filter[]).map((f) => (
+        {FILTERS.map((f) => (
           <button
             key={f}
             className={`btn btn-sm ${filter === f ? 'btn-primary' : ''}`}

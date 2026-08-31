@@ -17,7 +17,7 @@
 }
 
 .board-col.drag-over {
-  background: #efe8dc;
+  background: var(--paper-dim);
 }
 
 .board-col-header {
@@ -75,7 +75,7 @@
 
 .board-card:hover {
   border-color: var(--line-strong);
-  box-shadow: 0 2px 8px rgba(22, 33, 61, 0.06);
+  box-shadow: 0 2px 8px rgba(12, 59, 53, 0.07);
 }
 
 .board-card:active {

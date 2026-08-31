@@ -4,7 +4,8 @@ import BrandMark from './BrandMark'
 import './shell.css'
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Pipeline', end: true },
+  { to: '/', label: 'Dashboard', end: true },
+  { to: '/pipeline', label: 'Pipeline' },
   { to: '/companies', label: 'Companies' },
   { to: '/visits', label: 'Site visits' },
   { to: '/follow-ups', label: 'Follow-ups' },

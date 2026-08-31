@@ -13,6 +13,7 @@ import { createRoot } from 'react-dom/client'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '../src/hooks/useAuth'
 import Shell from '../src/components/Shell'
+import Dashboard from '../src/pages/Dashboard'
 import Pipeline from '../src/pages/Pipeline'
 import Companies from '../src/pages/Companies'
 import CompanyDetail from '../src/pages/CompanyDetail'
@@ -37,7 +38,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Shell />}>
-        <Route index element={<Pipeline />} />
+        <Route index element={<Dashboard />} />
+        <Route path="pipeline" element={<Pipeline />} />
         <Route path="companies" element={<Companies />} />
         <Route path="companies/:id" element={<CompanyDetail />} />
         <Route path="visits" element={<Visits />} />
