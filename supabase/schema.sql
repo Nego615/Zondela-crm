@@ -321,12 +321,6 @@ begin
 end $$;
 
 -- ============================================================================
--- SEED DATA (optional, edit or remove freely)
+-- SEED DATA
 -- ============================================================================
-insert into sto_rate_card (service_name, description, price, currency, unit, sort_order)
-values
-  ('STO Starter', 'Basic search & directory optimization for a single location', 350000, 'TZS', 'per month', 1),
-  ('STO Growth', 'Multi-page optimization, monthly reporting, 2 keyword clusters', 650000, 'TZS', 'per month', 2),
-  ('STO Pro', 'Full-site optimization, competitor tracking, weekly reporting', 1200000, 'TZS', 'per month', 3),
-  ('STO Enterprise', 'Custom scope for multi-location or high-competition sectors', 2500000, 'TZS', 'per month', 4)
-on conflict do nothing;
+-- None. The schema installs empty; add your services on the STO rate card page.

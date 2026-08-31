@@ -26,7 +26,8 @@ Supabase (Postgres + Auth) for persistence.
 2. Paste the entire contents of [`supabase/schema.sql`](./supabase/schema.sql)
    and run it. This creates all tables (companies, contacts, site_visits,
    follow_ups, sto_rate_card, email_templates, sent_messages, profiles),
-   indexes, row-level security policies, and seeds a starter rate card.
+   indexes and row-level security policies. It installs empty — add your
+   own services on the STO rate card page.
 3. It's safe to re-run — the script drops/recreates policies and uses
    `if not exists` for tables.
 
@@ -83,7 +84,8 @@ src/
                    CompanyDetail, Visits, FollowUps, RateCard, Templates,
                    Reports, Team, Login
 supabase/
-  schema.sql       Full Postgres schema + RLS policies + seed data
+  schema.sql       Full Postgres schema + RLS policies
+  reset-data.sql   Deletes every business record (run in the SQL editor)
 ```
 
 ## How the pieces fit together

@@ -90,7 +90,7 @@ function Preview() {
       <div className="preview-bar" ref={barRef}>
         <div className="preview-bar-label">
           <strong>Preview</strong>
-          <span>sample data, nothing connected</span>
+          <span>empty database, nothing connected</span>
         </div>
         <div className="preview-bar-switch">
           <span className="preview-bar-hint">Viewing as</span>

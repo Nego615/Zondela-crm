@@ -21,63 +21,22 @@ const at = (offsetDays: number) => new Date(now + offsetDays * day).toISOString(
 
 function seed(): Record<string, Row[]> {
   return {
+    // The three preview logins are kept: they are what the role switcher
+    // switches between, and session() dereferences the acting profile at
+    // startup, so an empty list would crash the preview rather than empty it.
+    // Every business record was sample data and has been removed.
     profiles: [
-      { id: OWNER_ID, full_name: 'Olive Mushi', email: 'olive@zondela.co.tz', role: 'owner', created_at: at(-120) },
-      { id: REP_A_ID, full_name: 'Amina Kessy', email: 'amina@zondela.co.tz', role: 'marketing', created_at: at(-90) },
-      { id: REP_B_ID, full_name: 'Baraka Lyimo', email: 'baraka@zondela.co.tz', role: 'marketing', created_at: at(-60) },
+      { id: OWNER_ID, full_name: 'Owner', email: 'owner@example.com', role: 'owner', created_at: at(-120) },
+      { id: REP_A_ID, full_name: 'Rep One', email: 'rep-one@example.com', role: 'marketing', created_at: at(-90) },
+      { id: REP_B_ID, full_name: 'Rep Two', email: 'rep-two@example.com', role: 'marketing', created_at: at(-60) },
     ],
-    companies: [
-      { id: 'c-01', name: 'Kilimanjaro Coffee Union', industry: 'Agriculture', city: 'Moshi', website: 'https://kcu.co.tz', address: 'Boma Rd', stage: 'negotiation', owner_id: REP_A_ID, notes: 'Wants regional keyword coverage before harvest season.', created_at: at(-40), updated_at: at(-2) },
-      { id: 'c-02', name: 'Arusha Auto Spares', industry: 'Retail', city: 'Arusha', website: 'https://arushaauto.co.tz', address: 'Sokoine Rd', stage: 'proposal_sent', owner_id: REP_A_ID, notes: 'Proposal sent for STO Growth.', created_at: at(-30), updated_at: at(-4) },
-      { id: 'c-03', name: 'Serengeti Safari Lodges', industry: 'Hospitality', city: 'Arusha', website: 'https://serengetilodges.com', address: 'Njiro', stage: 'won', owner_id: REP_A_ID, notes: 'Signed STO Pro, 12 months.', created_at: at(-75), updated_at: at(-9) },
-      { id: 'c-04', name: 'Mwanza Fresh Foods', industry: 'FMCG', city: 'Mwanza', website: null, address: 'Nyerere Rd', stage: 'site_visit', owner_id: REP_B_ID, notes: 'Visit booked with the ops manager.', created_at: at(-22), updated_at: at(-3) },
-      { id: 'c-05', name: 'Dodoma Building Supplies', industry: 'Construction', city: 'Dodoma', website: null, address: 'Area C', stage: 'contacted', owner_id: REP_B_ID, notes: null, created_at: at(-15), updated_at: at(-6) },
-      { id: 'c-06', name: 'Zanzibar Spice Exporters', industry: 'Export', city: 'Zanzibar', website: 'https://znzspice.com', address: 'Stone Town', stage: 'lead', owner_id: null, notes: 'Inbound from the website form — nobody has picked this up.', created_at: at(-5), updated_at: at(-5) },
-      { id: 'c-07', name: 'Tanga Cement Retail', industry: 'Construction', city: 'Tanga', website: null, address: 'Ngamiani', stage: 'lead', owner_id: null, notes: 'Referral from Serengeti Lodges.', created_at: at(-3), updated_at: at(-3) },
-      { id: 'c-08', name: 'Iringa Highlands Tea', industry: 'Agriculture', city: 'Iringa', website: null, address: 'Mafinga Rd', stage: 'lost', owner_id: REP_B_ID, notes: 'Went with an in-house hire.', created_at: at(-88), updated_at: at(-30) },
-    ],
-    contacts: [
-      { id: 'ct-01', company_id: 'c-01', full_name: 'Neema Shirima', job_title: 'Marketing Lead', email: 'neema@kcu.co.tz', phone: '+255 754 110 220', whatsapp: '255754110220', is_primary: true, created_at: at(-40) },
-      { id: 'ct-02', company_id: 'c-01', full_name: 'Joseph Mrema', job_title: 'Finance Director', email: 'joseph@kcu.co.tz', phone: '+255 754 110 221', whatsapp: null, is_primary: false, created_at: at(-38) },
-      { id: 'ct-03', company_id: 'c-02', full_name: 'Rashid Juma', job_title: 'Owner', email: 'rashid@arushaauto.co.tz', phone: '+255 713 445 001', whatsapp: '255713445001', is_primary: true, created_at: at(-30) },
-      { id: 'ct-04', company_id: 'c-03', full_name: 'Grace Kimaro', job_title: 'GM', email: 'grace@serengetilodges.com', phone: '+255 767 900 100', whatsapp: '255767900100', is_primary: true, created_at: at(-75) },
-      { id: 'ct-05', company_id: 'c-04', full_name: 'Peter Magesa', job_title: 'Ops Manager', email: 'peter@mwanzafresh.co.tz', phone: '+255 786 220 330', whatsapp: '255786220330', is_primary: true, created_at: at(-22) },
-      { id: 'ct-06', company_id: 'c-05', full_name: 'Halima Said', job_title: 'Procurement', email: 'halima@dodomabuild.co.tz', phone: '+255 762 505 707', whatsapp: null, is_primary: true, created_at: at(-15) },
-      { id: 'ct-07', company_id: 'c-06', full_name: 'Salma Ali', job_title: 'Director', email: 'salma@znzspice.com', phone: '+255 777 313 414', whatsapp: '255777313414', is_primary: true, created_at: at(-5) },
-    ],
-    site_visits: [
-      { id: 'sv-01', company_id: 'c-01', contact_id: 'ct-01', rep_id: REP_A_ID, scheduled_for: at(-12), status: 'completed', summary: 'Walked the estate, agreed on a two-cluster scope.', created_at: at(-20) },
-      { id: 'sv-02', company_id: 'c-02', contact_id: 'ct-03', rep_id: REP_A_ID, scheduled_for: at(3), status: 'scheduled', summary: null, created_at: at(-6) },
-      { id: 'sv-03', company_id: 'c-03', contact_id: 'ct-04', rep_id: REP_A_ID, scheduled_for: at(-60), status: 'completed', summary: 'Signed on site.', created_at: at(-70) },
-      { id: 'sv-04', company_id: 'c-04', contact_id: 'ct-05', rep_id: REP_B_ID, scheduled_for: at(5), status: 'scheduled', summary: null, created_at: at(-4) },
-      // Delegated: Baraka's account, but Amina is the attending rep. Under the
-      // new policies this stays visible to Amina even though c-04 is not hers.
-      { id: 'sv-05', company_id: 'c-04', contact_id: 'ct-05', rep_id: REP_A_ID, scheduled_for: at(8), status: 'scheduled', summary: null, created_at: at(-1) },
-    ],
-    follow_ups: [
-      { id: 'fu-01', company_id: 'c-01', contact_id: 'ct-01', assigned_to: REP_A_ID, due_at: at(-2), note: 'Send revised pricing for the second cluster.', status: 'pending', created_at: at(-10) },
-      { id: 'fu-02', company_id: 'c-02', contact_id: 'ct-03', assigned_to: REP_A_ID, due_at: at(2), note: 'Chase the proposal decision.', status: 'pending', created_at: at(-4) },
-      { id: 'fu-03', company_id: 'c-03', contact_id: 'ct-04', assigned_to: REP_A_ID, due_at: at(-30), note: 'Onboarding call.', status: 'done', created_at: at(-40) },
-      { id: 'fu-04', company_id: 'c-05', contact_id: 'ct-06', assigned_to: REP_B_ID, due_at: at(1), note: 'Book the site visit.', status: 'pending', created_at: at(-5) },
-      // Delegated the same way: Baraka's company, assigned to Amina.
-      { id: 'fu-05', company_id: 'c-04', contact_id: 'ct-05', assigned_to: REP_A_ID, due_at: at(4), note: 'Cover the Mwanza visit while Baraka is away.', status: 'pending', created_at: at(-1) },
-    ],
-    sto_rate_card: [
-      { id: 'rc-01', service_name: 'STO Starter', description: 'Basic search & directory optimization for a single location', price: 350000, currency: 'TZS', unit: 'per month', active: true, sort_order: 1, created_at: at(-120) },
-      { id: 'rc-02', service_name: 'STO Growth', description: 'Multi-page optimization, monthly reporting, 2 keyword clusters', price: 650000, currency: 'TZS', unit: 'per month', active: true, sort_order: 2, created_at: at(-120) },
-      { id: 'rc-03', service_name: 'STO Pro', description: 'Full-site optimization, competitor tracking, weekly reporting', price: 1200000, currency: 'TZS', unit: 'per month', active: true, sort_order: 3, created_at: at(-120) },
-      { id: 'rc-04', service_name: 'STO Enterprise', description: 'Custom scope for multi-location or high-competition sectors', price: 2500000, currency: 'TZS', unit: 'per month', active: true, sort_order: 4, created_at: at(-120) },
-    ],
-    email_templates: [
-      { id: 'tp-01', name: 'STO pricing intro', subject: 'STO pricing for {{company}}', body_html: 'Hi {{name}},\n\nThanks for your time today. Here is our STO pricing:\n\n{{pricing}}\n\nHappy to walk through any of it.\n\nZondela', category: 'pricing', created_by: OWNER_ID, created_at: at(-100), updated_at: at(-14) },
-      { id: 'tp-02', name: 'Post-visit follow-up', subject: 'Great meeting you at {{company}}', body_html: 'Hi {{name}},\n\nThanks for showing us around. As promised, our recommended scope is below.\n\n{{pricing}}\n\nZondela', category: 'follow_up', created_by: OWNER_ID, created_at: at(-95), updated_at: at(-20) },
-      { id: 'tp-03', name: 'Proposal nudge', subject: 'Following up on our proposal', body_html: 'Hi {{name}},\n\nJust checking whether you had a chance to review the proposal.\n\nZondela', category: 'proposal', created_by: OWNER_ID, created_at: at(-80), updated_at: at(-25) },
-    ],
-    sent_messages: [
-      { id: 'sm-01', company_id: 'c-01', contact_id: 'ct-01', sent_by: REP_A_ID, channel: 'email', template_id: 'tp-01', subject: 'STO pricing for Kilimanjaro Coffee Union', body: 'Pricing shared for STO Growth and STO Pro.', sent_at: at(-8) },
-      { id: 'sm-02', company_id: 'c-02', contact_id: 'ct-03', sent_by: REP_A_ID, channel: 'whatsapp', template_id: null, subject: null, body: 'Sent the STO Growth pricing over WhatsApp.', sent_at: at(-5) },
-      { id: 'sm-03', company_id: 'c-04', contact_id: 'ct-05', sent_by: REP_B_ID, channel: 'email', template_id: 'tp-02', subject: 'Great meeting you at Mwanza Fresh Foods', body: 'Recommended STO Starter to begin.', sent_at: at(-3) },
-    ],
+    companies: [],
+    contacts: [],
+    site_visits: [],
+    follow_ups: [],
+    sto_rate_card: [],
+    email_templates: [],
+    sent_messages: [],
   }
 }
 

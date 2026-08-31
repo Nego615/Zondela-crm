@@ -395,7 +395,9 @@ export default function Dashboard() {
             </div>
             {stalled.length === 0 ? (
               <p className="dash-quiet">
-                Every active deal has a follow-up or a visit booked. Nothing is drifting.
+                {pipeline.total === 0
+                  ? 'Nothing to watch yet — no active deals in this view.'
+                  : 'Every active deal has a follow-up or a visit booked. Nothing is drifting.'}
               </p>
             ) : (
               <>
