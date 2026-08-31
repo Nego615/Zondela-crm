@@ -1,0 +1,124 @@
+/* Chrome around the preview only — not part of the app. */
+.preview-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.preview-app {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* The app sizes its shell and sidebar against 100vh, which overshoots by the
+   height of the preview bar above it and pushes the sidebar's user block off
+   screen. --preview-bar-h is measured in main.tsx and kept current on resize,
+   since the bar wraps to two rows on narrow viewports. */
+.preview-app .shell {
+  min-height: calc(100vh - var(--preview-bar-h, 0px));
+}
+
+.preview-app .shell-rail {
+  height: calc(100vh - var(--preview-bar-h, 0px));
+}
+
+.preview-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--ink);
+  color: #fff;
+}
+
+.preview-bar-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.preview-bar-label strong {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 11px;
+  background: var(--accent);
+  padding: 3px 7px;
+  border-radius: 999px;
+}
+
+.preview-bar-label span {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.preview-bar-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.preview-bar-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-right: 2px;
+}
+
+.preview-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.preview-chip:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.preview-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.preview-chip em {
+  font-style: normal;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.preview-reset {
+  margin-left: 4px;
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.preview-reset:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+@media (max-width: 720px) {
+  .preview-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

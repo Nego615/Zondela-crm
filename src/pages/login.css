@@ -1,0 +1,59 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 32px;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.login-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.login-sub {
+  color: var(--text-soft);
+  font-size: 13px;
+  margin: 0 0 22px;
+}
+
+.login-error {
+  color: var(--danger);
+  font-size: 13px;
+  margin: -6px 0 14px;
+}
+
+.login-info {
+  color: var(--stage-won);
+  font-size: 13px;
+  margin: -6px 0 14px;
+}
+
+.login-switch {
+  width: 100%;
+  justify-content: center;
+  margin-top: 14px;
+  color: var(--text-soft);
+}

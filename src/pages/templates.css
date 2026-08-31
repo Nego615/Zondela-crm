@@ -1,0 +1,49 @@
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.template-card-top {
+  margin-bottom: 8px;
+}
+
+.template-card-name {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.template-card-subject {
+  font-size: 12px;
+  color: var(--text-soft);
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+
+.template-card-preview {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 14px;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.template-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.template-preview-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--paper-dim);
+  border-radius: var(--radius);
+  padding: 14px;
+}
