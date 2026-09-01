@@ -8,9 +8,9 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/companies', label: 'Companies' },
   { to: '/contacts', label: 'Contacts' },
-  { to: '/visits', label: 'Site visits' },
+  { to: '/appointments', label: 'Appointments' },
   { to: '/follow-ups', label: 'Follow-ups' },
-  { to: '/rate-card', label: 'STO rate card' },
+  { to: '/sto', label: 'STO' },
   { to: '/templates', label: 'Email templates' },
   { to: '/reports', label: 'Reports' },
 ]

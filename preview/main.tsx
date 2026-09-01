@@ -17,9 +17,9 @@ import Dashboard from '../src/pages/Dashboard'
 import Companies from '../src/pages/Companies'
 import CompanyDetail from '../src/pages/CompanyDetail'
 import Contacts from '../src/pages/Contacts'
-import Visits from '../src/pages/Visits'
+import Appointments from '../src/pages/Appointments'
 import FollowUps from '../src/pages/FollowUps'
-import RateCard from '../src/pages/RateCard'
+import Sto from '../src/pages/Sto'
 import Templates from '../src/pages/Templates'
 import Reports from '../src/pages/Reports'
 import Team from '../src/pages/Team'
@@ -42,9 +42,9 @@ function AppRoutes() {
         <Route path="companies" element={<Companies />} />
         <Route path="companies/:id" element={<CompanyDetail />} />
         <Route path="contacts" element={<Contacts />} />
-        <Route path="visits" element={<Visits />} />
+        <Route path="appointments" element={<Appointments />} />
         <Route path="follow-ups" element={<FollowUps />} />
-        <Route path="rate-card" element={<RateCard />} />
+        <Route path="sto" element={<Sto />} />
         <Route path="templates" element={<Templates />} />
         <Route path="reports" element={<Reports />} />
         <Route path="team" element={<RequireOwner><Team /></RequireOwner>} />

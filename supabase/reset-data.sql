@@ -19,6 +19,8 @@ union all select 'contacts', count(*) from contacts
 union all select 'site_visits', count(*) from site_visits
 union all select 'follow_ups', count(*) from follow_ups
 union all select 'sent_messages', count(*) from sent_messages
+union all select 'sto_agreements', count(*) from sto_agreements
+union all select 'sto_agreement_items', count(*) from sto_agreement_items
 union all select 'sto_rate_card', count(*) from sto_rate_card
 union all select 'email_templates', count(*) from email_templates
 union all select 'profiles', count(*) from profiles
@@ -34,6 +36,9 @@ order by table_name;
 -- begin;
 --
 --   delete from sent_messages;
+--   -- Items go with their agreement by cascade; named here so the counts add up.
+--   delete from sto_agreement_items;
+--   delete from sto_agreements;
 --   delete from follow_ups;
 --   delete from site_visits;
 --   delete from contacts;

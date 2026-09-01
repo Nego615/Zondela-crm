@@ -2,7 +2,9 @@ import { useState, type FormEvent } from 'react'
 import { useCompanies, useProfiles } from '../hooks/useCrmData'
 import { useAuth } from '../hooks/useAuth'
 import { STAGE_LIST, STAGE_META } from '../lib/stage'
-import type { Company, Stage } from '../lib/database.types'
+import { MAIN_MARKET_OPTIONS, RELATIONSHIP_OPTIONS } from '../lib/company'
+import { repLabel } from '../lib/rep'
+import type { Company, MainMarket, Relationship, Stage } from '../lib/database.types'
 import './ui.css'
 
 interface Props {
@@ -17,12 +19,23 @@ export default function CompanyFormModal({ company, onClose, onSaved }: Props) {
   const { profile, isOwner } = useAuth()
 
   const [name, setName] = useState(company?.name ?? '')
-  const [industry, setIndustry] = useState(company?.industry ?? '')
+
   const [website, setWebsite] = useState(company?.website ?? '')
   const [address, setAddress] = useState(company?.address ?? '')
-  const [city, setCity] = useState(company?.city ?? '')
+  const [country, setCountry] = useState(company?.country ?? '')
+  const [relationship, setRelationship] = useState<Relationship | ''>(company?.relationship ?? '')
+  const [mainMarket, setMainMarket] = useState<MainMarket | ''>(company?.main_market ?? '')
   const [stage, setStage] = useState<Stage>(company?.stage ?? 'lead')
-  const [ownerId, setOwnerId] = useState(company?.owner_id ?? profile?.id ?? '')
+  // Assigned rep is a typed name; nothing here links a login any more.
+  //
+  // Null means "not edited yet", resolved at render rather than in initial
+  // state: profiles load after the first render, so a company still linked to
+  // a team member would otherwise open with an empty box and lose the name on
+  // save. Seeding it with the linked rep's name keeps the label when the link
+  // itself goes.
+  const [ownerNameDraft, setOwnerNameDraft] = useState<string | null>(null)
+  const ownerName =
+    ownerNameDraft ?? (company ? repLabel(profiles, company.owner_id, company.owner_name, '') : '')
   const [notes, setNotes] = useState(company?.notes ?? '')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -36,17 +49,23 @@ export default function CompanyFormModal({ company, onClose, onSaved }: Props) {
     setSaving(true)
     setError(null)
     try {
-      // Only owners may assign a company to someone else; RLS rejects anything
-      // else, so pin a rep's own id rather than letting the request fail.
-      const effectiveOwnerId = isOwner ? ownerId || null : profile?.id ?? null
+      // No control links a profile any more, so an owner's save always clears
+      // the link and the company falls back to the shared pool.
+      //
+      // A rep is still pinned to their own id: companies_insert checks
+      // `is_owner() or owner_id = auth.uid()`, so a null from a rep is rejected
+      // outright.
+      const effectiveOwnerId = isOwner ? null : profile?.id ?? null
       const payload = {
         name: name.trim(),
-        industry: industry.trim() || null,
         website: website.trim() || null,
         address: address.trim() || null,
-        city: city.trim() || null,
+        country: country.trim() || null,
+        relationship: relationship || null,
+        main_market: mainMarket || null,
         stage,
         owner_id: effectiveOwnerId,
+        owner_name: effectiveOwnerId ? null : ownerName.trim() || null,
         notes: notes.trim() || null,
       }
       if (company) {
@@ -80,13 +99,37 @@ export default function CompanyFormModal({ company, onClose, onSaved }: Props) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="field">
-              <label htmlFor="c_industry">Industry</label>
-              <input id="c_industry" value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Retail" />
+              <label htmlFor="c_country">Country</label>
+              <input id="c_country" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Tanzania" />
             </div>
             <div className="field">
-              <label htmlFor="c_city">City</label>
-              <input id="c_city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Arusha" />
+              <label htmlFor="c_market">Main market</label>
+              <select id="c_market" value={mainMarket} onChange={(e) => setMainMarket(e.target.value as MainMarket | '')}>
+                <option value="">Not set</option>
+                {MAIN_MARKET_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
+
+          <div className="field">
+            <label htmlFor="c_relationship">Relationship</label>
+            <select
+              id="c_relationship"
+              value={relationship}
+              onChange={(e) => setRelationship(e.target.value as Relationship | '')}
+            >
+              <option value="">Not set</option>
+              {RELATIONSHIP_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="field-hint">Where this client stands with Zondela.</p>
           </div>
 
           <div className="field">
@@ -110,28 +153,31 @@ export default function CompanyFormModal({ company, onClose, onSaved }: Props) {
                 ))}
               </select>
             </div>
-            <div className="field">
-              <label htmlFor="c_owner">Assigned rep</label>
-              {isOwner ? (
-                <select id="c_owner" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
-                  <option value="">Unassigned</option>
-                  {profiles.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.full_name || p.email}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <>
-                  <input id="c_owner" value={profile?.full_name || profile?.email || 'You'} disabled />
-                  <p className="field-hint">
-                    {company && !company.owner_id
-                      ? 'Saving claims this company for you. Only an Owner can reassign it later.'
-                      : 'Only an Owner can assign companies to another rep.'}
-                  </p>
-                </>
-              )}
-            </div>
+            {isOwner ? (
+              <div className="field">
+                <label htmlFor="c_owner">Assigned rep</label>
+                <input
+                  id="c_owner"
+                  value={ownerName}
+                  onChange={(e) => setOwnerNameDraft(e.target.value)}
+                  placeholder="Their name"
+                />
+                <p className="field-hint">
+                  A typed name labels the record only — no login is linked, so the company stays in
+                  the shared pool, visible to every rep.
+                </p>
+              </div>
+            ) : (
+              <div className="field">
+                <label htmlFor="c_owner">Assigned rep</label>
+                <input id="c_owner" value={profile?.full_name || profile?.email || 'You'} disabled />
+                <p className="field-hint">
+                  {company && !company.owner_id
+                    ? 'Saving claims this company for you. Only an Owner can reassign it later.'
+                    : 'Only an Owner can assign companies to another rep.'}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="field">

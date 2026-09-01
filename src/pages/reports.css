@@ -1,40 +1,262 @@
+/* ===========================================================================
+   Reports
+   ---------------------------------------------------------------------------
+   Prefix `rp-`. Everything here serves one shape: a filter bar, a row of
+   tabs, and one wide table underneath — plus a print layout, because a report
+   the Owner cannot hand to someone on paper is only half a report.
+   =========================================================================== */
+
+.rp-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Filters
+   -------------------------------------------------------------------------- */
+.rp-filters {
+  margin-bottom: 18px;
+}
+
+.rp-filters-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.rp-filters-head h3 {
+  font-size: 15px;
+}
+
+.rp-presets {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.rp-preset {
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-soft);
+  background: var(--paper-dim);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.rp-preset:hover {
+  color: var(--ink);
+}
+
+.rp-preset.active {
+  background: var(--brand-teal-tint);
+  border-color: var(--brand-teal-bright);
+  color: var(--ink);
+}
+
+/* Set apart from the presets: it undoes state rather than choosing one. */
+.rp-preset-reset {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--accent);
+}
+
+.rp-preset-reset:hover {
+  background: var(--brand-brick-tint);
+  color: var(--accent-hover);
+}
+
+.rp-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.rp-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+/* The search field earns two columns — a company name is longer than a date. */
+.rp-filter-wide {
+  grid-column: span 2;
+}
+
+.rp-filter > span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.rp-filter input,
+.rp-filter select {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.rp-filter input:focus,
+.rp-filter select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(169, 70, 58, 0.14);
+}
+
+.rp-filter select:disabled {
+  background: var(--paper-dim);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   Tabs — eight of them, so they scroll rather than wrap on a narrow screen
+   -------------------------------------------------------------------------- */
+.rp-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 18px;
+  padding-bottom: 1px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.rp-tab {
+  flex-shrink: 0;
+  padding: 9px 13px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-soft);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+}
+
+.rp-tab:hover {
+  color: var(--ink);
+}
+
+.rp-tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+/* --------------------------------------------------------------------------
+   Panel
+   -------------------------------------------------------------------------- */
+.rp-panel {
+  padding: 18px;
+}
+
+.rp-panel-head {
+  margin-bottom: 18px;
+}
+
+.rp-count {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.rp-sub {
+  margin: 24px 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.rp-empty {
+  padding: 28px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.rp-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+/* --------------------------------------------------------------------------
+   Metrics
+   -------------------------------------------------------------------------- */
 .metric-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 22px;
 }
 
 .metric-card {
-  background: var(--card);
+  padding: 14px;
+  background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 16px;
 }
 
 .metric-label {
-  font-size: 12px;
-  color: var(--text-muted);
   margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .metric-value {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--ink);
   margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
+/* Money carries a currency code and a thousands separator; at 24px a figure
+   in the millions wraps mid-number. */
+.metric-value-sm {
+  font-size: 17px;
+}
+
+.metric-sub {
+  margin: 5px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Bars — pipeline stages and the overview breakdowns
+   -------------------------------------------------------------------------- */
 .stage-bars {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
 }
 
 .stage-bar-row {
   display: grid;
-  grid-template-columns: 110px 1fr 30px;
+  grid-template-columns: 120px 1fr 72px;
   align-items: center;
   gap: 10px;
 }
@@ -62,4 +284,310 @@
   font-weight: 600;
   color: var(--ink);
   text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------- */
+.rp-table-wrap {
+  margin: 0 -18px;
+  overflow-x: auto;
+}
+
+.rp-table {
+  min-width: 100%;
+}
+
+.rp-table th,
+.rp-table td {
+  padding: 9px 12px;
+  vertical-align: top;
+}
+
+.rp-table th:first-child,
+.rp-table td:first-child {
+  padding-left: 18px;
+}
+
+.rp-table th:last-child,
+.rp-table td:last-child {
+  padding-right: 18px;
+}
+
+.rp-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rp-strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rp-muted {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.rp-danger {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* The free-text line under a row: the note belongs to the row above it, so it
+   sits in the first cell and spills across without breaking the grid. */
+.rp-note {
+  display: block;
+  max-width: 78ch;
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-soft);
+  white-space: normal;
+}
+
+.rp-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--stage-visit);
+  background: var(--stage-visit-bg);
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.rp-tag-plain {
+  margin-left: 0;
+  color: var(--text-soft);
+  background: var(--paper-dim);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+
+/* A value column that is also a bar: the number stays readable, the bar gives
+   the shape of the distribution without a second column. */
+.rp-bar-cell {
+  position: relative;
+  display: block;
+  min-width: 130px;
+  padding: 2px 0;
+}
+
+.rp-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--brand-olive-tint);
+  border-radius: 3px;
+}
+
+.rp-bar-cell > span:last-child {
+  position: relative;
+}
+
+/* Status pills. Named for what they say, not for the column they sit in, so
+   the same class serves visits, follow-ups, agreements and channels. */
+.rp-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 999px;
+  color: var(--text-soft);
+  background: var(--paper-dim);
+  text-transform: capitalize;
+}
+
+.rp-pill-completed,
+.rp-pill-done,
+.rp-pill-accepted {
+  color: var(--stage-won);
+  background: var(--stage-won-bg);
+}
+
+.rp-pill-scheduled,
+.rp-pill-pending,
+.rp-pill-sent {
+  color: var(--stage-contacted);
+  background: var(--stage-contacted-bg);
+}
+
+.rp-pill-overdue,
+.rp-pill-declined {
+  color: var(--danger);
+  background: #fbeaea;
+}
+
+.rp-pill-email {
+  color: var(--brand-teal);
+  background: var(--brand-teal-tint);
+}
+
+.rp-pill-whatsapp {
+  color: var(--brand-olive-deep);
+  background: var(--brand-olive-tint);
+}
+
+/* --------------------------------------------------------------------------
+   Print
+   ---------------------------------------------------------------------------
+   The Owner prints these for partners and for board packs, so the chrome goes
+   and the header that says what the numbers cover appears in its place.
+   -------------------------------------------------------------------------- */
+.rp-print-head {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+    size: A4 landscape;
+  }
+
+  .shell-rail,
+  .shell-topbar,
+  .shell-scrim,
+  .rp-no-print {
+    display: none !important;
+  }
+
+  .shell {
+    display: block !important;
+  }
+
+  .shell-main {
+    padding: 0 !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .rp-print-head {
+    display: block;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .rp-print-head h2 {
+    font-size: 15pt;
+  }
+
+  .rp-print-head p {
+    margin: 3px 0 0;
+    font-size: 9pt;
+    color: #444;
+  }
+
+  .rp-panel,
+  .metric-card,
+  .card {
+    border: none;
+    padding: 0;
+    background: #fff;
+  }
+
+  .metric-card {
+    border: 1px solid #ccc;
+    padding: 8px;
+  }
+
+  .rp-table-wrap {
+    margin: 0;
+    overflow: visible;
+  }
+
+  .rp-table {
+    font-size: 8.5pt;
+  }
+
+  .rp-table th,
+  .rp-table td {
+    padding: 5px 6px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .rp-table th:first-child,
+  .rp-table td:first-child {
+    padding-left: 0;
+  }
+
+  /* A row split across a page break is unreadable, and the header has to come
+     back on every page or the second one is a table of unlabelled numbers. */
+  .rp-table tr {
+    break-inside: avoid;
+  }
+
+  .rp-table thead {
+    display: table-header-group;
+  }
+
+  .rp-pill,
+  .badge,
+  .rp-tag,
+  .rp-bar {
+    /* Backgrounds are usually dropped by the print pipeline; a border keeps
+       the pills legible either way. */
+    background: transparent !important;
+    border: 1px solid #bbb;
+    color: #222 !important;
+  }
+
+  .rp-bar {
+    display: none;
+  }
+
+  .stage-bar-fill {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Narrow screens
+   -------------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  .rp-filter-wide {
+    grid-column: span 1;
+  }
+
+  .rp-header-actions {
+    width: 100%;
+  }
+
+  .rp-header-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .rp-panel {
+    padding: 14px;
+  }
+
+  .rp-table-wrap {
+    margin: 0 -14px;
+  }
+
+  .rp-table th:first-child,
+  .rp-table td:first-child {
+    padding-left: 14px;
+  }
+
+  .rp-table th:last-child,
+  .rp-table td:last-child {
+    padding-right: 14px;
+  }
+
+  .stage-bar-row {
+    grid-template-columns: 96px 1fr 62px;
+  }
 }

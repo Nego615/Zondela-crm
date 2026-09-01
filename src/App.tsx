@@ -6,9 +6,9 @@ import Login from './pages/Login'
 import Companies from './pages/Companies'
 import CompanyDetail from './pages/CompanyDetail'
 import Contacts from './pages/Contacts'
-import Visits from './pages/Visits'
+import Appointments from './pages/Appointments'
 import FollowUps from './pages/FollowUps'
-import RateCard from './pages/RateCard'
+import Sto from './pages/Sto'
 import Templates from './pages/Templates'
 import Reports from './pages/Reports'
 import Team from './pages/Team'
@@ -53,9 +53,12 @@ function AppRoutes() {
         <Route path="companies" element={<Companies />} />
         <Route path="companies/:id" element={<CompanyDetail />} />
         <Route path="contacts" element={<Contacts />} />
-        <Route path="visits" element={<Visits />} />
+        <Route path="appointments" element={<Appointments />} />
         <Route path="follow-ups" element={<FollowUps />} />
-        <Route path="rate-card" element={<RateCard />} />
+        <Route path="sto" element={<Sto />} />
+        {/* The section used to be the rate card alone; links and bookmarks
+            pointing at the old path land on the rate card tab. */}
+        <Route path="rate-card" element={<Navigate to="/sto?tab=rate-card" replace />} />
         <Route path="templates" element={<Templates />} />
         <Route path="reports" element={<Reports />} />
         <Route

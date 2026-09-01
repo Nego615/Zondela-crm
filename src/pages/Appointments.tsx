@@ -1,6 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSiteVisits, useCompanies, useProfiles } from '../hooks/useCrmData'
+import { APPOINTMENT_KIND_LABELS, APPOINTMENT_KIND_STYLE } from '../lib/appointment'
+import AppointmentFormModal from '../components/AppointmentFormModal'
+import { repLabel } from '../lib/rep'
 import '../components/ui.css'
 
 type Filter = 'upcoming' | 'past' | 'all'
@@ -8,8 +11,8 @@ type Filter = 'upcoming' | 'past' | 'all'
 const FILTERS: Filter[] = ['upcoming', 'past', 'all']
 const isFilter = (val: string | null): val is Filter => val !== null && (FILTERS as string[]).includes(val)
 
-export default function Visits() {
-  const { visits, loading, updateVisit } = useSiteVisits()
+export default function Appointments() {
+  const { visits, loading, updateVisit, refresh } = useSiteVisits()
   const { companies } = useCompanies()
   const { profiles } = useProfiles()
   const navigate = useNavigate()
@@ -17,10 +20,12 @@ export default function Visits() {
   const [params, setParams] = useSearchParams()
   const fromUrl = params.get('filter')
   const filter: Filter = isFilter(fromUrl) ? fromUrl : 'upcoming'
+  const [showNew, setShowNew] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
   const setFilter = (next: Filter) => setParams(next === 'upcoming' ? {} : { filter: next }, { replace: true })
 
   const companyName = (id: string) => companies.find((c) => c.id === id)?.name || 'Unknown company'
-  const repName = (id: string | null) => profiles.find((p) => p.id === id)?.full_name || '—'
+
 
   const filtered = useMemo(() => {
     const now = new Date()
@@ -37,9 +42,12 @@ export default function Visits() {
     <div>
       <div className="page-header">
         <div>
-          <h1>Site visits</h1>
-          <p>All scheduled and completed visits across the team.</p>
+          <h1>Appointments</h1>
+          <p>Site visits and meetings, scheduled and past, across the team.</p>
         </div>
+        <button className="btn btn-primary" onClick={() => setShowNew(true)}>
+          + Schedule
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
@@ -55,11 +63,11 @@ export default function Visits() {
       </div>
 
       {loading ? (
-        <p style={{ color: 'var(--text-soft)' }}>Loading visits…</p>
+        <p style={{ color: 'var(--text-soft)' }}>Loading appointments…</p>
       ) : filtered.length === 0 ? (
         <div className="empty-state card">
-          <h3>No visits here</h3>
-          <p>Schedule a site visit from a company's page.</p>
+          <h3>Nothing here</h3>
+          <p>Use Schedule to book a site visit or a meeting with a client.</p>
         </div>
       ) : (
         <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
@@ -67,6 +75,7 @@ export default function Visits() {
             <thead>
               <tr>
                 <th>When</th>
+                <th>Type</th>
                 <th>Company</th>
                 <th>Rep</th>
                 <th>Status</th>
@@ -77,13 +86,18 @@ export default function Visits() {
               {filtered.map((v) => (
                 <tr key={v.id}>
                   <td>{new Date(v.scheduled_for).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                  <td>
+                    <span className="badge" style={APPOINTMENT_KIND_STYLE[v.kind]}>
+                      {APPOINTMENT_KIND_LABELS[v.kind]}
+                    </span>
+                  </td>
                   <td
                     style={{ fontWeight: 600, color: 'var(--ink)', cursor: 'pointer' }}
                     onClick={() => navigate(`/companies/${v.company_id}`)}
                   >
                     {companyName(v.company_id)}
                   </td>
-                  <td>{repName(v.rep_id)}</td>
+                  <td>{repLabel(profiles, v.rep_id, v.rep_name)}</td>
                   <td>
                     <span
                       className="badge"
@@ -96,6 +110,9 @@ export default function Visits() {
                     </span>
                   </td>
                   <td>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setEditing(v.id)}>
+                      Edit
+                    </button>
                     {v.status === 'scheduled' && (
                       <button className="btn btn-ghost btn-sm" onClick={() => updateVisit(v.id, { status: 'completed' })}>
                         Mark done
@@ -107,6 +124,21 @@ export default function Visits() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {(showNew || editing) && (
+        <AppointmentFormModal
+          visit={editing ? visits.find((v) => v.id === editing) : undefined}
+          onClose={() => {
+            setShowNew(false)
+            setEditing(null)
+          }}
+          onSaved={() => {
+            setShowNew(false)
+            setEditing(null)
+            refresh()
+          }}
+        />
       )}
     </div>
   )

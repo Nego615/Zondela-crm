@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useFollowUps, useProfiles } from '../hooks/useCrmData'
 import { useAuth } from '../hooks/useAuth'
+import { repLabel } from '../lib/rep'
 import type { Contact, FollowUp, FollowUpStatus } from '../lib/database.types'
 import './ui.css'
 
@@ -24,7 +25,15 @@ export default function FollowUpFormModal({ companyId, contacts, followUp, onClo
   const { profile } = useAuth()
 
   const [contactId, setContactId] = useState(followUp?.contact_id ?? contacts.find((c) => c.is_primary)?.id ?? '')
-  const [assignedTo, setAssignedTo] = useState(followUp?.assigned_to ?? profile?.id ?? '')
+  // A typed name, resolved at render so a follow-up still linked to a team
+  // member keeps that name once profiles load. See the note in
+  // AppointmentFormModal.
+  const [assignedNameDraft, setAssignedNameDraft] = useState<string | null>(null)
+  const assignedName =
+    assignedNameDraft ??
+    (followUp
+      ? repLabel(profiles, followUp.assigned_to, followUp.assigned_name, '')
+      : profile?.full_name || profile?.email || '')
   const [dueAt, setDueAt] = useState(toLocalInputValue(followUp?.due_at))
   const [note, setNote] = useState(followUp?.note ?? '')
   const [status, setStatus] = useState<FollowUpStatus>(followUp?.status ?? 'pending')
@@ -43,7 +52,10 @@ export default function FollowUpFormModal({ companyId, contacts, followUp, onClo
       const payload = {
         company_id: companyId,
         contact_id: contactId || null,
-        assigned_to: assignedTo || null,
+        // follow_ups_access passes on can_access_company, so a null
+        // assigned_to is accepted.
+        assigned_to: null,
+        assigned_name: assignedName.trim() || null,
         due_at: new Date(dueAt).toISOString(),
         note: note.trim(),
         status,
@@ -96,14 +108,15 @@ export default function FollowUpFormModal({ companyId, contacts, followUp, onClo
             </div>
             <div className="field">
               <label htmlFor="f_assigned">Assigned to</label>
-              <select id="f_assigned" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
-                <option value="">Unassigned</option>
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.full_name || p.email}
-                  </option>
-                ))}
-              </select>
+              <input
+                id="f_assigned"
+                value={assignedName}
+                onChange={(e) => setAssignedNameDraft(e.target.value)}
+                placeholder="Their name"
+              />
+              <p className="field-hint">
+                A name only — with no login linked, this will not appear in that person's own queue.
+              </p>
             </div>
           </div>
 

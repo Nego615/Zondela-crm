@@ -1,9 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { useRateCard } from '../hooks/useCrmData'
-import PricingDocuments from '../components/PricingDocuments'
-import '../components/ui.css'
+import PricingDocuments from './PricingDocuments'
+import './ui.css'
 
-export default function RateCard() {
+/**
+ * The price list itself, as one tab of the STO page. Agreements copy their
+ * lines out of here, so this stays the single place a service is priced.
+ */
+export default function RateCardPanel() {
   const { items, loading, createItem, updateItem, deleteItem } = useRateCard()
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -69,10 +73,10 @@ export default function RateCard() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="panel-header">
         <div>
-          <h1>STO rate card</h1>
-          <p>The price list used when sharing pricing with a company.</p>
+          <h2>Rate card</h2>
+          <p>The price list agreements are built from, and what "Share STO pricing" sends.</p>
         </div>
         <button
           className="btn btn-primary"

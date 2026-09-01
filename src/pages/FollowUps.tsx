@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useFollowUps, useCompanies, useProfiles } from '../hooks/useCrmData'
+import { repLabel } from '../lib/rep'
 import '../components/ui.css'
 
 type Filter = 'pending' | 'overdue' | 'done' | 'all'
@@ -21,7 +22,7 @@ export default function FollowUps() {
   const setFilter = (next: Filter) => setParams(next === 'pending' ? {} : { filter: next }, { replace: true })
 
   const companyName = (id: string) => companies.find((c) => c.id === id)?.name || 'Unknown company'
-  const repName = (id: string | null) => profiles.find((p) => p.id === id)?.full_name || '—'
+
 
   const filtered = useMemo(() => {
     const now = new Date()
@@ -87,7 +88,7 @@ export default function FollowUps() {
                     >
                       {companyName(f.company_id)}
                     </td>
-                    <td>{repName(f.assigned_to)}</td>
+                    <td>{repLabel(profiles, f.assigned_to, f.assigned_name)}</td>
                     <td>
                       <span
                         className="badge"

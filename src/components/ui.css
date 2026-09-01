@@ -191,3 +191,26 @@ table.data-table td {
 table.data-table tr:hover td {
   background: var(--paper-dim);
 }
+
+/* .page-header one level down: for a section heading inside a page. */
+.panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--ink);
+}
+
+.panel-header p {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--text-soft);
+}

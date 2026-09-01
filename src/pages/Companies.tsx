@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCompanies, useProfiles } from '../hooks/useCrmData'
 import { STAGE_LIST, STAGE_META } from '../lib/stage'
+import { mainMarketLabel, relationshipLabel } from '../lib/company'
 import type { Stage } from '../lib/database.types'
 import CompanyFormModal from '../components/CompanyFormModal'
+import { repLabel } from '../lib/rep'
 import '../components/ui.css'
 
 export default function Companies() {
@@ -15,15 +17,16 @@ export default function Companies() {
   const [stageFilter, setStageFilter] = useState<Stage | 'all'>('all')
   const [showNew, setShowNew] = useState(false)
 
-  const repName = (id: string | null) => profiles.find((p) => p.id === id)?.full_name || '—'
+
 
   const filtered = useMemo(() => {
     return companies.filter((c) => {
       const matchesSearch =
         !search ||
         c.name.toLowerCase().includes(search.toLowerCase()) ||
-        (c.industry ?? '').toLowerCase().includes(search.toLowerCase()) ||
-        (c.city ?? '').toLowerCase().includes(search.toLowerCase())
+        (c.country ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (relationshipLabel(c.relationship) ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (mainMarketLabel(c.main_market) ?? '').toLowerCase().includes(search.toLowerCase())
       const matchesStage = stageFilter === 'all' || c.stage === stageFilter
       return matchesSearch && matchesStage
     })
@@ -45,7 +48,7 @@ export default function Companies() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, industry, or city"
+          placeholder="Search by name, country, market, or relationship"
           style={{
             flex: 1,
             padding: '8px 12px',
@@ -80,8 +83,9 @@ export default function Companies() {
             <thead>
               <tr>
                 <th>Company</th>
-                <th>Industry</th>
-                <th>City</th>
+                <th>Country</th>
+                <th>Main market</th>
+                <th>Relationship</th>
                 <th>Stage</th>
                 <th>Rep</th>
               </tr>
@@ -92,14 +96,15 @@ export default function Companies() {
                 return (
                   <tr key={c.id} onClick={() => navigate(`/companies/${c.id}`)} style={{ cursor: 'pointer' }}>
                     <td style={{ fontWeight: 600, color: 'var(--ink)' }}>{c.name}</td>
-                    <td>{c.industry || '—'}</td>
-                    <td>{c.city || '—'}</td>
+                    <td>{c.country || '—'}</td>
+                    <td>{mainMarketLabel(c.main_market) || '—'}</td>
+                    <td style={{ color: 'var(--text-soft)' }}>{relationshipLabel(c.relationship) || '—'}</td>
                     <td>
                       <span className="badge" style={{ background: meta.bg, color: meta.color }}>
                         {meta.label}
                       </span>
                     </td>
-                    <td>{repName(c.owner_id)}</td>
+                    <td>{repLabel(profiles, c.owner_id, c.owner_name)}</td>
                   </tr>
                 )
               })}

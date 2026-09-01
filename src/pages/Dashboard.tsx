@@ -4,12 +4,14 @@ import { addDays, differenceInCalendarDays, format, isToday, isTomorrow, startOf
 import { useAuth } from '../hooks/useAuth'
 import { useCompanies, useFollowUps, useProfiles, useSiteVisits } from '../hooks/useCrmData'
 import { BOARD_STAGES, STAGE_META } from '../lib/stage'
+import { APPOINTMENT_KIND_LABELS } from '../lib/appointment'
+import { repLabel } from '../lib/rep'
 import type { Company, FollowUp } from '../lib/database.types'
 import '../components/ui.css'
 import './dashboard.css'
 
 // How far ahead the agenda looks. A week is what a rep can act on; further out
-// belongs on the Follow-ups and Site visits pages.
+// belongs on the Follow-ups and Appointments pages.
 const HORIZON_DAYS = 7
 
 // A company nobody has touched for this long, with nothing booked next, is the
@@ -26,6 +28,8 @@ interface AgendaItem {
   title: string
   companyId: string
   assignedTo: string | null
+  /** Free-typed rep name, for whoever has no login. */
+  assignedName: string | null
   followUp?: FollowUp
 }
 
@@ -56,7 +60,8 @@ export default function Dashboard() {
   // owner. Then the name will not resolve, and linking it would send them to a
   // page that loads nothing.
   const findCompany = (id: string) => companies.find((c) => c.id === id)
-  const repName = (id: string | null) => profiles.find((p) => p.id === id)?.full_name ?? null
+  const repName = (id: string | null, typed: string | null) =>
+    repLabel(profiles, id, typed, '') || null
 
   const scoped = useMemo(() => {
     const mine = scope === 'mine'
@@ -99,6 +104,7 @@ export default function Dashboard() {
         title: f.note,
         companyId: f.company_id,
         assignedTo: f.assigned_to,
+        assignedName: f.assigned_name,
         followUp: f,
       })
     }
@@ -111,9 +117,10 @@ export default function Dashboard() {
         key: `v-${v.id}`,
         kind: 'visit',
         at,
-        title: 'Site visit',
+        title: APPOINTMENT_KIND_LABELS[v.kind],
         companyId: v.company_id,
         assignedTo: v.rep_id,
+        assignedName: v.rep_name,
       })
     }
 
@@ -224,8 +231,8 @@ export default function Dashboard() {
           <span className="tile-value">{counts.laterToday}</span>
           <span className="tile-hint">Still ahead of you</span>
         </button>
-        <button className="tile" onClick={() => navigate('/visits?filter=upcoming')}>
-          <span className="tile-label">Visits this week</span>
+        <button className="tile" onClick={() => navigate('/appointments?filter=upcoming')}>
+          <span className="tile-label">Appointments this week</span>
           <span className="tile-value">{counts.visitsAhead}</span>
           <span className="tile-hint">Scheduled, next {HORIZON_DAYS} days</span>
         </button>
@@ -272,7 +279,7 @@ export default function Dashboard() {
                             : { background: 'var(--brand-teal-tint)', color: 'var(--brand-teal)' }
                         }
                       >
-                        {item.kind === 'visit' ? 'Visit' : 'Follow up'}
+                        {item.kind === 'visit' ? 'Appointment' : 'Follow up'}
                       </span>
                       <div className="agenda-body">
                         <p className="agenda-title">{item.title}</p>
@@ -292,7 +299,9 @@ export default function Dashboard() {
                           })()}
                           {' · '}
                           {format(item.at, 'HH:mm')}
-                          {scope === 'all' && repName(item.assignedTo) ? ` · ${repName(item.assignedTo)}` : ''}
+                          {scope === 'all' && repName(item.assignedTo, item.assignedName)
+                            ? ` · ${repName(item.assignedTo, item.assignedName)}`
+                            : ''}
                         </p>
                       </div>
                       {item.followUp && (

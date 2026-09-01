@@ -2,12 +2,15 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useCompanies, useContacts, useSiteVisits, useFollowUps, useProfiles } from '../hooks/useCrmData'
 import { STAGE_LIST, STAGE_META } from '../lib/stage'
+import { mainMarketLabel, relationshipLabel } from '../lib/company'
+import { APPOINTMENT_KIND_LABELS, APPOINTMENT_KIND_STYLE } from '../lib/appointment'
 import type { Stage } from '../lib/database.types'
 import CompanyFormModal from '../components/CompanyFormModal'
 import ContactFormModal from '../components/ContactFormModal'
-import SiteVisitFormModal from '../components/SiteVisitFormModal'
+import AppointmentFormModal from '../components/AppointmentFormModal'
 import FollowUpFormModal from '../components/FollowUpFormModal'
 import SharePricingModal from '../components/SharePricingModal'
+import { repLabel } from '../lib/rep'
 import '../components/ui.css'
 import './company-detail.css'
 
@@ -41,10 +44,10 @@ export default function CompanyDetail() {
   }
 
   const meta = STAGE_META[company.stage]
-  const repName = (id: string | null) => profiles.find((p) => p.id === id)?.full_name || 'Unassigned'
+
 
   async function handleDeleteCompany() {
-    if (!confirm(`Delete ${company!.name}? This removes all contacts, visits, and follow-ups too.`)) return
+    if (!confirm(`Delete ${company!.name}? This removes all contacts, appointments, and follow-ups too.`)) return
     await deleteCompany(company!.id)
     navigate('/companies')
   }
@@ -77,7 +80,9 @@ export default function CompanyDetail() {
             </select>
           </div>
           <p>
-            {[company.industry, company.city].filter(Boolean).join(' · ') || 'No industry or city on file'} · Rep: {repName(company.owner_id)}
+            {[company.country, mainMarketLabel(company.main_market), relationshipLabel(company.relationship)]
+              .filter(Boolean)
+              .join(' · ') || 'No country, market or relationship on file'} · Rep: {repLabel(profiles, company.owner_id, company.owner_name, 'Unassigned')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -141,16 +146,16 @@ export default function CompanyDetail() {
           )}
         </section>
 
-        {/* Site visits */}
+        {/* Appointments */}
         <section className="card">
           <div className="section-header">
-            <h3>Site visits</h3>
+            <h3>Appointments</h3>
             <button className="btn btn-sm" onClick={() => setVisitModal('new')}>
               + Schedule
             </button>
           </div>
           {visits.length === 0 ? (
-            <p className="section-empty">No site visits logged.</p>
+            <p className="section-empty">No visits or meetings logged.</p>
           ) : (
             <ul className="list">
               {visits.map((v) => {
@@ -165,6 +170,12 @@ export default function CompanyDetail() {
                         })}
                         <span
                           className="badge"
+                          style={{ marginLeft: 8, ...APPOINTMENT_KIND_STYLE[v.kind] }}
+                        >
+                          {APPOINTMENT_KIND_LABELS[v.kind]}
+                        </span>
+                        <span
+                          className="badge"
                           style={{
                             marginLeft: 8,
                             background: v.status === 'completed' ? 'var(--stage-won-bg)' : v.status === 'cancelled' ? 'var(--stage-lost-bg)' : 'var(--stage-visit-bg)',
@@ -175,7 +186,7 @@ export default function CompanyDetail() {
                         </span>
                       </p>
                       <p className="list-item-sub">
-                        {contact ? contact.full_name : 'No contact'} · {repName(v.rep_id)}
+                        {contact ? contact.full_name : 'No contact'} · {repLabel(profiles, v.rep_id, v.rep_name, 'Unassigned')}
                         {v.summary ? ` · ${v.summary}` : ''}
                       </p>
                     </div>
@@ -191,7 +202,7 @@ export default function CompanyDetail() {
                       <button
                         className="btn btn-ghost btn-sm"
                         onClick={async () => {
-                          if (confirm('Delete this site visit?')) await deleteVisit(v.id)
+                          if (confirm('Delete this appointment?')) await deleteVisit(v.id)
                         }}
                       >
                         Remove
@@ -235,7 +246,7 @@ export default function CompanyDetail() {
                         )}
                       </p>
                       <p className="list-item-sub">
-                        Due {new Date(f.due_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} · {repName(f.assigned_to)}
+                        Due {new Date(f.due_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} · {repLabel(profiles, f.assigned_to, f.assigned_name, 'Unassigned')}
                       </p>
                     </div>
                     <div className="list-item-actions">
@@ -274,7 +285,7 @@ export default function CompanyDetail() {
         />
       )}
       {visitModal && (
-        <SiteVisitFormModal
+        <AppointmentFormModal
           companyId={company.id}
           contacts={contacts}
           visit={editingVisit}

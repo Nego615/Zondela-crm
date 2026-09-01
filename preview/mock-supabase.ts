@@ -35,6 +35,8 @@ function seed(): Record<string, Row[]> {
     site_visits: [],
     follow_ups: [],
     sto_rate_card: [],
+    sto_agreements: [],
+    sto_agreement_items: [],
     email_templates: [],
     pricing_documents: [],
     sent_messages: [],
@@ -85,6 +87,14 @@ function isVisible(table: string, row: Row): boolean {
       return canAccessCompany(row.company_id) || row.assigned_to === currentUserId
     case 'sent_messages':
       return canAccessCompany(row.company_id) || row.sent_by === currentUserId
+    case 'sto_agreements':
+      return canAccessCompany(row.company_id) || row.created_by === currentUserId
+    case 'sto_agreement_items': {
+      // Mirrors can_access_agreement: a line is reachable exactly when its
+      // agreement is.
+      const parent = db.sto_agreements.find((a) => a.id === row.agreement_id)
+      return !!parent && isVisible('sto_agreements', parent)
+    }
     default:
       return true
   }
@@ -106,14 +116,19 @@ let idCounter = 0
 const newId = () => `gen-${++idCounter}`
 
 class Query implements PromiseLike<{ data: any; error: { message: string } | null }> {
-  private filters: Array<[string, unknown]> = []
+  private filters: Array<(row: Row) => boolean> = []
   private orders: Array<{ col: string; asc: boolean }> = []
   private wantsSingle = false
 
   constructor(private table: string, private op: Op, private payload?: Row) {}
 
   eq(col: string, val: unknown) {
-    this.filters.push([col, val])
+    this.filters.push((row) => row[col] === val)
+    return this
+  }
+
+  in(col: string, vals: unknown[]) {
+    this.filters.push((row) => vals.includes(row[col]))
     return this
   }
 
@@ -133,7 +148,7 @@ class Query implements PromiseLike<{ data: any; error: { message: string } | nul
   }
 
   private matches(row: Row) {
-    return this.filters.every(([col, val]) => row[col] === val)
+    return this.filters.every((f) => f(row))
   }
 
   private sorted(rows: Row[]) {
@@ -161,18 +176,33 @@ class Query implements PromiseLike<{ data: any; error: { message: string } | nul
     }
 
     if (this.op === 'insert') {
-      const row: Row = {
-        id: newId(),
-        created_at: new Date().toISOString(),
-        ...(this.table === 'companies' || this.table === 'email_templates'
-          ? { updated_at: new Date().toISOString() }
-          : {}),
-        ...this.payload,
+      const stamped = new Date().toISOString()
+      const incoming = Array.isArray(this.payload) ? this.payload : [this.payload as Row]
+      const inserted: Row[] = []
+
+      for (const payload of incoming) {
+        const row: Row = {
+          id: newId(),
+          created_at: stamped,
+          ...(this.table === 'companies' ||
+          this.table === 'email_templates' ||
+          this.table === 'sto_agreements'
+            ? { updated_at: stamped }
+            : {}),
+          // Postgres generates the reference from a sequence; the preview
+          // counts its own rows, which is the same thing for one session.
+          ...(this.table === 'sto_agreements'
+            ? { reference: `STO-${String(db.sto_agreements.length + inserted.length + 1).padStart(4, '0')}` }
+            : {}),
+          ...payload,
+        }
+        const violation = writeCheck(this.table, row)
+        if (violation) return { data: null, error: { message: violation } }
+        inserted.push(row)
       }
-      const violation = writeCheck(this.table, row)
-      if (violation) return { data: null, error: { message: violation } }
-      rows.push(row)
-      return { data: this.wantsSingle ? row : [row], error: null }
+
+      rows.push(...inserted)
+      return { data: this.wantsSingle ? inserted[0] ?? null : inserted, error: null }
     }
 
     if (this.op === 'update') {
@@ -193,6 +223,11 @@ class Query implements PromiseLike<{ data: any; error: { message: string } | nul
     // delete
     const doomed = rows.filter((r) => isVisible(this.table, r) && this.matches(r))
     db[this.table] = rows.filter((r) => !doomed.includes(r))
+    if (this.table === 'sto_agreements') {
+      // Standing in for the on delete cascade from sto_agreement_items.
+      const gone = new Set(doomed.map((r) => r.id))
+      db.sto_agreement_items = db.sto_agreement_items.filter((i) => !gone.has(i.agreement_id))
+    }
     return { data: doomed, error: null }
   }
 

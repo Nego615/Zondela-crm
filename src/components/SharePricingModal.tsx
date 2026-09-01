@@ -166,7 +166,7 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
         <div className="field">
           <label>STO rate card — select items to include</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, border: '1px solid var(--line)', borderRadius: 8, padding: 10, maxHeight: 160, overflowY: 'auto' }}>
-            {items.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No rate card items yet. Add some on the STO rate card page.</p>}
+            {items.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>No rate card items yet. Add some on the STO page's Rate card tab.</p>}
             {items.map((item) => (
               <label key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13 }}>
                 <input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => toggleItem(item.id)} style={{ marginTop: 3 }} />
@@ -183,7 +183,7 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
           <label htmlFor="s_pdf">Price list PDF</label>
           {documents.length === 0 ? (
             <p className="field-hint">
-              None uploaded. Add one on the STO rate card page and it will be offered here.
+              None uploaded. Add one on the STO page's Rate card tab and it will be offered here.
             </p>
           ) : (
             <>
