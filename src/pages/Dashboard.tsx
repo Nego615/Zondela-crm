@@ -229,7 +229,7 @@ export default function Dashboard() {
           <span className="tile-value">{counts.visitsAhead}</span>
           <span className="tile-hint">Scheduled, next {HORIZON_DAYS} days</span>
         </button>
-        <button className="tile" onClick={() => navigate('/pipeline')}>
+        <button className="tile" onClick={() => navigate('/companies')}>
           <span className="tile-label">Active deals</span>
           <span className="tile-value">{counts.activeDeals}</span>
           <span className="tile-hint">
@@ -315,8 +315,8 @@ export default function Dashboard() {
           <section className="card">
             <div className="dash-card-head">
               <h3>Pipeline</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/pipeline')}>
-                Open board
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/companies')}>
+                All companies
               </button>
             </div>
             {pipeline.total === 0 ? (

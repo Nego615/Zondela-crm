@@ -3,9 +3,9 @@ import { AuthProvider, useAuth } from './hooks/useAuth'
 import Shell from './components/Shell'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
-import Pipeline from './pages/Pipeline'
 import Companies from './pages/Companies'
 import CompanyDetail from './pages/CompanyDetail'
+import Contacts from './pages/Contacts'
 import Visits from './pages/Visits'
 import FollowUps from './pages/FollowUps'
 import RateCard from './pages/RateCard'
@@ -50,9 +50,9 @@ function AppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="pipeline" element={<Pipeline />} />
         <Route path="companies" element={<Companies />} />
         <Route path="companies/:id" element={<CompanyDetail />} />
+        <Route path="contacts" element={<Contacts />} />
         <Route path="visits" element={<Visits />} />
         <Route path="follow-ups" element={<FollowUps />} />
         <Route path="rate-card" element={<RateCard />} />

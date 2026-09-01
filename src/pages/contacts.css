@@ -1,0 +1,78 @@
+.contacts-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.contacts-controls input[type='text'],
+.contacts-controls input:not([type]) {
+  flex: 1;
+  min-width: 240px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text);
+}
+
+.contacts-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-soft);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* A name that navigates, without looking like a form control. */
+.contacts-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+}
+
+.contacts-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.contacts-primary {
+  margin-left: 8px;
+}
+
+.contacts-company {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.contacts-unknown {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.contacts-phone {
+  white-space: nowrap;
+}
+
+.contacts-wa {
+  margin-left: 8px;
+  font-size: 12px;
+}
+
+table.data-table td a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+table.data-table td a:hover {
+  text-decoration: underline;
+}

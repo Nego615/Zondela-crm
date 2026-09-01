@@ -14,9 +14,9 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '../src/hooks/useAuth'
 import Shell from '../src/components/Shell'
 import Dashboard from '../src/pages/Dashboard'
-import Pipeline from '../src/pages/Pipeline'
 import Companies from '../src/pages/Companies'
 import CompanyDetail from '../src/pages/CompanyDetail'
+import Contacts from '../src/pages/Contacts'
 import Visits from '../src/pages/Visits'
 import FollowUps from '../src/pages/FollowUps'
 import RateCard from '../src/pages/RateCard'
@@ -39,9 +39,9 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Shell />}>
         <Route index element={<Dashboard />} />
-        <Route path="pipeline" element={<Pipeline />} />
         <Route path="companies" element={<Companies />} />
         <Route path="companies/:id" element={<CompanyDetail />} />
+        <Route path="contacts" element={<Contacts />} />
         <Route path="visits" element={<Visits />} />
         <Route path="follow-ups" element={<FollowUps />} />
         <Route path="rate-card" element={<RateCard />} />

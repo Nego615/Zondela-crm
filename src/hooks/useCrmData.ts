@@ -390,3 +390,30 @@ export function usePricingDocuments() {
     documentUrl,
   }
 }
+
+/**
+ * Every contact the signed-in user can see, across all companies.
+ *
+ * Separate from useContacts, which is scoped to one company and treats "no
+ * company id" as "show nothing" — a contract CompanyDetail depends on while
+ * its company loads. RLS does the scoping here: contacts_access matches on
+ * can_access_company, so a rep receives only the contacts at companies they
+ * already reach.
+ */
+export function useAllContacts() {
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase.from('contacts').select('*').order('full_name')
+    setContacts((data ?? []) as Contact[])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  return { contacts, loading, refresh }
+}

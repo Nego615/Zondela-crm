@@ -5,8 +5,8 @@ import './shell.css'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', end: true },
-  { to: '/pipeline', label: 'Pipeline' },
   { to: '/companies', label: 'Companies' },
+  { to: '/contacts', label: 'Contacts' },
   { to: '/visits', label: 'Site visits' },
   { to: '/follow-ups', label: 'Follow-ups' },
   { to: '/rate-card', label: 'STO rate card' },

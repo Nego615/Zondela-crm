@@ -82,9 +82,9 @@ src/
                    rate card, templates, profiles)
   lib/             Supabase client, TypeScript types, stage color/label
                    utilities
-  pages/           Route-level pages: Pipeline (Kanban board), Companies,
-                   CompanyDetail, Visits, FollowUps, RateCard, Templates,
-                   Reports, Team, Login
+  pages/           Route-level pages: Dashboard, Companies,
+                   CompanyDetail, Contacts, Visits, FollowUps, RateCard,
+                   Templates, Reports, Team, Login
 supabase/
   schema.sql       Full Postgres schema + RLS policies
   reset-data.sql   Deletes every business record (run in the SQL editor)
@@ -92,9 +92,17 @@ supabase/
 
 ## How the pieces fit together
 
-- **Pipeline** (`/`) is the home view — a Kanban board across
-  Lead → Contacted → Site visit → Proposal sent → Negotiation, with
-  Won/Lost tracked as a summary row. Drag a card to change its stage.
+- **Dashboard** (`/`) is the home view — what needs doing now. Overdue and
+  due-today counts, one agenda merging follow-ups with site visits over the
+  next seven days, a pipeline summary by stage, the unclaimed pool, and
+  active deals with nothing booked next. Owners can switch between the
+  whole team and their own work.
+- A company's stage is set from the stage field on its own page, or in the
+  add/edit form.
+- **Contacts** (`/contacts`) lists every person across every company you can
+  see, searchable by name, job title, company, email or phone, with a
+  primary-only filter. It is a read-and-reach view — email, call and WhatsApp
+  links are live; adding and editing happen on the company's page.
 - **Company detail** (`/companies/:id`) is where the day-to-day work
   happens: manage contacts, schedule/log site visits, schedule follow-ups,
   and share STO pricing.
