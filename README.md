@@ -210,9 +210,12 @@ Three consequences worth knowing before you rely on them:
 - The Dashboard's **My work** toggle filters follow-ups and appointments on
   those links, so it has nothing to match and shows none of them. The whole-team
   view is unaffected.
-- **Reports**' rep performance table is keyed the same way, so its columns read zero for
-  every rep. The pipeline funnel above it, which counts companies by stage, is
-  unaffected.
+- **Reports**' rep performance table does not read zero, because it falls back
+  to the name: a record with no link is credited to the profile whose
+  `full_name` matches what was typed on it, so one person does not appear as
+  two rows. A name matching no profile gets its own row, marked **no login**.
+  The Rep filter matches the same way. The join is on spelling alone, so two
+  team members with the same name would be counted as one.
 
 Records created before this change keep whatever links they already had, and
 still resolve to the right names, until someone opens and saves them.

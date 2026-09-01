@@ -60,30 +60,43 @@ export function matchPreset(from: string, to: string, today = new Date()): DateP
 }
 
 /**
- * Both ends inclusive, in the reader's own timezone.
+ * Both ends inclusive, on the day the tables show.
  *
- * Timestamps (`scheduled_for`) and bare dates (`valid_until`) both arrive here;
- * slicing to the date part first means a visit at 22:00 on the last day of the
- * range still counts as that day, whatever offset the browser is in.
+ * Two shapes arrive here and they are not read the same way. A timestamp
+ * (`scheduled_for`, `sent_at`) is displayed in the reader's timezone, so it has
+ * to be *converted* — slicing the ISO string would use the UTC day, and a visit
+ * at 20:00 in Tanzania is stored as 17:00 UTC, one day earlier at the month's
+ * edge. A bare date column (`due_at`, `valid_until`) carries no time to convert
+ * and is already the day it means; putting it through `new Date()` would read
+ * it as UTC midnight and shift it backwards west of Greenwich.
  */
+export function dayKey(iso: string): string {
+  return iso.length === 10 ? iso : toDateKey(new Date(iso))
+}
+
 export function inRange(iso: string | null | undefined, from: string, to: string) {
   if (!iso) return false
-  const key = iso.length >= 10 && iso[4] === '-' ? iso.slice(0, 10) : toDateKey(new Date(iso))
+  const key = dayKey(iso)
   return key >= from && key <= to
 }
 
+/**
+ * A moment, however it was stored.
+ *
+ * A bare date is parsed at local midnight rather than through `new Date`, which
+ * would read it as UTC and hand back the day before west of Greenwich.
+ */
+const parse = (iso: string) => new Date(iso.length === 10 ? `${iso}T00:00:00` : iso)
+
 export const formatDay = (iso: string | null | undefined) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '—'
+  iso ? parse(iso).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '—'
 
 export const formatDayTime = (iso: string | null | undefined) =>
-  iso
-    ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-    : '—'
+  iso ? parse(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 
 /** Whole days from `iso` to now; negative means still in the future. */
 export function daysAgo(iso: string) {
-  const ms = Date.now() - new Date(iso).getTime()
-  return Math.floor(ms / 86_400_000)
+  return Math.floor((Date.now() - parse(iso).getTime()) / 86_400_000)
 }
 
 export const percent = (part: number, whole: number) =>

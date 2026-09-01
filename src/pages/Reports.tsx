@@ -23,6 +23,7 @@ import { agreementTotals, formatMoney, lineTotal } from '../lib/agreement'
 import { repLabel } from '../lib/rep'
 import {
   DATE_PRESETS,
+  dayKey,
   daysAgo,
   downloadCsv,
   formatDay,
@@ -185,6 +186,7 @@ interface VisitRow {
 
 interface RepRow {
   id: string
+  hasLogin: boolean
   name: string
   companies: number
   newCompanies: number
@@ -310,15 +312,6 @@ export default function Reports() {
   }
 
   const activePreset = matchPreset(from, to)
-  const filterCount = [
-    repFilter,
-    relationshipFilter,
-    marketFilter,
-    stageFilter,
-    serviceFilter,
-    statusFilter,
-    search,
-  ].filter(Boolean).length
 
   /* -------------------------------------------------------------------------
      Lookups shared by every report
@@ -329,22 +322,77 @@ export default function Reports() {
   const repName = (profileId: string | null, typedName: string | null) =>
     repLabel(profiles, profileId, typedName, 'Unassigned')
 
-  /** Reps with no login, gathered from whatever has been typed against them. */
-  const typedReps = useMemo(() => {
-    const names = new Set<string>()
-    for (const v of visits) if (!v.rep_id && v.rep_name?.trim()) names.add(v.rep_name.trim())
-    for (const f of followUps)
-      if (!f.assigned_to && f.assigned_name?.trim()) names.add(f.assigned_name.trim())
-    for (const c of companies) if (!c.owner_id && c.owner_name?.trim()) names.add(c.owner_name.trim())
-    return [...names].sort()
-  }, [visits, followUps, companies])
+  /**
+   * Everyone who could be credited with something, with a login or without.
+   *
+   * The rep fields on the forms write a typed name and clear the profile link,
+   * so a person's visits arrive under their name while a company they saved
+   * themselves is still pinned by `owner_id`. Matching a typed name back to
+   * the profile that bears it is what keeps that one person from showing up as
+   * two rows — the name is the only join available, so it is the one used.
+   * A name matching no profile stays its own entry.
+   */
+  const people = useMemo(() => {
+    const fromProfiles = profiles.map((p) => ({
+      id: p.id,
+      name: p.full_name || p.email,
+      profileId: p.id as string | null,
+      alias: p.full_name?.trim().toLowerCase() || null,
+      hasLogin: true,
+    }))
+    const claimed = new Set(fromProfiles.map((p) => p.alias).filter(Boolean))
 
-  const repMatches = (profileId: string | null, typedName: string | null) => {
-    if (!repFilter) return true
-    if (repFilter.startsWith(TYPED_PREFIX))
-      return !profileId && (typedName ?? '').trim() === repFilter.slice(TYPED_PREFIX.length)
-    return profileId === repFilter
+    const typed = new Set<string>()
+    for (const v of visits) if (!v.rep_id && v.rep_name?.trim()) typed.add(v.rep_name.trim())
+    for (const f of followUps)
+      if (!f.assigned_to && f.assigned_name?.trim()) typed.add(f.assigned_name.trim())
+    for (const c of companies) if (!c.owner_id && c.owner_name?.trim()) typed.add(c.owner_name.trim())
+
+    const orphans = [...typed]
+      .filter((n) => !claimed.has(n.toLowerCase()))
+      .sort()
+      .map((n) => ({
+        id: `${TYPED_PREFIX}${n}`,
+        name: n,
+        profileId: null,
+        alias: n.toLowerCase(),
+        hasLogin: false,
+      }))
+
+    return [...fromProfiles, ...orphans]
+  }, [profiles, visits, followUps, companies])
+
+  const selectedRep = useMemo(
+    () => (repFilter ? (people.find((p) => p.id === repFilter) ?? null) : null),
+    [repFilter, people]
+  )
+
+  /** Does this record belong to a person, by link or by the name written on it? */
+  const belongsTo = (
+    person: { profileId: string | null; alias: string | null },
+    profileId: string | null,
+    typedName: string | null
+  ) => {
+    if (profileId) return profileId === person.profileId
+    const typed = (typedName ?? '').trim().toLowerCase()
+    return typed !== '' && typed === person.alias
   }
+
+  const repMatches = (profileId: string | null, typedName: string | null) =>
+    !selectedRep || belongsTo(selectedRep, profileId, typedName)
+
+  // Counted from the rep that actually resolved, not from the URL: a link
+  // naming someone since removed narrows nothing, and must not offer to clear
+  // a filter that is not being applied.
+  const filterCount = [
+    selectedRep,
+    relationshipFilter,
+    marketFilter,
+    stageFilter,
+    serviceFilter,
+    statusFilter,
+    search,
+  ].filter(Boolean).length
 
   /**
    * Companies that have been quoted the selected service.
@@ -423,7 +471,7 @@ export default function Reports() {
           // What happens next is the earliest follow-up booked at that company
           // on or after the visit — the answer to "and then?" on every row.
           const next = followUps
-            .filter((f) => f.company_id === v.company_id && f.due_at >= v.scheduled_for.slice(0, 10))
+            .filter((f) => f.company_id === v.company_id && dayKey(f.due_at) >= dayKey(v.scheduled_for))
             .sort((a, b) => a.due_at.localeCompare(b.due_at))[0]
           const company = companyById.get(v.company_id)
           return {
@@ -455,7 +503,7 @@ export default function Reports() {
     {
       key: 'date',
       label: 'Date',
-      value: (r) => r.date.slice(0, 10),
+      value: (r) => dayKey(r.date),
       cell: (r) => formatDayTime(r.date),
     },
     {
@@ -497,42 +545,27 @@ export default function Reports() {
      Rep performance
      ========================================================================= */
   const repRows = useMemo<RepRow[]>(() => {
-    const people = profiles
-      .map((p) => ({ id: p.id, name: p.full_name || p.email, profileId: p.id as string | null, typed: null as string | null }))
-      .concat(
-        typedReps.map((n) => ({
-          id: `${TYPED_PREFIX}${n}`,
-          name: `${n} (no login)`,
-          profileId: null,
-          typed: n,
-        }))
-      )
-
-    const ownedBy = (c: Company, profileId: string | null, typed: string | null) =>
-      typed ? !c.owner_id && c.owner_name?.trim() === typed : c.owner_id === profileId
-
     return people
       .filter((p) => (!repFilter || repFilter === p.id) && matchesSearch(p.name))
       .map((p) => {
-        const owned = companies.filter((c) => companyPasses(c) && ownedBy(c, p.profileId, p.typed))
+        const owned = companies.filter(
+          (c) => companyPasses(c) && belongsTo(p, c.owner_id, c.owner_name)
+        )
         const theirVisits = visits.filter(
-          (v) =>
-            companyPasses(companyById.get(v.company_id)) &&
-            (p.typed ? !v.rep_id && v.rep_name?.trim() === p.typed : v.rep_id === p.profileId)
+          (v) => companyPasses(companyById.get(v.company_id)) && belongsTo(p, v.rep_id, v.rep_name)
         )
         const theirFollowUps = followUps.filter(
           (f) =>
             companyPasses(companyById.get(f.company_id)) &&
-            (p.typed
-              ? !f.assigned_to && f.assigned_name?.trim() === p.typed
-              : f.assigned_to === p.profileId)
+            belongsTo(p, f.assigned_to, f.assigned_name)
         )
-        // Agreements have no typed author — only an account can build one.
-        const theirAgreements = p.typed
-          ? []
-          : agreements.filter(
+        // Agreements record their author as a link and nothing else, so a rep
+        // with no login has none to their name.
+        const theirAgreements = p.profileId
+          ? agreements.filter(
               (a) => a.created_by === p.profileId && companyPasses(companyById.get(a.company_id))
             )
+          : []
 
         const sent = theirAgreements.filter((a) => inRange(a.sent_at, from, to))
         const accepted = theirAgreements.filter((a) => inRange(a.accepted_at, from, to))
@@ -542,6 +575,7 @@ export default function Reports() {
 
         return {
           id: p.id,
+          hasLogin: p.hasLogin,
           name: p.name,
           companies: owned.length,
           newCompanies: owned.filter((c) => inRange(c.created_at, from, to)).length,
@@ -573,14 +607,21 @@ export default function Reports() {
       )
       .sort((a, b) => b.acceptedValue - a.acceptedValue || b.visitsDone - a.visitsDone)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profiles, typedReps, companies, visits, followUps, agreements, companyById, filterKey])
+  }, [people, companies, visits, followUps, agreements, companyById, filterKey])
 
   const repColumns: Column<RepRow>[] = [
     {
       key: 'name',
       label: 'Rep',
-      value: (r) => r.name,
-      cell: (r) => <span className="rp-strong">{r.name}</span>,
+      // Flagged, because the row is built by matching a typed name: there is
+      // no account behind it, and nothing stops two people sharing a spelling.
+      value: (r) => (r.hasLogin ? r.name : `${r.name} (no login)`),
+      cell: (r) => (
+        <span className="rp-strong">
+          {r.name}
+          {!r.hasLogin && <span className="rp-tag">no login</span>}
+        </span>
+      ),
     },
     { key: 'companies', label: 'Companies', value: (r) => r.companies, numeric: true },
     { key: 'new', label: 'New in period', value: (r) => r.newCompanies, numeric: true },
@@ -769,7 +810,7 @@ export default function Reports() {
   }, [followUps, companyById, contactById, profiles, statusFilter, filterKey])
 
   const followUpColumns: Column<FollowUpRow>[] = [
-    { key: 'due', label: 'Due', value: (r) => r.due.slice(0, 10), cell: (r) => formatDay(r.due) },
+    { key: 'due', label: 'Due', value: (r) => dayKey(r.due), cell: (r) => formatDay(r.due) },
     {
       key: 'company',
       label: 'Company',
@@ -883,14 +924,14 @@ export default function Reports() {
     {
       key: 'first',
       label: 'First visit',
-      value: (r) => r.firstVisit.slice(0, 10),
+      value: (r) => dayKey(r.firstVisit),
       cell: (r) => formatDay(r.firstVisit),
     },
     { key: 'visits', label: 'Visits', value: (r) => r.visits, numeric: true },
     {
       key: 'quoted',
       label: 'Quoted after',
-      value: (r) => (r.quoted ? (r.quotedOn ?? '').slice(0, 10) : 'No'),
+      value: (r) => (r.quotedOn ? dayKey(r.quotedOn) : 'No'),
       cell: (r) => (r.quoted ? formatDay(r.quotedOn) : <span className="rp-muted">Not yet</span>),
     },
     {
@@ -978,7 +1019,7 @@ export default function Reports() {
     {
       key: 'sentAt',
       label: 'Sent',
-      value: (r) => r.sentAt.slice(0, 10),
+      value: (r) => dayKey(r.sentAt),
       cell: (r) => formatDayTime(r.sentAt),
     },
     {
@@ -1059,7 +1100,7 @@ export default function Reports() {
   }, [visits, followUps, companies, companyById, profiles, filterKey])
 
   const noteColumns: Column<NoteRow>[] = [
-    { key: 'date', label: 'Date', value: (r) => r.date.slice(0, 10), cell: (r) => formatDay(r.date) },
+    { key: 'date', label: 'Date', value: (r) => dayKey(r.date), cell: (r) => formatDay(r.date) },
     {
       key: 'source',
       label: 'Source',
@@ -1190,11 +1231,7 @@ export default function Reports() {
      ========================================================================= */
   const filterSummary = [
     `${formatDay(from)} – ${formatDay(to)}`,
-    repFilter
-      ? repFilter.startsWith(TYPED_PREFIX)
-        ? repFilter.slice(TYPED_PREFIX.length)
-        : profiles.find((p) => p.id === repFilter)?.full_name || 'Selected rep'
-      : 'All reps',
+    selectedRep?.name ?? 'All reps',
     relationshipFilter ? relationshipLabel(relationshipFilter as Relationship) : 'All relationships',
     marketFilter ? mainMarketLabel(marketFilter as MainMarket) : 'All markets',
     stageFilter ? STAGE_META[stageFilter as Stage].label : 'All stages',
@@ -1319,20 +1356,24 @@ export default function Reports() {
           </label>
           <label className="rp-filter">
             <span>Rep</span>
-            <select value={repFilter} onChange={(e) => setParam('rep', e.target.value)}>
+            <select value={selectedRep?.id ?? ''} onChange={(e) => setParam('rep', e.target.value)}>
               <option value="">All reps</option>
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name || p.email}
-                </option>
-              ))}
-              {typedReps.length > 0 && (
+              {people
+                .filter((p) => p.hasLogin)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              {people.some((p) => !p.hasLogin) && (
                 <optgroup label="No login">
-                  {typedReps.map((n) => (
-                    <option key={n} value={`${TYPED_PREFIX}${n}`}>
-                      {n}
-                    </option>
-                  ))}
+                  {people
+                    .filter((p) => !p.hasLogin)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
                 </optgroup>
               )}
             </select>
