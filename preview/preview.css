@@ -19,10 +19,10 @@
   min-height: calc(100vh - var(--preview-bar-h, 0px));
 }
 
-/* Only while the rail is the full-height sidebar. Below the shell's 860px
-   breakpoint the rail becomes a horizontal bar with height:auto, and forcing a
-   viewport height on it there pushes the whole page below the fold. */
-@media (min-width: 861px) {
+/* Only while the rail is the full-height sidebar. Below the shell's 1024px
+   breakpoint the rail is a fixed off-canvas drawer sized in dvh, and forcing
+   the preview bar's height on top of that clips its sign-out row. */
+@media (min-width: 1024px) {
   .preview-app .shell-rail {
     height: calc(100vh - var(--preview-bar-h, 0px));
   }

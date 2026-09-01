@@ -4,6 +4,11 @@
   min-height: 100vh;
 }
 
+/* Only exists below the breakpoint; the rail carries the brand on desktop. */
+.shell-topbar {
+  display: none;
+}
+
 .shell-rail {
   background: var(--ink);
   color: #fff;
@@ -153,27 +158,121 @@
   margin-top: 4px;
 }
 
-@media (max-width: 860px) {
+/* ===========================================================================
+   Tablet and phone: the rail becomes a drawer behind a top bar.
+   ---------------------------------------------------------------------------
+   1024px, not 860px: nine destinations wrapped inline ate three rows of a
+   portrait tablet before any content appeared. A landscape iPad is exactly
+   1024 and keeps the sidebar.
+   =========================================================================== */
+@media (max-width: 1023px) {
   .shell {
-    grid-template-columns: 1fr;
+    display: block;
   }
-  .shell-rail {
-    position: static;
-    height: auto;
-    flex-direction: row;
+
+  .shell-topbar {
+    display: flex;
     align-items: center;
-    padding: 12px;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--ink);
+    color: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 30;
   }
+
+  .shell-topbar .shell-brand {
+    padding: 0;
+  }
+
+  .shell-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    /* 44px tall including padding — a thumb target, not a mouse target. */
+    padding: 11px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: var(--radius);
+    background: transparent;
+    color: #fff;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .shell-menu-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Three bars drawn from one element, so there is no extra markup and
+     nothing to keep in sync with the label. */
+  .shell-burger {
+    width: 16px;
+    height: 2px;
+    background: currentColor;
+    box-shadow: 0 -5px 0 currentColor, 0 5px 0 currentColor;
+  }
+
+  .shell-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    border: none;
+    padding: 0;
+    background: rgba(12, 59, 53, 0.5);
+    cursor: pointer;
+  }
+
+  .shell-rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+    width: min(280px, 82vw);
+    /* dvh, so an address bar sliding away does not clip the sign-out row. */
+    height: 100dvh;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: none;
+  }
+
+  .shell.menu-open .shell-rail {
+    transform: none;
+    box-shadow: 0 0 40px rgba(12, 59, 53, 0.4);
+  }
+
+  /* Bigger tap targets, and enough of them to need the scroll above. */
   .shell-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    flex: 1;
+    gap: 4px;
   }
-  .shell-user {
-    border-top: none;
-    padding-top: 0;
+
+  .shell-nav-item {
+    padding: 12px 14px;
+    font-size: 14px;
   }
+
   .shell-main {
-    padding: 20px;
+    padding: 20px 16px 48px;
+    max-width: none;
+  }
+}
+
+/* Phones: the brand word is the first thing to give up its space. */
+@media (max-width: 380px) {
+  .shell-brand-name {
+    font-size: 13px;
+  }
+
+  .shell-topbar {
+    padding: 8px 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-rail {
+    transition: none;
   }
 }
