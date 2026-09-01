@@ -28,6 +28,8 @@ Supabase (Postgres + Auth) for persistence.
    follow_ups, sto_rate_card, email_templates, sent_messages, profiles),
    indexes and row-level security policies. It installs empty — add your
    own services on the STO rate card page.
+   It also creates the public `pricing` storage bucket for price list PDFs.
+   If your database predates that, re-run the script to add it.
 3. It's safe to re-run — the script drops/recreates policies and uses
    `if not exists` for tables.
 
@@ -96,9 +98,16 @@ supabase/
 - **Company detail** (`/companies/:id`) is where the day-to-day work
   happens: manage contacts, schedule/log site visits, schedule follow-ups,
   and share STO pricing.
+- **Price list PDF** — upload the PDF you already send clients, on the STO
+  rate card page. One is marked default and is offered automatically when
+  sharing. It is stored in the `pricing` bucket and reaches the client
+  exactly as uploaded.
 - **Share STO pricing** builds a message from selected rate card items
-  (optionally starting from a saved template), and either opens your email
-  client (`mailto:`) or WhatsApp (`wa.me`) with the message pre-filled. Every
+  (optionally starting from a saved template) plus a link to the price list
+  PDF, and either opens your email client (`mailto:`) or WhatsApp (`wa.me`)
+  with the message pre-filled. Neither `mailto:` nor `wa.me` can carry a file
+  attachment, so the PDF travels as a link the client opens; **Download PDF**
+  is there for when you would rather attach it by hand. Every
   share is logged to `sent_messages` so it shows up in that company's
   activity and rolls up into reports.
 - **Reports** (`/reports`) shows the pipeline funnel by stage and a
@@ -119,7 +128,7 @@ own API call.
 | Companies | All | Own (`owner_id`) + Unassigned |
 | Contacts, visits, follow-ups, share history | All | Those on companies they can see |
 | Visits/follow-ups assigned to them | All | Always visible, whoever owns the company |
-| Rate card, email templates | Read/write | Read/write (shared) |
+| Rate card, email templates, price list PDFs | Read/write | Read/write (shared) |
 | Reassign a company to another rep | Yes | No |
 | Team page | Yes | No |
 

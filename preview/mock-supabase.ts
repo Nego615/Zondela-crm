@@ -36,6 +36,7 @@ function seed(): Record<string, Row[]> {
     follow_ups: [],
     sto_rate_card: [],
     email_templates: [],
+    pricing_documents: [],
     sent_messages: [],
   }
 }
@@ -53,6 +54,7 @@ export function setActingUserId(id: string) {
 
 export function resetPreviewData() {
   db = seed()
+  clearStorage()
 }
 
 export function listPreviewUsers() {
@@ -216,7 +218,51 @@ function session() {
   }
 }
 
+// --- storage ---------------------------------------------------------------
+
+/**
+ * Object URLs standing in for the `pricing` bucket. They live as long as the
+ * tab does, which is the right lifetime for a preview: an uploaded PDF really
+ * opens, and nothing is kept once the page is closed.
+ *
+ * The published preview runs inside a sandbox that blocks downloads and may
+ * block opening a blob: URL in a new tab. Uploading, listing and switching the
+ * default all work there; only opening the file itself may not.
+ */
+const objectUrls = new Map<string, string>()
+
+function clearStorage() {
+  for (const url of objectUrls.values()) URL.revokeObjectURL(url)
+  objectUrls.clear()
+}
+
+const storage = {
+  from(_bucket: string) {
+    return {
+      async upload(path: string, file: File, _opts?: Record<string, unknown>) {
+        if (objectUrls.has(path)) {
+          return { data: null, error: { message: 'The resource already exists' } }
+        }
+        objectUrls.set(path, URL.createObjectURL(file))
+        return { data: { path }, error: null }
+      },
+      async remove(paths: string[]) {
+        for (const path of paths) {
+          const url = objectUrls.get(path)
+          if (url) URL.revokeObjectURL(url)
+          objectUrls.delete(path)
+        }
+        return { data: null, error: null }
+      },
+      getPublicUrl(path: string) {
+        return { data: { publicUrl: objectUrls.get(path) ?? '' } }
+      },
+    }
+  },
+}
+
 export const supabase = {
+  storage,
   from(table: string) {
     return {
       select: (cols?: string) => new Query(table, 'select').select(cols),

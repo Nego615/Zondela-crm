@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useRateCard, useTemplates } from '../hooks/useCrmData'
+import { useRateCard, useTemplates, usePricingDocuments } from '../hooks/useCrmData'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import type { Contact, Company } from '../lib/database.types'
@@ -18,6 +18,7 @@ function formatPrice(price: number, currency: string) {
 export default function SharePricingModal({ company, contacts, onClose }: Props) {
   const { items } = useRateCard()
   const { templates } = useTemplates()
+  const { documents, documentUrl } = usePricingDocuments()
   const { profile } = useAuth()
 
   const [contactId, setContactId] = useState(contacts.find((c) => c.is_primary)?.id ?? contacts[0]?.id ?? '')
@@ -25,10 +26,18 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
   const [templateId, setTemplateId] = useState<string>('')
   const [subject, setSubject] = useState(`${company.name} — SEO / STO proposal from Zondela`)
   const [channel, setChannel] = useState<'email' | 'whatsapp'>('email')
+  const [documentChoice, setDocumentChoice] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [saved, setSaved] = useState(false)
 
   const contact = contacts.find((c) => c.id === contactId)
+
+  // Resolved at render rather than held in state: the list loads after the
+  // first render, so an initial value would be locked in as "none".
+  const defaultDoc = documents.find((d) => d.is_default) ?? documents[0]
+  const chosenDoc =
+    documentChoice === null ? defaultDoc : documents.find((d) => d.id === documentChoice)
+  const chosenDocUrl = chosenDoc ? documentUrl(chosenDoc) : null
 
   function toggleItem(id: string) {
     setSelectedItems((prev) => {
@@ -54,8 +63,18 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
       : `Thank you for your time. Below is our STO (search & optimization) pricing for ${company.name}.`
     const closing = `Let me know if you'd like to move forward or have any questions.\n\nBest,\n${profile?.full_name || 'Zondela team'}`
 
-    return [greeting, '', intro, '', priceLines || '(No pricing items selected yet)', '', closing].join('\n')
-  }, [contact, templateId, templates, priceLines, company.name, profile])
+    // The PDF is the thing being sent; the text lines are a summary in the
+    // body so the client sees the numbers without opening anything. When a PDF
+    // is attached and nothing is ticked, the link carries the message alone.
+    const pdfLines = chosenDocUrl
+      ? [`Full price list (PDF): ${chosenDocUrl}`]
+      : []
+    const body = priceLines || (chosenDocUrl ? '' : '(No pricing items selected yet)')
+
+    return [greeting, '', intro, '', body, ...(body ? [''] : []), ...pdfLines, ...(pdfLines.length ? [''] : []), closing]
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+  }, [contact, templateId, templates, priceLines, company.name, profile, chosenDocUrl])
 
   const whatsappNumber = (contact?.whatsapp || contact?.phone || '').replace(/[^\d+]/g, '')
   const whatsappUrl = `https://wa.me/${whatsappNumber.replace('+', '')}?text=${encodeURIComponent(messageBody)}`
@@ -161,6 +180,35 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
         </div>
 
         <div className="field">
+          <label htmlFor="s_pdf">Price list PDF</label>
+          {documents.length === 0 ? (
+            <p className="field-hint">
+              None uploaded. Add one on the STO rate card page and it will be offered here.
+            </p>
+          ) : (
+            <>
+              <select
+                id="s_pdf"
+                value={chosenDoc?.id ?? ''}
+                onChange={(e) => setDocumentChoice(e.target.value)}
+              >
+                <option value="">Don't include a PDF</option>
+                {documents.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}.pdf{d.is_default ? ' (default)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="field-hint">
+                {chosenDocUrl
+                  ? 'A link to this file goes in the message. Neither email nor WhatsApp links can carry an attachment, so the client opens it from the link — or use Download to attach it yourself.'
+                  : 'The message will carry the ticked rate card items as text only.'}
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="field">
           <label htmlFor="s_preview">Message preview</label>
           <textarea id="s_preview" value={messageBody} readOnly style={{ minHeight: 160, fontSize: 13 }} />
         </div>
@@ -168,6 +216,17 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
         {saved && <p style={{ fontSize: 12, color: 'var(--stage-won)', marginBottom: 10 }}>Logged to this company's activity.</p>}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          {chosenDocUrl && (
+            <a
+              className="btn"
+              href={chosenDocUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              download={`${chosenDoc?.name ?? 'pricing'}.pdf`}
+            >
+              Download PDF
+            </a>
+          )}
           <button type="button" className="btn" onClick={handleCopy}>
             {copied ? 'Copied' : 'Copy message'}
           </button>

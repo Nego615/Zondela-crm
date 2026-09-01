@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useRateCard } from '../hooks/useCrmData'
+import PricingDocuments from '../components/PricingDocuments'
 import '../components/ui.css'
 
 export default function RateCard() {
@@ -83,6 +84,8 @@ export default function RateCard() {
           + Add item
         </button>
       </div>
+
+      <PricingDocuments />
 
       {loading ? (
         <p style={{ color: 'var(--text-soft)' }}>Loading rate card…</p>

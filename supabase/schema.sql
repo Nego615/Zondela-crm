@@ -138,6 +138,26 @@ create table if not exists email_templates (
 );
 
 -- ============================================================================
+-- PRICING DOCUMENTS (the rate card as a PDF, sent to clients unchanged)
+-- ============================================================================
+-- The row is the catalogue entry; the file itself lives in the `pricing`
+-- storage bucket, created further down. storage_path is the key into it.
+create table if not exists pricing_documents (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  storage_path text not null unique,
+  size_bytes bigint not null default 0,
+  is_default boolean not null default false,
+  uploaded_by uuid references profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+-- At most one default. A partial unique index is enough: rows with
+-- is_default = false are not indexed and so never collide.
+create unique index if not exists pricing_documents_one_default_idx
+  on pricing_documents (is_default) where is_default;
+
+-- ============================================================================
 -- SENT MESSAGES LOG (email + whatsapp share history)
 -- ============================================================================
 create table if not exists sent_messages (
@@ -202,6 +222,7 @@ alter table site_visits enable row level security;
 alter table follow_ups enable row level security;
 alter table sto_rate_card enable row level security;
 alter table email_templates enable row level security;
+alter table pricing_documents enable row level security;
 alter table sent_messages enable row level security;
 
 -- Helper: is the current user an owner?
@@ -310,7 +331,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['sto_rate_card', 'email_templates']
+  foreach t in array array['sto_rate_card', 'email_templates', 'pricing_documents']
   loop
     execute format('drop policy if exists "%s_all_authenticated" on %I', t, t);
     execute format(
@@ -319,6 +340,42 @@ begin
     );
   end loop;
 end $$;
+
+-- ============================================================================
+-- STORAGE: the `pricing` bucket
+-- ============================================================================
+-- Holds the price list PDFs. The bucket is PUBLIC, and that is a deliberate
+-- trade-off worth understanding before you run this:
+--
+--   The whole point is that a client receives a link they can open. A signed
+--   URL expires (a week at most), which would break every quote already sent.
+--   A public bucket gives a permanent link instead.
+--
+--   "Public" means anyone holding the URL can read the file — it is unlisted,
+--   not secret. Files are stored under a random uuid, so the URL cannot be
+--   guessed, but treat it as you would treat emailing the PDF: once it is out,
+--   it is out. Do not put anything in this bucket you would not send a client.
+--
+-- Writing still requires a signed-in team member; only reading is open.
+insert into storage.buckets (id, name, public)
+values ('pricing', 'pricing', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "pricing_public_read" on storage.objects;
+create policy "pricing_public_read" on storage.objects for select
+  using (bucket_id = 'pricing');
+
+drop policy if exists "pricing_authenticated_insert" on storage.objects;
+create policy "pricing_authenticated_insert" on storage.objects for insert
+  with check (bucket_id = 'pricing' and auth.role() = 'authenticated');
+
+drop policy if exists "pricing_authenticated_update" on storage.objects;
+create policy "pricing_authenticated_update" on storage.objects for update
+  using (bucket_id = 'pricing' and auth.role() = 'authenticated');
+
+drop policy if exists "pricing_authenticated_delete" on storage.objects;
+create policy "pricing_authenticated_delete" on storage.objects for delete
+  using (bucket_id = 'pricing' and auth.role() = 'authenticated');
 
 -- ============================================================================
 -- SEED DATA

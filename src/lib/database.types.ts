@@ -93,6 +93,17 @@ export interface EmailTemplate {
   updated_at: string
 }
 
+export interface PricingDocument {
+  id: string
+  name: string
+  /** Key into the `pricing` storage bucket, not a URL. */
+  storage_path: string
+  size_bytes: number
+  is_default: boolean
+  uploaded_by: string | null
+  created_at: string
+}
+
 export interface SentMessage {
   id: string
   company_id: string | null
@@ -125,6 +136,11 @@ export interface Database {
         Row: EmailTemplate
         Insert: Partial<EmailTemplate>
         Update: Partial<EmailTemplate>
+      }
+      pricing_documents: {
+        Row: PricingDocument
+        Insert: Partial<PricingDocument>
+        Update: Partial<PricingDocument>
       }
       sent_messages: {
         Row: SentMessage

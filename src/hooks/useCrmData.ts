@@ -8,6 +8,7 @@ import type {
   StoRateCardItem,
   EmailTemplate,
   Profile,
+  PricingDocument,
   Stage,
 } from '../lib/database.types'
 
@@ -282,4 +283,110 @@ export function useProfiles() {
   }
 
   return { profiles, loading, refresh, updateRole }
+}
+
+const PRICING_BUCKET = 'pricing'
+
+/**
+ * The price list as a PDF, uploaded once and sent to clients unchanged.
+ *
+ * Two things move together here: a row in pricing_documents (the catalogue)
+ * and an object in the `pricing` storage bucket (the file). The upload writes
+ * the file first — a row pointing at a file that failed to upload would show a
+ * broken link in every quote, which is worse than no row at all.
+ */
+export function usePricingDocuments() {
+  const [documents, setDocuments] = useState<PricingDocument[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('pricing_documents')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setDocuments((data ?? []) as PricingDocument[])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  async function uploadDocument(file: File, uploadedBy: string | null) {
+    if (file.type !== 'application/pdf') throw new Error('Only PDF files can be uploaded.')
+
+    // A random path keeps the public URL unguessable and means two uploads of
+    // the same filename cannot collide.
+    const storagePath = `${crypto.randomUUID()}.pdf`
+
+    const { error: uploadError } = await supabase.storage
+      .from(PRICING_BUCKET)
+      .upload(storagePath, file, { contentType: 'application/pdf', upsert: false })
+    if (uploadError) throw uploadError
+
+    const { data, error } = await supabase
+      .from('pricing_documents')
+      .insert({
+        name: file.name.replace(/\.pdf$/i, ''),
+        storage_path: storagePath,
+        size_bytes: file.size,
+        uploaded_by: uploadedBy,
+        // First one uploaded becomes the default, so sharing works without a
+        // second deliberate step.
+        is_default: documents.length === 0,
+      })
+      .select()
+      .single()
+
+    // Leaving the file behind would be an orphan nobody can see or remove.
+    if (error) {
+      await supabase.storage.from(PRICING_BUCKET).remove([storagePath])
+      throw error
+    }
+
+    await refresh()
+    return data as PricingDocument
+  }
+
+  async function setDefaultDocument(id: string) {
+    // The partial unique index allows only one is_default row, so the old one
+    // has to be cleared before the new one is set, not after.
+    const current = documents.find((d) => d.is_default)
+    if (current && current.id !== id) {
+      const { error } = await supabase
+        .from('pricing_documents')
+        .update({ is_default: false })
+        .eq('id', current.id)
+      if (error) throw error
+    }
+    const { error } = await supabase.from('pricing_documents').update({ is_default: true }).eq('id', id)
+    if (error) throw error
+    await refresh()
+  }
+
+  async function deleteDocument(doc: PricingDocument) {
+    const { error } = await supabase.from('pricing_documents').delete().eq('id', doc.id)
+    if (error) throw error
+    // Best effort: the row is gone either way, and a stranded object is
+    // invisible rather than harmful.
+    await supabase.storage.from(PRICING_BUCKET).remove([doc.storage_path])
+    await refresh()
+  }
+
+  /** Permanent public URL — this is what goes to the client. */
+  function documentUrl(doc: PricingDocument) {
+    const { data } = supabase.storage.from(PRICING_BUCKET).getPublicUrl(doc.storage_path)
+    return data.publicUrl
+  }
+
+  return {
+    documents,
+    loading,
+    refresh,
+    uploadDocument,
+    setDefaultDocument,
+    deleteDocument,
+    documentUrl,
+  }
 }
