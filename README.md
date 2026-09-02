@@ -29,8 +29,9 @@ Supabase (Postgres + Auth) for persistence.
 1. In the Supabase dashboard, open **SQL Editor → New query**.
 2. Paste the entire contents of [`supabase/schema.sql`](./supabase/schema.sql)
    and run it. This creates all tables (companies, contacts, site_visits,
-   follow_ups, sto_agreement_versions, sto_version_rates,
-   sto_version_supplements, sto_version_sections, sto_agreement_sends,
+   follow_ups, sto_agreement_versions, sto_version_property_sections,
+   sto_section_images, sto_version_rates, sto_version_supplements,
+   sto_version_terms, sto_agreement_sends,
    sto_rate_card, email_templates, sent_messages, profiles, permissions,
    role_permissions, activity_logs, org_settings), indexes, the role and
    permission model, row-level security policies, and the two `security
@@ -43,10 +44,11 @@ Supabase (Postgres + Auth) for persistence.
    `if not exists` for tables.
 4. **Optional, and the fastest way to see the section working:** run
    [`supabase/seed-sto-2026.sql`](./supabase/seed-sto-2026.sql). It enters the
-   2026 Standard Tour Operator Rate Contract exactly as signed — the six room
-   types with their BB/HB/FB rates and occupancies, both supplements, and all
-   six policies word for word — as a draft. Open it under STO → Agreement
-   versions, attach the PDF, and activate it. Re-running replaces that one
+   2026 Standard Tour Operator Rate Contract exactly as signed — Standard and
+   Deluxe as separate room categories, the six room types with their BB/HB/FB
+   rates and occupancies, both supplements, and every clause word for word — as
+   a draft. Open it under STO → Agreement versions, add photographs on Property
+   Sections, attach the PDF, and activate it. Re-running replaces that one
    contract rather than adding a second.
 
 **Upgrading an existing database?** Re-running `schema.sql` is the whole
@@ -211,26 +213,39 @@ supabase/
   price: it publishes **one rate sheet a season** and sends that same document
   to every tour operator, who accepts it. The section is five tabs.
 
-  **Agreement versions** is the rate contracts themselves, shaped like the
-  signed document: an overview of the property, the **rates chart**, the
-  supplements, and the numbered policies.
+  **Agreement versions** lists the contracts. Opening one gives it a page of
+  its own — `/sto/versions/:id` — with a tab for each of the five parts a rate
+  contract is made of:
 
-  A rate is **one row per room type**, quoted at three meal plans at once and
-  carrying how many people it sleeps — exactly as the contract prints it:
+  | Tab | What it holds |
+  |---|---|
+  | **Overview** | Title, season, status, validity, the summary, the property overview, how the rates are quoted, the note under the chart, and internal notes that are never printed |
+  | **Property Sections** | The room categories — Standard, Deluxe — each with a description, up to three photographs with captions, a full-gallery link, meal-plan notes and seasonal notes |
+  | **Rate Tables** | Per category, per season: room type, pax, and the STO and rack rate at each of BB, HB and FB. Template and Export per table, plus a full rates workbook |
+  | **Terms & Conditions** | The named clauses — meal plan, children, extras, tour leader, volume discount, booking and payment, cancellation, payment method, credit facilities, disputes, change of rates, confidentiality — added, reordered and reworded one at a time |
+  | **Official PDF** | The signed file as supplied, attached and downloadable |
 
-  | Room type | STO BB | STO HB | STO FB | Max occupancy |
+  **Rooms are grouped the way an operator reads them.** Standard and Deluxe are
+  different products: they photograph differently, describe differently and
+  price differently, so each is a category with its own block in the document —
+  its description, its photographs, then its own rate table. A rate that has
+  not been filed under a category still prints, under *Other rooms*, which is
+  what makes it visible enough to file.
+
+  A rate is **one row per room type per season**, quoted at three meal plans
+  with the rack rate beside each contracted one:
+
+  | Room type | Pax | BB STO | HB STO | FB STO |
   |---|---|---|---|---|
-  | Standard Single | 130 | 150 | 170 | 1 |
-  | Standard Double | 170 | 210 | 250 | 2 |
-  | Family Room | 340 | 420 | 500 | 4 |
+  | Standard Single | 1 | 130 | 150 | 170 |
+  | Standard Double | 2 | 170 | 210 | 250 |
+  | Family Room | 4 | 340 | 420 | 500 |
 
-  Under it sit the line about VAT and the tourism levy, the **supplements**
-  (lunch $20 per person, dinner $20 per person — priced per person, so they
-  cannot live in the rates table without lying about what the number means),
-  and the **policies**: children, tour leader, check-in/out, deposit,
-  cancellation, no-show. Each policy is a row rather than one blob of terms,
-  because the document numbers them and each is renegotiated on its own; a
-  line starting with • or - prints as a bullet.
+  Rack columns appear only once a rack rate has been entered — a column of
+  dashes is worse than no column. Under the chart sit the line about VAT and
+  the tourism levy and the **supplements** (lunch and dinner, priced per person,
+  so they cannot live in a per-room table without lying about what the number
+  means).
 
   All of it is entered as data rather than left inside a file, because
   everything downstream reads it: the document the operator opens, the tag on
@@ -239,9 +254,9 @@ supabase/
   operators know — but the CRM renders its own branded contract, so a phone
   opens something readable without downloading anything. A version is a
   **draft** until it is **activated**; only an active contract can be sent, and
-  a past season is **archived** rather than deleted. Each card carries what came
-  back from it: sent to how many operators, how many opened it, how many
-  accepted.
+  a past season is **archived** rather than deleted. Each card in the list
+  carries what came back from it: sent to how many operators, how many opened
+  it, how many accepted.
 
   **Sent agreements** is one row per operator the sheet went to, with where it
   got to — Sent, Viewed, Accepted, Declined — the date it was opened, the date
@@ -559,6 +574,78 @@ belongs to someone else — otherwise it would vanish from their queue.
 rep's row. A rep sees the same seven reports computed over just the records
 row-level security lets them read, so the page reads as a personal
 scorecard — including the CSV they export from it.
+
+## Connecting email
+
+Today the CRM **hands off to your own mail client**: sending a rate contract
+opens `mailto:` with the subject and body already written, you press send in
+Gmail or Outlook, and the CRM records that it went out. That is honest but
+limited — the app cannot see delivery, and nothing goes out unattended.
+
+Wiring up a provider changes three things: the app sends the message itself,
+the recipient sees it from your own domain, and delivery and bounces come back
+as data. Here is the whole path, in the order to do it.
+
+### 1. Pick a provider and verify the domain
+
+[Resend](https://resend.com) is the shortest route (generous free tier, one
+API call, good webhooks); Postmark and SendGrid work the same way. Whichever
+you choose, the real work is the same: **verify `zondelahouse.com`** by adding
+the DNS records they give you —
+
+- **SPF** — a TXT record saying that provider may send as your domain
+- **DKIM** — a TXT record holding the signing key, so mail is not tampered with
+- **DMARC** — a TXT record telling other mail servers what to do when a message
+  fails the first two (start at `p=none`, tighten later)
+
+Skipping this is why hotel mail lands in spam. Send from
+`reservations@zondelahouse.com`, never from a gmail.com address — Gmail
+rejects mail claiming to be from Gmail but sent by someone else.
+
+### 2. Put the API key somewhere the browser cannot read it
+
+The key must **never** reach the frontend: anything in `VITE_*` ships to every
+visitor. It belongs in a Supabase **Edge Function**, which runs on Supabase's
+servers with its own secrets:
+
+```bash
+supabase functions new send-email
+supabase secrets set RESEND_API_KEY=re_xxx
+supabase functions deploy send-email
+```
+
+The function takes `{ to, subject, body, sendId }`, calls the provider, and
+writes the result back to `sent_messages` (and to `sto_agreement_sends` for a
+rate contract) using the service-role key it already has. The app calls it with
+`supabase.functions.invoke('send-email', { body: … })` — the user's session
+travels with that call, so the function can check who is asking.
+
+### 3. Swap the handoff for the call
+
+One place changes: `SendVersionModal` currently sets `window.location.href` to
+a `mailto:` URL after recording the send. That line becomes the
+`functions.invoke` call, and the send row goes in as `queued` rather than
+`sent` until the provider confirms. Everything else — the token, the link, the
+tracking — already works.
+
+### 4. Let delivery come back
+
+Point the provider's webhook at a second Edge Function (`email-status`). It
+receives delivered / opened / bounced / complained events, matches them on
+`provider_message_id`, and updates `sent_messages`. Those columns already
+exist — `delivered_at`, `viewed_at`, `failed_at`, `failure_reason`,
+`provider`, `provider_message_id` — and the Delivery panel already reads them.
+Nothing in the UI has to change for statuses to start arriving on their own.
+
+### What you get, and what you still will not
+
+Delivery, opens and bounces become real. **Replies still land in your inbox,
+not the CRM** — pulling those in means IMAP or a Gmail API sync, which is a
+larger job and worth doing separately, if at all.
+
+One thing that already works without any of this: opening an agreement link
+marks the send **viewed**. That signal comes from the operator's own browser,
+not from email, so it survives whatever you decide here.
 
 ## Notes and next steps
 

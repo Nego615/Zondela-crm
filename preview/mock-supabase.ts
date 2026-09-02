@@ -113,7 +113,9 @@ function seed(): Record<string, Row[]> {
     sto_agreement_versions: [],
     sto_version_rates: [],
     sto_version_supplements: [],
-    sto_version_sections: [],
+    sto_version_terms: [],
+    sto_version_property_sections: [],
+    sto_section_images: [],
     sto_agreement_sends: [],
     email_templates: [],
     pricing_documents: [],
@@ -190,7 +192,9 @@ function isVisible(table: string, row: Row): boolean {
     case 'sto_agreement_versions':
     case 'sto_version_rates':
     case 'sto_version_supplements':
-    case 'sto_version_sections':
+    case 'sto_version_terms':
+    case 'sto_version_property_sections':
+    case 'sto_section_images':
       return true
 
     case 'sto_agreement_sends':
@@ -222,7 +226,8 @@ function writeCheck(table: string, row: Row, changes?: Row): string | null {
     'companies', 'contacts', 'site_visits', 'follow_ups', 'sent_messages',
     'sto_rate_card', 'sto_agreements', 'sto_agreement_items',
     'sto_agreement_versions', 'sto_version_rates', 'sto_version_supplements',
-    'sto_version_sections', 'sto_agreement_sends',
+    'sto_version_terms', 'sto_version_property_sections', 'sto_section_images',
+    'sto_agreement_sends',
     'email_templates', 'pricing_documents',
   ]
   if (businessTables.includes(table) && !canWriteData()) {
@@ -480,8 +485,19 @@ class Query implements PromiseLike<{ data: any; error: { message: string } | nul
       db.sto_version_supplements = db.sto_version_supplements.filter(
         (r) => !gone.has(String(r.version_id))
       )
-      db.sto_version_sections = db.sto_version_sections.filter(
+      db.sto_version_terms = db.sto_version_terms.filter(
         (r) => !gone.has(String(r.version_id))
+      )
+      const goneSections = new Set(
+        db.sto_version_property_sections
+          .filter((r) => gone.has(String(r.version_id)))
+          .map((r) => String(r.id))
+      )
+      db.sto_version_property_sections = db.sto_version_property_sections.filter(
+        (r) => !gone.has(String(r.version_id))
+      )
+      db.sto_section_images = db.sto_section_images.filter(
+        (r) => !goneSections.has(String(r.section_id))
       )
       db.sto_agreement_sends = db.sto_agreement_sends.filter(
         (r) => !gone.has(String(r.version_id))
@@ -662,7 +678,16 @@ function rpc(name: string, args: Row = {}): RpcResult {
         supplements: db.sto_version_supplements
           .filter((r) => r.version_id === send.version_id)
           .sort((a, b) => Number(a.sort_order) - Number(b.sort_order)),
-        sections: db.sto_version_sections
+        sections: db.sto_version_property_sections
+          .filter((r) => r.version_id === send.version_id)
+          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
+          .map((section) => ({
+            ...section,
+            images: db.sto_section_images
+              .filter((im) => im.section_id === section.id)
+              .sort((a, b) => Number(a.sort_order) - Number(b.sort_order)),
+          })),
+        conditions: db.sto_version_terms
           .filter((r) => r.version_id === send.version_id)
           .sort((a, b) => Number(a.sort_order) - Number(b.sort_order)),
         org: db.org_settings[0] ?? null,
