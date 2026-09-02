@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useCompanies, useContacts, useOrgSettings, useTemplates } from '../hooks/useCrmData'
 import { useAgreementSends, agreementLink } from '../hooks/useStoVersions'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import { emailStatus, sendRecordedEmail } from '../lib/email'
 import {
   MEAL_PLANS,
   PLACEHOLDERS,
@@ -55,6 +56,14 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [sentLink, setSentLink] = useState<string | null>(null)
+  // How this will actually go out, asked before the button is pressed so the
+  // button can say which of the two it is about to do.
+  const [mail, setMail] = useState<{ configured: boolean; from: string | null } | null>(null)
+  const [delivery, setDelivery] = useState<'provider' | 'mail-client' | null>(null)
+
+  useEffect(() => {
+    emailStatus().then(setMail)
+  }, [])
 
   const template = templates.find((t) => t.id === templateId)
   const range = rateRange(version.rates)
@@ -167,29 +176,49 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
       const body = compose(link)
       await supabase.from('sto_agreement_sends').update({ body }).eq('id', send.id)
 
-      // The share log too, so the send shows up in the company's activity and
-      // in reports alongside every other message. Best effort: the send row is
-      // the record, and a rejected log insert must not read as an unsent sheet.
+      // The message row is what actually gets sent: send-email reads the
+      // subject and body from it server-side, so what leaves the building is
+      // what the CRM recorded. It goes in as `queued` and the function moves it
+      // to `sent` — or straight to `sent` when there is no provider and the
+      // user's own mail client does the sending.
+      let messageId: string | null = null
       try {
-        await supabase.from('sent_messages').insert({
-          company_id: company,
-          contact_id: contactId || null,
-          sent_by: profile?.id ?? null,
-          channel: 'email',
-          template_id: templateId || null,
-          subject,
-          body,
-          to_name: contact.full_name,
-          to_email: contact.email,
-          status: 'sent',
-        })
+        const { data: logged } = await supabase
+          .from('sent_messages')
+          .insert({
+            company_id: company,
+            contact_id: contactId || null,
+            agreement_id: null,
+            sent_by: profile?.id ?? null,
+            channel: 'email',
+            template_id: templateId || null,
+            subject,
+            body,
+            to_name: contact.full_name,
+            to_email: contact.email,
+            status: mail?.configured ? 'queued' : 'sent',
+          })
+          .select('id')
+          .single()
+        messageId = logged?.id ?? null
       } catch {
         // history is a convenience; sto_agreement_sends is the record
       }
 
-      window.location.href = `mailto:${encodeURIComponent(contact.email)}?subject=${encodeURIComponent(
-        subject
-      )}&body=${encodeURIComponent(body)}`
+      const result = messageId
+        ? await sendRecordedEmail({
+            messageId,
+            sendId: send.id,
+            to: contact.email,
+            subject,
+            body,
+          })
+        : // No row to send from — hand it to the mail client, which needs
+          // nothing from the database.
+          (openMailClientFallback(contact.email, subject, body), { delivery: 'mail-client' as const })
+
+      setDelivery(result.delivery)
+      if (result.error) setError(result.error)
 
       setSentLink(link)
       onSent()
@@ -198,6 +227,13 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
     } finally {
       setBusy(false)
     }
+  }
+
+  /** Used only when the message row could not be written — the send still has to happen. */
+  function openMailClientFallback(to: string, mailSubject: string, mailBody: string) {
+    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(
+      mailSubject
+    )}&body=${encodeURIComponent(mailBody)}`
   }
 
   async function copyLink(link: string) {
@@ -220,9 +256,11 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
           <div className="sv-done">
             <h3>Sent to {contact?.full_name}</h3>
             <p>
-              Your mail client has the message. The operator opens the link below, reads the{' '}
-              {version.year} rates and accepts them there — this page will show it as viewed, then
-              accepted, on its own.
+              {delivery === 'provider'
+                ? `The email has gone out from ${mail?.from ?? 'Zondela House'}. Delivery and opens come back on their own.`
+                : 'Your mail client has the message — press send there.'}{' '}
+              The operator opens the link below, reads the {version.year} rates and accepts them
+              there; this page will show it as viewed, then accepted, without anyone chasing.
             </p>
             <div className="sv-link">
               <code>{sentLink}</code>
@@ -337,6 +375,13 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
             <div className="field">
               <label>Message</label>
               <pre className="sv-preview">{preview}</pre>
+              <p className="field-hint">
+                {mail === null
+                  ? 'Checking how this will be sent…'
+                  : mail.configured
+                    ? `Sent by the CRM from ${mail.from}. Delivery, opens and bounces come back on their own.`
+                    : 'Opens in your own mail client — the CRM records the send but cannot see delivery. See “Connecting email” in the README to change that.'}
+              </p>
             </div>
 
             {error && <p className="version-error">{error}</p>}
@@ -350,7 +395,11 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
                 disabled={busy || !company || !contact?.email}
                 onClick={handleSend}
               >
-                {busy ? 'Recording…' : 'Open email and record send'}
+                {busy
+                  ? 'Sending…'
+                  : mail?.configured
+                    ? 'Send the agreement'
+                    : 'Open email and record send'}
               </button>
             </div>
           </>

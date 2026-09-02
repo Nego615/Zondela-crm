@@ -577,84 +577,100 @@ scorecard — including the CSV they export from it.
 
 ## Connecting email
 
-Today the CRM **hands off to your own mail client**: sending a rate contract
-opens `mailto:` with the subject and body already written, you press send in
-Gmail or Outlook, and the CRM records that it went out. That is honest but
-limited — the app cannot see delivery, and nothing goes out unattended.
+**Both halves are built.** Out of the box the CRM composes a message and hands
+it to your own mail client through `mailto:` — honest, but blind: it cannot
+know whether the message arrived. Deploy the two Edge Functions below and the
+same message goes out from Zondela's own domain, with delivery, opens and
+bounces coming back on their own. The app checks which world it is in and says
+so under the message preview before you press send.
 
-Wiring up a provider changes three things: the app sends the message itself,
-the recipient sees it from your own domain, and delivery and bounces come back
-as data. Here is the whole path, in the order to do it.
+### 1. Verify the domain
 
-### 1. Pick a provider and verify the domain
+Sign up with [Resend](https://resend.com) (generous free tier; Postmark and
+SendGrid work the same way), add `zondelahouse.com`, and put the three DNS
+records it gives you in place:
 
-[Resend](https://resend.com) is the shortest route (generous free tier, one
-API call, good webhooks); Postmark and SendGrid work the same way. Whichever
-you choose, the real work is the same: **verify `zondelahouse.com`** by adding
-the DNS records they give you —
-
-- **SPF** — a TXT record saying that provider may send as your domain
-- **DKIM** — a TXT record holding the signing key, so mail is not tampered with
-- **DMARC** — a TXT record telling other mail servers what to do when a message
-  fails the first two (start at `p=none`, tighten later)
+- **SPF** — says that provider may send as your domain
+- **DKIM** — the signing key, so mail cannot be tampered with in transit
+- **DMARC** — what other mail servers should do when the first two fail (start
+  at `p=none`, tighten once you see clean reports)
 
 Skipping this is why hotel mail lands in spam. Send from
-`reservations@zondelahouse.com`, never from a gmail.com address — Gmail
-rejects mail claiming to be from Gmail but sent by someone else.
+`reservations@zondelahouse.com` or similar — **never** from a gmail.com
+address, which Gmail rejects outright when someone else sends it.
 
-### 2. Put the API key somewhere the browser cannot read it
+### 2. Deploy `send-email`
 
-The key must **never** reach the frontend: anything in `VITE_*` ships to every
-visitor. It belongs in a Supabase **Edge Function**, which runs on Supabase's
-servers with its own secrets:
+[`supabase/functions/send-email`](./supabase/functions/send-email/index.ts)
+sends a message the app has already recorded and writes the provider's id back
+onto the row.
 
 ```bash
-supabase functions new send-email
-supabase secrets set RESEND_API_KEY=re_xxx
 supabase functions deploy send-email
+supabase secrets set RESEND_API_KEY=re_xxx
+supabase secrets set EMAIL_FROM="Zondela House <reservations@zondelahouse.com>"
+supabase secrets set EMAIL_REPLY_TO=info@zondelahouse.com   # optional
+supabase secrets set EMAIL_BCC=records@zondelahouse.com     # optional
 ```
 
-The function takes `{ to, subject, body, sendId }`, calls the provider, and
-writes the result back to `sent_messages` (and to `sto_agreement_sends` for a
-rate contract) using the service-role key it already has. The app calls it with
-`supabase.functions.invoke('send-email', { body: … })` — the user's session
-travels with that call, so the function can check who is asking.
+The API key lives here and nowhere else. Anything in a `VITE_*` variable ships
+to every visitor, and this key can send mail as your domain to anyone.
 
-### 3. Swap the handoff for the call
+Two checks run before a single message goes out. The caller's own JWT builds an
+RLS-bound client, and if that client cannot read the `sent_messages` row, the
+send stops — reading the message is exactly the right permission to require for
+sending it. Only then does the service-role client stamp the provider columns,
+which the app itself is not allowed to write. **The subject and body are read
+server-side from the row**, so what leaves the building is what the CRM shows
+it sent; a caller who edits the request changes the address and nothing else.
 
-One place changes: `SendVersionModal` currently sets `window.location.href` to
-a `mailto:` URL after recording the send. That line becomes the
-`functions.invoke` call, and the send row goes in as `queued` rather than
-`sent` until the provider confirms. Everything else — the token, the link, the
-tracking — already works.
+### 3. Deploy `email-status` for delivery
 
-### 4. Let delivery come back
+[`supabase/functions/email-status`](./supabase/functions/email-status/index.ts)
+receives the provider's webhooks and matches them to messages on
+`provider_message_id`.
 
-Point the provider's webhook at a second Edge Function (`email-status`). It
-receives delivered / opened / bounced / complained events, matches them on
-`provider_message_id`, and updates `sent_messages`. Those columns already
-exist — `delivered_at`, `viewed_at`, `failed_at`, `failure_reason`,
-`provider`, `provider_message_id` — and the Delivery panel already reads them.
-Nothing in the UI has to change for statuses to start arriving on their own.
+```bash
+supabase secrets set EMAIL_WEBHOOK_SECRET=$(openssl rand -hex 32)
+supabase functions deploy email-status --no-verify-jwt
+```
 
-### What you get, and what you still will not
+`--no-verify-jwt` is required: the provider has no Supabase session. The shared
+secret is what protects it instead. In Resend → Webhooks, point a webhook at
+`https://<project-ref>.functions.supabase.co/email-status` and add the header
+`x-webhook-secret: <the same value>`.
 
-Delivery, opens and bounces become real. **Replies still land in your inbox,
-not the CRM** — pulling those in means IMAP or a Gmail API sync, which is a
-larger job and worth doing separately, if at all.
+Events map onto the statuses the Delivery panel already shows — delivered,
+viewed, failed with a reason for a bounce or a spam complaint. A status never
+moves backwards, and each timestamp is stamped once and never overwritten, so
+"delivered on the 3rd" stays true after the message is later marked viewed.
+**Nothing in the UI has to change for these to start arriving.**
 
-One thing that already works without any of this: opening an agreement link
-marks the send **viewed**. That signal comes from the operator's own browser,
-not from email, so it survives whatever you decide here.
+### What it buys, and what it does not
+
+With the functions deployed, the send modal reads *"Sent by the CRM from
+Zondela House <reservations@…>"* and the button says **Send the agreement**.
+Without them it reads *"Opens in your own mail client"* and behaves exactly as
+before — and if the provider ever refuses a message, the CRM falls back to the
+mail client rather than leaving you with a dead end, because the rates still
+have to reach the operator today.
+
+**Replies still land in your inbox, not the CRM.** Pulling those in means IMAP
+or a Gmail API sync, which is a larger job worth doing on its own.
+
+One thing works regardless of any of this: an operator opening their agreement
+link marks that send **viewed**. That signal comes from their browser, not from
+email.
 
 ## Notes and next steps
 
-- **Email sending**: pricing/template emails currently open via `mailto:`,
-  which hands off to the user's own email client. If you want the CRM to
-  send email itself (so you can track opens, for example), the next step
-  is wiring up an email provider (e.g. Resend, Postmark, or Gmail via
-  Supabase Edge Functions) — the `sent_messages` table already has the
-  shape to support that.
+- **Email sending** works both ways: `mailto:` handoff out of the box, or the
+  CRM sending it itself once the two Edge Functions are deployed — see
+  "Connecting email" above. Until they are, delivery is not something the app
+  can see, and it says so rather than implying otherwise.
+- **Email replies** are the piece nobody has built: an operator's reply lands
+  in the inbox it was sent from. Bringing those into the CRM means an IMAP or
+  Gmail API sync, which is a project of its own.
 - **WhatsApp sending** uses a `wa.me` deep link with the message
   pre-filled; the team still taps send themselves inside WhatsApp, since
   WhatsApp doesn't allow arbitrary automated sending from a web app

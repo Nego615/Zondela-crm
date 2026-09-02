@@ -916,6 +916,12 @@ export const supabase = {
     invoke(name: string, options?: { body?: Row }) {
       return new Promise<RpcResult>((resolve) =>
         setTimeout(() => {
+          // No provider is wired up in a preview, so the send modal takes the
+          // mail-client path — which is the one worth previewing anyway.
+          if (name === 'send-email') {
+            resolve(ok({ configured: false, from: null }))
+            return
+          }
           if (name !== 'admin-users') {
             resolve(fail(`Unknown function: ${name}`))
             return
