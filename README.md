@@ -584,6 +584,19 @@ same message goes out from Zondela's own domain, with delivery, opens and
 bounces coming back on their own. The app checks which world it is in and says
 so under the message preview before you press send.
 
+Two things are deliberately true of this, and both are worth being clear about:
+
+- **Only the STO agreement is sent by the system.** Pricing shares, template
+  messages, WhatsApp and every mailto link in the CRM still open the sender's
+  own client. A rate contract earns the machinery because it goes to dozens of
+  operators at once and knowing whether it arrived is the point; a one-off note
+  to one contact does not.
+- **Every reply lands in the normal inbox.** The function sets **Reply-To** to
+  the address on the letterhead — `org_settings.email_reply_to`, or failing
+  that the organisation's own email — so an operator's answer arrives where the
+  team is already looking, never at the sending address. `EMAIL_REPLY_TO`
+  overrides it if you want a different one. Nobody has to watch two places.
+
 ### 1. Verify the domain
 
 Sign up with [Resend](https://resend.com) (generous free tier; Postmark and
@@ -609,8 +622,10 @@ onto the row.
 supabase functions deploy send-email
 supabase secrets set RESEND_API_KEY=re_xxx
 supabase secrets set EMAIL_FROM="Zondela House <reservations@zondelahouse.com>"
-supabase secrets set EMAIL_REPLY_TO=info@zondelahouse.com   # optional
-supabase secrets set EMAIL_BCC=records@zondelahouse.com     # optional
+# Optional. Left unset, Reply-To comes from the letterhead in org_settings, so
+# replies land in the inbox the team already reads.
+supabase secrets set EMAIL_REPLY_TO=info@zondelahouse.com
+supabase secrets set EMAIL_BCC=records@zondelahouse.com
 ```
 
 The API key lives here and nowhere else. Anything in a `VITE_*` variable ships
@@ -655,8 +670,10 @@ before — and if the provider ever refuses a message, the CRM falls back to the
 mail client rather than leaving you with a dead end, because the rates still
 have to reach the operator today.
 
-**Replies still land in your inbox, not the CRM.** Pulling those in means IMAP
-or a Gmail API sync, which is a larger job worth doing on its own.
+**Replies land in your inbox, by design.** The CRM sends the contract and
+tracks what happened to it; the conversation that follows happens where it
+always did. Bringing replies into the app would mean an IMAP or Gmail API sync,
+which is a larger job — and, given the above, not obviously one worth doing.
 
 One thing works regardless of any of this: an operator opening their agreement
 link marks that send **viewed**. That signal comes from their browser, not from
@@ -664,13 +681,15 @@ email.
 
 ## Notes and next steps
 
-- **Email sending** works both ways: `mailto:` handoff out of the box, or the
-  CRM sending it itself once the two Edge Functions are deployed — see
-  "Connecting email" above. Until they are, delivery is not something the app
+- **Email sending** works both ways: a `mailto:` handoff out of the box, or the
+  CRM sending the **STO agreement** itself once the two Edge Functions are
+  deployed — see "Connecting email" above. Everything else stays a handoff on
+  purpose. Until the functions are deployed, delivery is not something the app
   can see, and it says so rather than implying otherwise.
-- **Email replies** are the piece nobody has built: an operator's reply lands
-  in the inbox it was sent from. Bringing those into the CRM means an IMAP or
-  Gmail API sync, which is a project of its own.
+- **Email replies land in the normal inbox, by design.** Reply-To is set to the
+  letterhead address, so an operator's answer arrives where the team already
+  reads. The CRM sends the contract and tracks what happened to it; the
+  conversation that follows happens where it always did.
 - **WhatsApp sending** uses a `wa.me` deep link with the message
   pre-filled; the team still taps send themselves inside WhatsApp, since
   WhatsApp doesn't allow arbitrary automated sending from a web app

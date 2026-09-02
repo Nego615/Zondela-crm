@@ -58,7 +58,11 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
   const [sentLink, setSentLink] = useState<string | null>(null)
   // How this will actually go out, asked before the button is pressed so the
   // button can say which of the two it is about to do.
-  const [mail, setMail] = useState<{ configured: boolean; from: string | null } | null>(null)
+  const [mail, setMail] = useState<{
+    configured: boolean
+    from: string | null
+    replyTo: string | null
+  } | null>(null)
   const [delivery, setDelivery] = useState<'provider' | 'mail-client' | null>(null)
 
   useEffect(() => {
@@ -257,7 +261,9 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
             <h3>Sent to {contact?.full_name}</h3>
             <p>
               {delivery === 'provider'
-                ? `The email has gone out from ${mail?.from ?? 'Zondela House'}. Delivery and opens come back on their own.`
+                ? `The email has gone out from ${mail?.from ?? 'Zondela House'}${
+                    mail?.replyTo ? `, with replies going to ${mail.replyTo}` : ''
+                  }. Delivery and opens come back on their own.`
                 : 'Your mail client has the message — press send there.'}{' '}
               The operator opens the link below, reads the {version.year} rates and accepts them
               there; this page will show it as viewed, then accepted, without anyone chasing.
@@ -379,7 +385,9 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
                 {mail === null
                   ? 'Checking how this will be sent…'
                   : mail.configured
-                    ? `Sent by the CRM from ${mail.from}. Delivery, opens and bounces come back on their own.`
+                    ? `Sent by the CRM from ${mail.from}. Delivery, opens and bounces come back on their own${
+                        mail.replyTo ? `, and any reply goes to ${mail.replyTo}` : ''
+                      }.`
                     : 'Opens in your own mail client — the CRM records the send but cannot see delivery. See “Connecting email” in the README to change that.'}
               </p>
             </div>

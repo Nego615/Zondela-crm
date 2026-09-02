@@ -10,6 +10,14 @@
 // provider's message id back onto the row so the webhook in `email-status` can
 // match delivery events to it later.
 //
+// **Only STO agreements are sent this way.** Pricing shares, template messages
+// and every other email in the CRM still open the sender's own mail client;
+// this route exists because a rate contract goes to dozens of operators at once
+// and its delivery is worth knowing about. And whatever goes out through here,
+// **the reply comes back to the normal inbox** — Reply-To is set to the address
+// the team already reads, never to the sending address, so nobody has to watch
+// two places for an operator's answer.
+//
 // The provider's API key is the reason this is a function at all. It can send
 // mail as your domain to anyone, so it can never reach the browser — anything
 // in a VITE_* variable ships to every visitor.
@@ -44,6 +52,9 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
 const EMAIL_FROM = Deno.env.get('EMAIL_FROM') ?? ''
+// Where an operator's reply lands. Left unset, it is taken from the letterhead
+// in org_settings — see replyTo() below — because the address the team reads is
+// already recorded there and a send-only From address is not it.
 const EMAIL_REPLY_TO = Deno.env.get('EMAIL_REPLY_TO') ?? ''
 const EMAIL_BCC = Deno.env.get('EMAIL_BCC') ?? ''
 
@@ -82,6 +93,24 @@ function asHtml(text: string) {
   return `<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#22201c;white-space:pre-wrap">${linked}</div>`
 }
 
+/**
+ * The inbox an operator's reply should land in.
+ *
+ * The secret wins when it is set. Otherwise the letterhead decides: the
+ * reply-to on org_settings, or failing that the organisation's own address.
+ * Falling through to nothing would mean replies going to the From address,
+ * which is typically `reservations@` — a mailbox that may exist only to send.
+ */
+async function replyTo(admin: ReturnType<typeof createClient>) {
+  if (EMAIL_REPLY_TO) return EMAIL_REPLY_TO
+  const { data } = await admin
+    .from('org_settings')
+    .select('email_reply_to, email')
+    .eq('id', 1)
+    .maybeSingle()
+  return (data?.email_reply_to || data?.email || '') as string
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -96,7 +125,12 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}))
   const action = String(body.action ?? 'send')
 
-  if (action === 'status') return json({ configured, from: EMAIL_FROM || null })
+  if (action === 'status') {
+    const replyAddress = configured
+      ? await replyTo(createClient(SUPABASE_URL, SERVICE_ROLE_KEY))
+      : ''
+    return json({ configured, from: EMAIL_FROM || null, replyTo: replyAddress || null })
+  }
 
   if (!configured) {
     return json(
@@ -138,6 +172,12 @@ Deno.serve(async (req) => {
     return json({ error: 'That message has already been sent.', status: message.status }, 409)
   }
 
+  // Privileged: the provider columns are not writable by the app, so a status
+  // can only ever be set by something that actually talked to the provider.
+  // Needed before the send as well, to read the letterhead's reply address.
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+  const replyAddress = await replyTo(admin)
+
   const payload: Record<string, unknown> = {
     from: EMAIL_FROM,
     to: [to],
@@ -145,7 +185,9 @@ Deno.serve(async (req) => {
     text: message.body,
     html: asHtml(message.body),
   }
-  if (EMAIL_REPLY_TO) payload.reply_to = EMAIL_REPLY_TO
+  // Always set when there is an address to set it to: the whole point is that
+  // the answer arrives where the team is already looking.
+  if (replyAddress) payload.reply_to = replyAddress
   if (EMAIL_BCC) payload.bcc = [EMAIL_BCC]
 
   const response = await fetch('https://api.resend.com/emails', {
@@ -158,11 +200,6 @@ Deno.serve(async (req) => {
   })
 
   const result = await response.json().catch(() => ({}))
-
-  // Privileged from here: the provider columns are not writable by the app, so
-  // that a status can only ever be set by something that actually talked to the
-  // provider.
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
   if (!response.ok) {
     const reason = String(result?.message ?? result?.error ?? `Provider returned ${response.status}`)
@@ -200,5 +237,5 @@ Deno.serve(async (req) => {
       .eq('id', sendId)
   }
 
-  return json({ sent: true, providerMessageId: providerId || null })
+  return json({ sent: true, providerMessageId: providerId || null, replyTo: replyAddress || null })
 })

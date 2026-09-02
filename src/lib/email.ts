@@ -9,12 +9,17 @@ import { supabase } from './supabase'
  * deployed and its secrets set, the same message goes out from Zondela's own
  * domain and delivery comes back through the `email-status` webhook.
  *
+ * Only the STO agreement takes the second route. Everything else the CRM
+ * writes — pricing shares, template messages — opens the sender's own client,
+ * and either way an operator's reply lands in the normal inbox: the function
+ * sets Reply-To to the address on the letterhead, not to the sending address.
+ *
  * Which one is in play is asked of the function itself rather than configured
  * again in the frontend, so there is one place to get it right and it is the
  * place holding the API key.
  */
 
-let cached: { configured: boolean; from: string | null } | null = null
+let cached: { configured: boolean; from: string | null; replyTo: string | null } | null = null
 
 /**
  * Is the CRM able to send mail itself?
@@ -32,10 +37,14 @@ export async function emailStatus() {
       body: { action: 'status' },
     })
     cached = error
-      ? { configured: false, from: null }
-      : { configured: Boolean(data?.configured), from: data?.from ?? null }
+      ? { configured: false, from: null, replyTo: null }
+      : {
+          configured: Boolean(data?.configured),
+          from: data?.from ?? null,
+          replyTo: data?.replyTo ?? null,
+        }
   } catch {
-    cached = { configured: false, from: null }
+    cached = { configured: false, from: null, replyTo: null }
   }
   return cached
 }
