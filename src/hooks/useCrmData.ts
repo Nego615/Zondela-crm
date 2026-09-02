@@ -14,6 +14,8 @@ import type {
   Profile,
   PricingDocument,
   SentMessage,
+  MessageStatus,
+  OrgSettings,
   Stage,
 } from '../lib/database.types'
 
@@ -395,6 +397,17 @@ export function useTemplates() {
   return { templates, loading, refresh, createTemplate, updateTemplate, deleteTemplate }
 }
 
+/**
+ * The team roster, used to resolve a record's rep link (owner_id, rep_id,
+ * assigned_to) back to a name.
+ *
+ * Everyone, including deactivated accounts: a company assigned to someone who
+ * has since left must still show their name rather than falling back to the
+ * typed one and re-bucketing them in Reports as a separate "no login" row.
+ *
+ * Managing the accounts themselves is useUsers(), which is where role and
+ * status changes go through their permission checks.
+ */
 export function useProfiles() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
@@ -410,13 +423,7 @@ export function useProfiles() {
     refresh()
   }, [refresh])
 
-  async function updateRole(id: string, role: 'owner' | 'marketing') {
-    const { error } = await supabase.from('profiles').update({ role }).eq('id', id)
-    if (error) throw error
-    await refresh()
-  }
-
-  return { profiles, loading, refresh, updateRole }
+  return { profiles, loading, refresh }
 }
 
 const PRICING_BUCKET = 'pricing'
@@ -553,10 +560,9 @@ export function useAllContacts() {
 }
 
 /**
- * Every pricing share and agreement send the signed-in user can see.
+ * Every pricing share and agreement send the signed-in user can see, with
+ * where each one got to.
  *
- * Reports is the only reader: nothing else needs the log as a list, and a
- * company's own page shows its activity through the company-scoped query.
  * RLS scopes it the same way contacts are scoped — by the company the message
  * was sent about.
  */
@@ -577,5 +583,53 @@ export function useSentMessages(companyId?: string) {
     refresh()
   }, [refresh])
 
-  return { messages, loading, refresh }
+  /**
+   * Records where a message got to.
+   *
+   * Only the status and, for a failure, the reason are sent: the timestamp
+   * that goes with each state is stamped by a trigger, so a client that
+   * guessed the wrong one cannot rewrite when something was delivered.
+   */
+  async function setMessageStatus(id: string, status: MessageStatus, note?: string) {
+    const patch: Partial<SentMessage> = { status }
+    if (status === 'failed') patch.failure_reason = note?.trim() || null
+    else if (note !== undefined) patch.status_note = note.trim() || null
+
+    const { error } = await supabase.from('sent_messages').update(patch).eq('id', id)
+    if (error) throw error
+    await refresh()
+  }
+
+  return { messages, loading, refresh, setMessageStatus }
+}
+
+/**
+ * The letterhead — one row, shared by the agreement document, the send modal
+ * and the email signature.
+ *
+ * Every active user reads it; saving needs settings.branding, and the RLS
+ * policy is what enforces that rather than the button being hidden.
+ */
+export function useOrgSettings() {
+  const [settings, setSettings] = useState<OrgSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase.from('org_settings').select('*').eq('id', 1).maybeSingle()
+    setSettings((data as OrgSettings | null) ?? null)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  async function save(input: Partial<OrgSettings>) {
+    const { error } = await supabase.from('org_settings').update(input).eq('id', 1)
+    if (error) throw error
+    await refresh()
+  }
+
+  return { settings, loading, refresh, save }
 }

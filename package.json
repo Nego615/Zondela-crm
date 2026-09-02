@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync:schema": "node supabase/build-schema.mjs",
+    "check:schema": "node supabase/build-schema.mjs --check"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

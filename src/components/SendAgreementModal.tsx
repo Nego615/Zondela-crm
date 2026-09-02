@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react'
-import { useCompanies, useContacts, useTemplates, usePricingDocuments, useStoAgreements } from '../hooks/useCrmData'
+import {
+  useCompanies,
+  useContacts,
+  useTemplates,
+  usePricingDocuments,
+  useStoAgreements,
+  useOrgSettings,
+} from '../hooks/useCrmData'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { agreementTotals, formatMoney, formatDate, lineTotal } from '../lib/agreement'
@@ -18,6 +25,7 @@ export default function SendAgreementModal({ agreement, onClose, onSent }: Props
   const { templates } = useTemplates()
   const { documents, documentUrl } = usePricingDocuments()
   const { setStatus } = useStoAgreements()
+  const { settings } = useOrgSettings()
   const { profile } = useAuth()
 
   const company = companies.find((c) => c.id === agreement.company_id)
@@ -69,7 +77,18 @@ export default function SendAgreementModal({ agreement, onClose, onSent }: Props
       agreement.valid_until ? `Valid until: ${formatDate(agreement.valid_until)}` : '',
     ].filter(Boolean)
 
-    const closing = `Reply to confirm and we'll get started.\n\nBest,\n${profile?.full_name || 'Zondela team'}`
+    // The sender's own name, then the organisation's signature block from STO
+    // settings — so a rebrand or a changed phone number lands in every message
+    // without anyone editing this file.
+    const signature = [
+      `Best,`,
+      profile?.full_name || settings?.org_name || 'Zondela team',
+      settings?.email_signature || '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    const closing = `Reply to confirm and we'll get started.\n\n${signature}`
 
     return [
       greeting,
@@ -88,7 +107,7 @@ export default function SendAgreementModal({ agreement, onClose, onSent }: Props
     ]
       .join('\n')
       .replace(/\n{3,}/g, '\n\n')
-  }, [agreement, companyName, contact, templateId, templates, totals, pdfUrl, profile])
+  }, [agreement, companyName, contact, templateId, templates, totals, pdfUrl, profile, settings])
 
   const whatsappNumber = (contact?.whatsapp || contact?.phone || '').replace(/[^\d+]/g, '')
   const whatsappUrl = `https://wa.me/${whatsappNumber.replace('+', '')}?text=${encodeURIComponent(messageBody)}`
@@ -120,11 +139,20 @@ export default function SendAgreementModal({ agreement, onClose, onSent }: Props
       await supabase.from('sent_messages').insert({
         company_id: agreement.company_id,
         contact_id: contactId || null,
+        // Links the delivery row to the agreement, which is what lets the STO
+        // list show where each send got to.
+        agreement_id: agreement.id,
         sent_by: profile?.id ?? null,
         channel,
         template_id: templateId || null,
         subject: channel === 'email' ? subject : null,
         body: messageBody,
+        to_name: contact?.full_name ?? null,
+        to_email: channel === 'email' ? contact?.email ?? null : null,
+        // `sent` is as far as the app can honestly claim: it opens the mail
+        // client, and nothing reports back from there. Anything beyond this is
+        // recorded by the team on the agreement's Delivery panel.
+        status: 'sent',
       })
     } catch {
       // history is a convenience; the agreement's own sent_at is the record
@@ -231,7 +259,19 @@ export default function SendAgreementModal({ agreement, onClose, onSent }: Props
               disabled={busy || !contact?.email}
               onClick={() =>
                 sendVia(() => {
-                  window.location.href = `mailto:${contact?.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(messageBody)}`
+                  // BCC and reply-to come from STO settings, so every send is
+                  // filed the same way without anyone remembering to add them.
+                  const query = [
+                    `subject=${encodeURIComponent(subject)}`,
+                    `body=${encodeURIComponent(messageBody)}`,
+                    settings?.email_bcc ? `bcc=${encodeURIComponent(settings.email_bcc)}` : '',
+                    settings?.email_reply_to
+                      ? `reply-to=${encodeURIComponent(settings.email_reply_to)}`
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join('&')
+                  window.location.href = `mailto:${contact?.email}?${query}`
                 })
               }
             >

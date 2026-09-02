@@ -269,3 +269,19 @@
     width: 100%;
   }
 }
+
+/* Delivery history inside an expanded agreement row. Only the heading is
+   styled here — the panel brings its own type, and .sto-detail-text's
+   blanket `p` rule would override it. */
+.sto-detail-delivery {
+  grid-column: 1 / -1;
+}
+
+.sto-detail-delivery h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}

@@ -114,9 +114,6 @@ export default function FollowUpFormModal({ companyId, contacts, followUp, onClo
                 onChange={(e) => setAssignedNameDraft(e.target.value)}
                 placeholder="Their name"
               />
-              <p className="field-hint">
-                A name only — with no login linked, this will not appear in that person's own queue.
-              </p>
             </div>
           </div>
 

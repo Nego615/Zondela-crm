@@ -276,3 +276,15 @@
     transition: none;
   }
 }
+
+/* Separates the admin links from the day-to-day ones, so the rail reads as two
+   groups rather than one long list. */
+.shell-nav-heading {
+  margin: 14px 0 4px;
+  padding: 0 12px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}

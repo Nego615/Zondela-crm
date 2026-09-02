@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '../src/hooks/useAuth'
+import type { Permission } from '../src/lib/permissions'
 import Shell from '../src/components/Shell'
 import Dashboard from '../src/pages/Dashboard'
 import Companies from '../src/pages/Companies'
@@ -20,17 +21,26 @@ import Contacts from '../src/pages/Contacts'
 import Appointments from '../src/pages/Appointments'
 import FollowUps from '../src/pages/FollowUps'
 import Sto from '../src/pages/Sto'
-import Templates from '../src/pages/Templates'
 import Reports from '../src/pages/Reports'
-import Team from '../src/pages/Team'
+import Users from '../src/pages/admin/Users'
+import UserDetail from '../src/pages/admin/UserDetail'
+import RolesPermissions from '../src/pages/admin/RolesPermissions'
+import ActivityLogs from '../src/pages/admin/ActivityLogs'
+import SystemSettings from '../src/pages/admin/SystemSettings'
 import { setActingUserId, getActingUserId, listPreviewUsers, resetPreviewData } from './mock-supabase'
 import '../src/index.css'
 import './preview.css'
 
-function RequireOwner({ children }: { children: React.ReactNode }) {
-  const { isOwner, loading } = useAuth()
-  if (loading) return null
-  if (!isOwner) return <Navigate to="/" replace />
+function RequirePermission({
+  permission,
+  children,
+}: {
+  permission: Permission
+  children: React.ReactNode
+}) {
+  const { can, loading, profile } = useAuth()
+  if (loading || !profile) return null
+  if (!can(permission)) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
@@ -45,9 +55,14 @@ function AppRoutes() {
         <Route path="appointments" element={<Appointments />} />
         <Route path="follow-ups" element={<FollowUps />} />
         <Route path="sto" element={<Sto />} />
-        <Route path="templates" element={<Templates />} />
+        <Route path="templates" element={<Navigate to="/sto?tab=templates" replace />} />
         <Route path="reports" element={<Reports />} />
-        <Route path="team" element={<RequireOwner><Team /></RequireOwner>} />
+        <Route path="team" element={<Navigate to="/admin/users" replace />} />
+        <Route path="admin/users" element={<RequirePermission permission="users.view"><Users /></RequirePermission>} />
+        <Route path="admin/users/:id" element={<RequirePermission permission="users.view"><UserDetail /></RequirePermission>} />
+        <Route path="admin/roles" element={<RequirePermission permission="roles.view"><RolesPermissions /></RequirePermission>} />
+        <Route path="admin/activity" element={<RequirePermission permission="logs.view"><ActivityLogs /></RequirePermission>} />
+        <Route path="admin/settings" element={<RequirePermission permission="settings.manage"><SystemSettings /></RequirePermission>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -102,7 +117,7 @@ function Preview() {
               onClick={() => switchTo(u.id)}
             >
               {u.name}
-              <em>{u.role === 'owner' ? 'Owner' : 'Rep'}</em>
+              <em>{u.roleLabel}</em>
             </button>
           ))}
           <button type="button" className="preview-reset" onClick={reset}>

@@ -1,14 +1,24 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 import BrandMark from '../components/BrandMark'
 import '../components/ui.css'
 import './login.css'
 
+/**
+ * Sign in, and nothing else.
+ *
+ * This is a closed system: there is no "create an account" path, because
+ * accounts only ever come from an administrator inviting someone from
+ * Admin → Users. The two things a person can do without an account already
+ * existing are sign in and ask for a password reset link.
+ */
 export default function Login() {
-  const [mode, setMode] = useState<'sign_in' | 'sign_up'>('sign_in')
+  const { blockedReason, clearBlockedReason } = useAuth()
+
+  const [mode, setMode] = useState<'sign_in' | 'forgot'>('sign_in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -17,9 +27,14 @@ export default function Login() {
     e.preventDefault()
     setError(null)
     setInfo(null)
+    clearBlockedReason()
 
-    if (!email || !password) {
-      setError('Enter your email and password.')
+    if (!email) {
+      setError('Enter your email address.')
+      return
+    }
+    if (mode === 'sign_in' && !password) {
+      setError('Enter your password.')
       return
     }
 
@@ -29,20 +44,34 @@ export default function Login() {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName } },
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
         })
         if (error) throw error
-        setInfo('Account created. Check your email if confirmation is required, then sign in.')
-        setMode('sign_in')
+
+        // Logged as a sensitive action. Writes nothing for an address with no
+        // account, and returns the same either way.
+        await supabase.rpc('log_password_reset_request', { p_email: email, p_by_admin: false })
+
+        // Deliberately does not say whether the address is known — that would
+        // turn this form into a way of finding out who works here.
+        setInfo(
+          'If that address has an account, a reset link is on its way. Check your inbox, and your spam folder.',
+        )
+        setPassword('')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
       setLoading(false)
     }
+  }
+
+  function switchMode(next: 'sign_in' | 'forgot') {
+    setMode(next)
+    setError(null)
+    setInfo(null)
+    clearBlockedReason()
   }
 
   return (
@@ -55,21 +84,12 @@ export default function Login() {
           <h1>Zondela House</h1>
         </div>
         <p className="login-sub">
-          {mode === 'sign_in' ? 'Sign in to your pipeline.' : 'Create your team account.'}
+          {mode === 'sign_in'
+            ? 'Sign in to your pipeline.'
+            : 'We will email you a link to set a new password.'}
         </p>
 
         <form onSubmit={handleSubmit}>
-          {mode === 'sign_up' && (
-            <div className="field">
-              <label htmlFor="full_name">Full name</label>
-              <input
-                id="full_name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Asha Mwangi"
-              />
-            </div>
-          )}
           <div className="field">
             <label htmlFor="email">Email</label>
             <input
@@ -81,37 +101,41 @@ export default function Login() {
               autoComplete="email"
             />
           </div>
-          <div className="field">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 6 characters"
-              autoComplete={mode === 'sign_in' ? 'current-password' : 'new-password'}
-            />
-          </div>
 
+          {mode === 'sign_in' && (
+            <div className="field">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Your password"
+                autoComplete="current-password"
+              />
+            </div>
+          )}
+
+          {blockedReason && <p className="login-error">{blockedReason}</p>}
           {error && <p className="login-error">{error}</p>}
           {info && <p className="login-info">{info}</p>}
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-            {loading ? 'Please wait…' : mode === 'sign_in' ? 'Sign in' : 'Create account'}
+            {loading ? 'Please wait…' : mode === 'sign_in' ? 'Sign in' : 'Send reset link'}
           </button>
         </form>
 
         <button
           type="button"
           className="btn btn-ghost login-switch"
-          onClick={() => {
-            setMode(mode === 'sign_in' ? 'sign_up' : 'sign_in')
-            setError(null)
-            setInfo(null)
-          }}
+          onClick={() => switchMode(mode === 'sign_in' ? 'forgot' : 'sign_in')}
         >
-          {mode === 'sign_in' ? "New here? Create an account" : 'Already have an account? Sign in'}
+          {mode === 'sign_in' ? 'Forgot your password?' : 'Back to sign in'}
         </button>
+
+        <p className="login-note">
+          Accounts are created by an administrator. If you need access, ask them to invite you.
+        </p>
       </div>
     </div>
   )

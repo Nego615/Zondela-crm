@@ -180,10 +180,6 @@ export default function AppointmentFormModal({
                 onChange={(e) => setRepNameDraft(e.target.value)}
                 placeholder="Their name"
               />
-              <p className="field-hint">
-                A name only — with no login linked, this will not show up in that person's own
-                Dashboard.
-              </p>
             </div>
           </div>
 

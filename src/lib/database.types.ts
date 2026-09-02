@@ -1,4 +1,11 @@
-export type Role = 'owner' | 'marketing'
+/**
+ * The role hierarchy, highest first. See src/lib/permissions.ts for what each
+ * one may do, and supabase/migrations/0001_closed_access_rbac.sql for the
+ * database-side grants that actually enforce it.
+ */
+export type Role = 'super_admin' | 'admin' | 'manager' | 'staff' | 'viewer'
+
+export type UserStatus = 'active' | 'inactive' | 'pending'
 
 export type Stage =
   | 'lead'
@@ -37,8 +44,50 @@ export interface Profile {
   id: string
   full_name: string
   email: string
+  phone_number: string | null
   role: Role
+  /**
+   * `pending` until the invitation is accepted and a password is set;
+   * `inactive` locks the account out without deleting its history.
+   */
+  status: UserStatus
+  /** Who invited them, when the account came from Admin → Users. */
+  invited_by: string | null
+  last_login: string | null
   created_at: string
+  updated_at: string
+}
+
+/**
+ * One entry in the audit trail. Names and roles are snapshots taken when the
+ * action happened, so the line still reads correctly after an account is
+ * deleted and performed_by/target_user have nulled out.
+ */
+export interface ActivityLog {
+  id: string
+  performed_by: string | null
+  performed_by_name: string | null
+  performed_by_role: Role | null
+  action: string
+  target_user: string | null
+  target_user_name: string | null
+  previous_value: string | null
+  new_value: string | null
+  details: Record<string, unknown> | null
+  created_at: string
+}
+
+export interface PermissionRow {
+  key: string
+  label: string
+  description: string
+  category: string
+  sort_order: number
+}
+
+export interface RolePermissionRow {
+  role: Role
+  permission: string
 }
 
 export interface Company {
@@ -177,16 +226,82 @@ export interface PricingDocument {
   created_at: string
 }
 
+/**
+ * Where an outgoing message got to.
+ *
+ * `sent` is the furthest the app can know on its own — it hands off to a mail
+ * client or WhatsApp, and neither reports back. `delivered`, `viewed` and
+ * `failed` are marked by whoever sent it (or by an email provider, once one is
+ * wired up); `approved` and `rejected` follow the agreement's own status.
+ */
+export type MessageStatus =
+  | 'queued'
+  | 'sent'
+  | 'delivered'
+  | 'viewed'
+  | 'failed'
+  | 'approved'
+  | 'rejected'
+
 export interface SentMessage {
   id: string
   company_id: string | null
   contact_id: string | null
+  /** The agreement this went out with, when it was sent from STO. */
+  agreement_id: string | null
   sent_by: string | null
   channel: Channel
   template_id: string | null
   subject: string | null
   body: string
+  to_name: string | null
+  to_email: string | null
+  status: MessageStatus
+  delivered_at: string | null
+  viewed_at: string | null
+  failed_at: string | null
+  responded_at: string | null
+  failure_reason: string | null
+  status_note: string | null
+  /** Set by an email provider, so its webhooks can find this row again. */
+  provider: string | null
+  provider_message_id: string | null
   sent_at: string
+  updated_at: string
+}
+
+/**
+ * The letterhead: one row, read by the agreement document, the send modal and
+ * the email signature. Rebranding is this form rather than a search for
+ * hardcoded strings.
+ */
+export interface OrgSettings {
+  id: number
+  org_name: string
+  legal_name: string | null
+  tagline: string | null
+  address: string | null
+  city: string | null
+  country: string | null
+  phone: string | null
+  email: string | null
+  website: string | null
+  logo_url: string | null
+  /** Plain hex — inline styles are the only styling an email client honours. */
+  brand_color: string
+  accent_color: string
+  agreement_intro: string | null
+  agreement_terms_default: string | null
+  agreement_footer: string | null
+  signatory_name: string | null
+  signatory_title: string | null
+  email_from_name: string | null
+  email_from_address: string | null
+  email_reply_to: string | null
+  email_bcc: string | null
+  email_signature: string | null
+  created_at: string
+  updated_at: string
 }
 
 // Minimal Supabase Database type. Since we're not using generated types
@@ -229,6 +344,26 @@ export interface Database {
         Row: SentMessage
         Insert: Partial<SentMessage>
         Update: Partial<SentMessage>
+      }
+      activity_logs: {
+        Row: ActivityLog
+        Insert: Partial<ActivityLog>
+        Update: Partial<ActivityLog>
+      }
+      permissions: {
+        Row: PermissionRow
+        Insert: Partial<PermissionRow>
+        Update: Partial<PermissionRow>
+      }
+      role_permissions: {
+        Row: RolePermissionRow
+        Insert: Partial<RolePermissionRow>
+        Update: Partial<RolePermissionRow>
+      }
+      org_settings: {
+        Row: OrgSettings
+        Insert: Partial<OrgSettings>
+        Update: Partial<OrgSettings>
       }
     }
   }

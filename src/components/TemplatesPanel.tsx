@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useTemplates } from '../hooks/useCrmData'
 import { useAuth } from '../hooks/useAuth'
 import type { EmailTemplate, TemplateCategory } from '../lib/database.types'
-import '../components/ui.css'
+import './ui.css'
 import './templates.css'
 
 const CATEGORY_LABELS: Record<TemplateCategory, string> = {
@@ -12,7 +12,14 @@ const CATEGORY_LABELS: Record<TemplateCategory, string> = {
   proposal: 'Proposal',
 }
 
-export default function Templates() {
+/**
+ * Email templates, as one tab of the STO page.
+ *
+ * They used to be their own top-level section, but the only thing that reads
+ * them is the agreement send modal — so they live next to what uses them now,
+ * alongside the rate card and the branding they are composed with.
+ */
+export default function TemplatesPanel() {
   const { templates, loading, createTemplate, updateTemplate, deleteTemplate } = useTemplates()
   const { profile } = useAuth()
   const [editing, setEditing] = useState<EmailTemplate | 'new' | null>(null)
@@ -20,10 +27,13 @@ export default function Templates() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="panel-header">
         <div>
-          <h1>Email templates</h1>
-          <p>Reusable templates the team can personalize per contact.</p>
+          <h2>Email templates</h2>
+          <p>
+            Reusable openings the team personalises per contact. They show up in the send modal
+            when an agreement goes out.
+          </p>
         </div>
         <button className="btn btn-primary" onClick={() => setEditing('new')}>
           + New template

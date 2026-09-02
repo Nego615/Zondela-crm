@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useAllContacts, useCompanies, useStoAgreements } from '../hooks/useCrmData'
+import { useAllContacts, useCompanies, useSentMessages, useStoAgreements } from '../hooks/useCrmData'
 import {
   AGREEMENT_STATUS_LIST,
   AGREEMENT_STATUS_META,
@@ -14,11 +14,32 @@ import type { AgreementStatus, StoAgreementWithItems } from '../lib/database.typ
 import AgreementFormModal from '../components/AgreementFormModal'
 import SendAgreementModal from '../components/SendAgreementModal'
 import RateCardPanel from '../components/RateCardPanel'
+import TemplatesPanel from '../components/TemplatesPanel'
+import StoSettingsPanel from '../components/StoSettingsPanel'
+import AgreementPreviewModal from '../components/AgreementPreviewModal'
+import MessageStatusPanel from '../components/MessageStatusPanel'
+import { MESSAGE_STATUS_META, bestStatus, statusSummary } from '../lib/messageStatus'
+import type { MessageStatus, SentMessage } from '../lib/database.types'
 import '../components/ui.css'
 import './sto.css'
 
-type Tab = 'agreements' | 'rate-card'
+type Tab = 'agreements' | 'rate-card' | 'templates' | 'settings'
 type StatusFilter = AgreementStatus | 'all'
+
+/**
+ * Everything an agreement needs, in the order it is needed: build it from the
+ * rate card, compose it from a template, brand it in settings.
+ *
+ * Email templates were a top-level section of their own; nothing outside STO
+ * read them, so they moved in here alongside the branding they are composed
+ * with. /templates still resolves — App.tsx redirects it to this tab.
+ */
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'agreements', label: 'Agreements' },
+  { value: 'rate-card', label: 'Rate card' },
+  { value: 'templates', label: 'Email templates' },
+  { value: 'settings', label: 'Branding & email' },
+]
 
 const STATUS_FILTERS: StatusFilter[] = ['all', ...AGREEMENT_STATUS_LIST]
 
@@ -42,7 +63,8 @@ export default function Sto() {
   // Tab and filter live in the URL so a filtered list is a link the team can
   // send each other, the way the dashboard already links into follow-ups.
   const [params, setParams] = useSearchParams()
-  const tab: Tab = params.get('tab') === 'rate-card' ? 'rate-card' : 'agreements'
+  const tabParam = params.get('tab')
+  const tab: Tab = TABS.some((t) => t.value === tabParam) ? (tabParam as Tab) : 'agreements'
   const statusFilter: StatusFilter = isStatusFilter(params.get('status')) ? (params.get('status') as StatusFilter) : 'all'
   const companyFilter = params.get('company') ?? ''
   const search = params.get('q') ?? ''
@@ -56,8 +78,23 @@ export default function Sto() {
 
   const [formFor, setFormFor] = useState<'new' | string | null>(null)
   const [sendFor, setSendFor] = useState<string | null>(null)
+  const [previewFor, setPreviewFor] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+
+  // Every message the user can see, grouped by the agreement it carried, so a
+  // row can show where its last send got to without a query per row.
+  const { messages, refresh: refreshMessages, setMessageStatus } = useSentMessages()
+  const messagesByAgreement = useMemo(() => {
+    const map = new Map<string, SentMessage[]>()
+    for (const message of messages) {
+      if (!message.agreement_id) continue
+      const list = map.get(message.agreement_id) ?? []
+      list.push(message)
+      map.set(message.agreement_id, list)
+    }
+    return map
+  }, [messages])
 
   const companyName = (id: string) => companies.find((c) => c.id === id)?.name ?? 'Unknown company'
   const contactName = (id: string | null) => contacts.find((c) => c.id === id)?.full_name
@@ -105,6 +142,7 @@ export default function Sto() {
   const editing =
     formFor && formFor !== 'new' ? agreements.find((a) => a.id === formFor) : undefined
   const sending = sendFor ? agreements.find((a) => a.id === sendFor) : undefined
+  const previewing = previewFor ? agreements.find((a) => a.id === previewFor) : undefined
 
   async function move(id: string, status: AgreementStatus) {
     setActionError(null)
@@ -130,21 +168,25 @@ export default function Sto() {
       </div>
 
       <div className="sto-tabs" role="tablist" aria-label="STO">
-        {(['agreements', 'rate-card'] as Tab[]).map((t) => (
+        {TABS.map((t) => (
           <button
-            key={t}
+            key={t.value}
             role="tab"
-            aria-selected={tab === t}
-            className={`sto-tab${tab === t ? ' active' : ''}`}
-            onClick={() => setParam('tab', t, 'agreements')}
+            aria-selected={tab === t.value}
+            className={`sto-tab${tab === t.value ? ' active' : ''}`}
+            onClick={() => setParam('tab', t.value, 'agreements')}
           >
-            {t === 'agreements' ? 'Agreements' : 'Rate card'}
+            {t.label}
           </button>
         ))}
       </div>
 
       {tab === 'rate-card' ? (
         <RateCardPanel />
+      ) : tab === 'templates' ? (
+        <TemplatesPanel />
+      ) : tab === 'settings' ? (
+        <StoSettingsPanel />
       ) : (
         <>
           <div className="sto-summary">
@@ -229,6 +271,7 @@ export default function Sto() {
                     <th>Company</th>
                     <th>Total</th>
                     <th>Status</th>
+                    <th>Delivery</th>
                     <th>Sent</th>
                     <th></th>
                   </tr>
@@ -238,6 +281,11 @@ export default function Sto() {
                     const meta = AGREEMENT_STATUS_META[a.status]
                     const expired = isExpired(a)
                     const open = expanded === a.id
+                    const sends = messagesByAgreement.get(a.id) ?? []
+                    // The furthest-along send wins, so resending after a bounce
+                    // stops the row reading as failed for good.
+                    const delivery = bestStatus(sends)
+                    const latest = sends[0]
                     return (
                       <Fragment key={a.id}>
                         <tr>
@@ -270,9 +318,31 @@ export default function Sto() {
                               {expired ? 'Expired' : meta.label}
                             </span>
                           </td>
+                          <td>
+                            {delivery && latest ? (
+                              <span
+                                className="badge"
+                                style={{
+                                  background: MESSAGE_STATUS_META[delivery].bg,
+                                  color: MESSAGE_STATUS_META[delivery].color,
+                                }}
+                                title={MESSAGE_STATUS_META[delivery].hint}
+                              >
+                                {statusSummary({ ...latest, status: delivery })}
+                              </span>
+                            ) : (
+                              <span className="sto-date">—</span>
+                            )}
+                          </td>
                           <td className="sto-date">{a.sent_at ? formatDate(a.sent_at) : '—'}</td>
                           <td>
                             <div className="sto-actions">
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setPreviewFor(a.id)}
+                              >
+                                Preview
+                              </button>
                               {a.status === 'draft' && (
                                 <button className="btn btn-ghost btn-sm" onClick={() => setSendFor(a.id)}>
                                   Send
@@ -322,8 +392,15 @@ export default function Sto() {
                         </tr>
                         {open && (
                           <tr className="sto-detail-row">
-                            <td colSpan={6}>
-                              <AgreementDetail agreement={a} contactName={contactName(a.contact_id)} />
+                            <td colSpan={7}>
+                              <AgreementDetail
+                                agreement={a}
+                                contactName={contactName(a.contact_id)}
+                                messages={sends}
+                                onSetStatus={async (id, status, note) => {
+                                  await setMessageStatus(id, status, note)
+                                }}
+                              />
                             </td>
                           </tr>
                         )}
@@ -351,8 +428,17 @@ export default function Sto() {
         <SendAgreementModal
           agreement={sending}
           onClose={() => setSendFor(null)}
-          onSent={refresh}
+          onSent={() => {
+            refresh()
+            // The send just wrote a delivery row; without this the new
+            // agreement status shows but its Delivery column stays empty.
+            refreshMessages()
+          }}
         />
+      )}
+
+      {previewing && (
+        <AgreementPreviewModal agreement={previewing} onClose={() => setPreviewFor(null)} />
       )}
     </div>
   )
@@ -361,9 +447,13 @@ export default function Sto() {
 function AgreementDetail({
   agreement,
   contactName,
+  messages,
+  onSetStatus,
 }: {
   agreement: StoAgreementWithItems
   contactName?: string
+  messages: SentMessage[]
+  onSetStatus: (id: string, status: MessageStatus, note?: string) => Promise<void>
 }) {
   const totals = agreementTotals(agreement.items, agreement.discount_percent)
 
@@ -429,6 +519,13 @@ function AgreementDetail({
           <p>{agreement.notes}</p>
         </div>
       )}
+
+      {/* Its own class rather than .sto-detail-text: that rule restyles every
+          <p> inside it, which would flatten the status panel's own text. */}
+      <div className="sto-detail-delivery">
+        <h4>Delivery</h4>
+        <MessageStatusPanel messages={messages} onSetStatus={onSetStatus} />
+      </div>
     </div>
   )
 }

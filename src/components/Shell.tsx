@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { roleLabel, type Permission } from '../lib/permissions'
 import BrandMark from './BrandMark'
 import './shell.css'
 
@@ -10,13 +11,27 @@ const NAV_ITEMS = [
   { to: '/contacts', label: 'Contacts' },
   { to: '/appointments', label: 'Appointments' },
   { to: '/follow-ups', label: 'Follow-ups' },
+  // Email templates and branding live inside STO, as tabs — they are only ever
+  // read when an agreement goes out.
   { to: '/sto', label: 'STO' },
-  { to: '/templates', label: 'Email templates' },
   { to: '/reports', label: 'Reports' },
 ]
 
+/**
+ * The admin section. Each entry is shown only to someone holding its
+ * permission, so a Manager sees Users and nothing else, and a Staff member
+ * sees no admin section at all. The routes and the data behind them are gated
+ * independently — this only decides what is worth showing.
+ */
+const ADMIN_NAV_ITEMS: { to: string; label: string; permission: Permission }[] = [
+  { to: '/admin/users', label: 'Users', permission: 'users.view' },
+  { to: '/admin/roles', label: 'Roles & permissions', permission: 'roles.view' },
+  { to: '/admin/activity', label: 'Activity logs', permission: 'logs.view' },
+  { to: '/admin/settings', label: 'System settings', permission: 'settings.manage' },
+]
+
 export default function Shell() {
-  const { profile, signOut, isOwner } = useAuth()
+  const { profile, signOut, can } = useAuth()
   const location = useLocation()
 
   // Only ever true below the 1024px breakpoint; above it the rail is always
@@ -69,6 +84,8 @@ export default function Shell() {
     desktop.addEventListener('change', sync)
     return () => desktop.removeEventListener('change', sync)
   }, [])
+
+  const adminItems = ADMIN_NAV_ITEMS.filter((item) => can(item.permission))
 
   const initials = (profile?.full_name || profile?.email || '?')
     .split(' ')
@@ -130,13 +147,19 @@ export default function Shell() {
               {item.label}
             </NavLink>
           ))}
-          {isOwner && (
-            <NavLink
-              to="/team"
-              className={({ isActive }) => `shell-nav-item${isActive ? ' active' : ''}`}
-            >
-              Team
-            </NavLink>
+          {adminItems.length > 0 && (
+            <>
+              <div className="shell-nav-heading">Admin</div>
+              {adminItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) => `shell-nav-item${isActive ? ' active' : ''}`}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </>
           )}
         </nav>
 
@@ -144,7 +167,7 @@ export default function Shell() {
           <div className="shell-user-avatar">{initials}</div>
           <div className="shell-user-info">
             <div className="shell-user-name">{profile?.full_name || profile?.email}</div>
-            <div className="shell-user-role">{profile?.role === 'owner' ? 'Owner' : 'Marketing'}</div>
+            <div className="shell-user-role">{roleLabel(profile?.role)}</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={signOut} aria-label="Sign out">
             Sign out

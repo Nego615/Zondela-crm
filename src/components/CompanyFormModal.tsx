@@ -49,11 +49,12 @@ export default function CompanyFormModal({ company, onClose, onSaved }: Props) {
     setSaving(true)
     setError(null)
     try {
-      // No control links a profile any more, so an owner's save always clears
-      // the link and the company falls back to the shared pool.
+      // No control links a profile any more, so a save by someone who sees the
+      // whole pipeline always clears the link and the company falls back to the
+      // shared pool.
       //
       // A rep is still pinned to their own id: companies_insert checks
-      // `is_owner() or owner_id = auth.uid()`, so a null from a rep is rejected
+      // `can_view_all_data() or owner_id = auth.uid()`, so a null from a rep is rejected
       // outright.
       const effectiveOwnerId = isOwner ? null : profile?.id ?? null
       const payload = {
@@ -65,7 +66,11 @@ export default function CompanyFormModal({ company, onClose, onSaved }: Props) {
         main_market: mainMarket || null,
         stage,
         owner_id: effectiveOwnerId,
-        owner_name: effectiveOwnerId ? null : ownerName.trim() || null,
+        // Always kept, even when a link is pinned above: the field is a plain
+        // input for everyone now, so a name someone typed should never be
+        // thrown away on save. repLabel still prefers the link when both are
+        // set, which is right — the link is what row-level security acts on.
+        owner_name: ownerName.trim() || null,
         notes: notes.trim() || null,
       }
       if (company) {
@@ -94,7 +99,7 @@ export default function CompanyFormModal({ company, onClose, onSaved }: Props) {
         <form onSubmit={handleSubmit}>
           <div className="field">
             <label htmlFor="c_name">Company name</label>
-            <input id="c_name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Retail Ltd" />
+            <input id="c_name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Serengeti Trails Safaris Ltd" />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -129,17 +134,17 @@ export default function CompanyFormModal({ company, onClose, onSaved }: Props) {
                 </option>
               ))}
             </select>
-            <p className="field-hint">Where this client stands with Zondela.</p>
           </div>
 
-          <div className="field">
-            <label htmlFor="c_website">Website</label>
-            <input id="c_website" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
-          </div>
-
-          <div className="field">
-            <label htmlFor="c_address">Address</label>
-            <input id="c_address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, area" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="field">
+              <label htmlFor="c_website">Website</label>
+              <input id="c_website" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
+            </div>
+            <div className="field">
+              <label htmlFor="c_address">Address</label>
+              <input id="c_address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, area" />
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -153,31 +158,15 @@ export default function CompanyFormModal({ company, onClose, onSaved }: Props) {
                 ))}
               </select>
             </div>
-            {isOwner ? (
-              <div className="field">
-                <label htmlFor="c_owner">Assigned rep</label>
-                <input
-                  id="c_owner"
-                  value={ownerName}
-                  onChange={(e) => setOwnerNameDraft(e.target.value)}
-                  placeholder="Their name"
-                />
-                <p className="field-hint">
-                  A typed name labels the record only — no login is linked, so the company stays in
-                  the shared pool, visible to every rep.
-                </p>
-              </div>
-            ) : (
-              <div className="field">
-                <label htmlFor="c_owner">Assigned rep</label>
-                <input id="c_owner" value={profile?.full_name || profile?.email || 'You'} disabled />
-                <p className="field-hint">
-                  {company && !company.owner_id
-                    ? 'Saving claims this company for you. Only an Owner can reassign it later.'
-                    : 'Only an Owner can assign companies to another rep.'}
-                </p>
-              </div>
-            )}
+            <div className="field">
+              <label htmlFor="c_owner">Assigned rep</label>
+              <input
+                id="c_owner"
+                value={ownerName}
+                onChange={(e) => setOwnerNameDraft(e.target.value)}
+                placeholder="Their name"
+              />
+            </div>
           </div>
 
           <div className="field">

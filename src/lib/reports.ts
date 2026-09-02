@@ -138,3 +138,42 @@ export function downloadCsv(filename: string, csv: string) {
 /** `zondela-visits-2026-08-03-to-2026-09-29.csv` */
 export const reportFilename = (slug: string, from: string, to: string) =>
   `zondela-${slug}-${from}-to-${to}.csv`
+
+/* ===========================================================================
+   Months
+   ---------------------------------------------------------------------------
+   "How many visits did we do in August?" is the first question asked of every
+   one of these reports, so bucketing by month lives here beside the range that
+   defines which months there are.
+   =========================================================================== */
+
+/** `2026-08`, read the same way `dayKey` reads its input. */
+export const monthKey = (iso: string) => dayKey(iso).slice(0, 7)
+
+/** `Aug 2026`. Day 1 at local noon: no timezone can push that into a neighbouring month. */
+export function monthLabel(key: string) {
+  const [y, m] = key.split('-').map(Number)
+  return new Date(y, m - 1, 1, 12).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+}
+
+/**
+ * Every month the period touches, oldest first.
+ *
+ * Months with nothing in them are included: a gap in the middle of a report is
+ * a finding, and dropping the row would hide it. Capped, because "All time"
+ * spans years and eighty mostly-empty rows is not a report — past the cap the
+ * caller drops the empty ones instead.
+ */
+export function monthsBetween(from: string, to: string, cap = 24): string[] {
+  const [fy, fm] = from.split('-').map(Number)
+  const [ty, tm] = to.split('-').map(Number)
+  const months: string[] = []
+  for (let y = fy, m = fm; y < ty || (y === ty && m <= tm); ) {
+    months.push(`${y}-${String(m).padStart(2, '0')}`)
+    if (++m > 12) {
+      m = 1
+      y++
+    }
+  }
+  return months.length > cap ? [] : months
+}

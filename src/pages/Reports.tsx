@@ -18,8 +18,15 @@ import {
   mainMarketLabel,
   relationshipLabel,
 } from '../lib/company'
-import { APPOINTMENT_KIND_LABELS, APPOINTMENT_KIND_STYLE } from '../lib/appointment'
-import { agreementTotals, formatMoney, lineTotal } from '../lib/agreement'
+import { APPOINTMENT_KINDS, APPOINTMENT_KIND_LABELS, APPOINTMENT_KIND_STYLE } from '../lib/appointment'
+import {
+  AGREEMENT_STATUS_LIST,
+  AGREEMENT_STATUS_META,
+  agreementTotals,
+  formatMoney,
+  isExpired,
+  lineTotal,
+} from '../lib/agreement'
 import { repLabel } from '../lib/rep'
 import {
   DATE_PRESETS,
@@ -30,6 +37,9 @@ import {
   formatDayTime,
   inRange,
   matchPreset,
+  monthKey,
+  monthLabel,
+  monthsBetween,
   percent,
   presetRange,
   reportFilename,
@@ -37,6 +47,7 @@ import {
   type DatePreset,
 } from '../lib/reports'
 import type {
+  AgreementStatus,
   AppointmentKind,
   Company,
   MainMarket,
@@ -47,22 +58,24 @@ import '../components/ui.css'
 import './reports.css'
 
 /* ===========================================================================
-   The eight reports.
+   The ten reports.
    ---------------------------------------------------------------------------
    Every one is a table over the same period and the same filters, so they
-   share a filter bar, a CSV export and a print layout; only the rows differ.
-   `slug` names the exported file, and `status` lists the status values that
-   report understands — a status left over from another tab is ignored rather
-   than silently narrowing the next table you open.
+   share a filter bar, a monthly breakdown, a CSV export and a print layout;
+   only the rows differ. `slug` names the exported file, and `status` lists the
+   status values that report understands — a status left over from another tab
+   is ignored rather than silently narrowing the next table you open.
    =========================================================================== */
 type Tab =
   | 'overview'
   | 'visits'
+  | 'companies'
   | 'reps'
-  | 'services'
   | 'follow-ups'
-  | 'conversion'
+  | 'agreements'
+  | 'services'
   | 'outreach'
+  | 'conversion'
   | 'notes'
 
 interface TabDef {
@@ -80,14 +93,15 @@ const TABS: TabDef[] = [
     label: 'Overview',
     slug: 'pipeline',
     title: 'Pipeline overview',
-    blurb: 'Where every company stands, and what the period produced.',
+    blurb: 'Where every company stands, and what the period produced month by month.',
   },
   {
     value: 'visits',
-    label: 'Visits & meetings',
+    label: 'Visits & site visits',
     slug: 'visits',
     title: 'Marketing visit report',
-    blurb: 'Every site visit and meeting in the period, with its outcome and what happens next.',
+    blurb:
+      'Every site visit and meeting in the period, with its outcome, the summary written after it and what happens next.',
     status: [
       { value: 'completed', label: 'Completed' },
       { value: 'scheduled', label: 'Scheduled' },
@@ -95,25 +109,33 @@ const TABS: TabDef[] = [
     ],
   },
   {
+    value: 'companies',
+    label: 'Companies',
+    slug: 'companies',
+    title: 'Company report',
+    blurb:
+      'Every client property in scope: what the period produced against it, and where it stands now.',
+    status: [
+      { value: 'visited', label: 'Visited in period' },
+      { value: 'not_visited', label: 'Not visited' },
+      { value: 'quoted', label: 'Quoted in period' },
+      { value: 'accepted', label: 'Accepted in period' },
+      { value: 'overdue', label: 'Has an overdue follow-up' },
+    ],
+  },
+  {
     value: 'reps',
-    label: 'Rep performance',
+    label: 'Reps',
     slug: 'rep-performance',
     title: 'Rep performance',
     blurb: 'What each rep booked, closed and chased in the period.',
-  },
-  {
-    value: 'services',
-    label: 'Service interest',
-    slug: 'service-interest',
-    title: 'Service interest',
-    blurb: 'Which STO services are being quoted, and what they are worth.',
   },
   {
     value: 'follow-ups',
     label: 'Follow-ups',
     slug: 'follow-ups',
     title: 'Follow-up report',
-    blurb: 'Everything due in the period, and how much of it is still open.',
+    blurb: 'Everything due in the period, what was written on it, and how much is still open.',
     status: [
       { value: 'pending', label: 'Pending' },
       { value: 'overdue', label: 'Overdue' },
@@ -122,11 +144,22 @@ const TABS: TabDef[] = [
     ],
   },
   {
-    value: 'conversion',
-    label: 'Visit conversion',
-    slug: 'visit-conversion',
-    title: 'Visit conversion',
-    blurb: 'How far the companies visited in the period got afterwards.',
+    value: 'agreements',
+    label: 'STO agreements',
+    slug: 'sto-agreements',
+    title: 'STO agreements',
+    blurb: 'Every agreement raised in the period, what it was worth and how the client answered.',
+    status: [
+      ...AGREEMENT_STATUS_LIST.map((v) => ({ value: v as string, label: AGREEMENT_STATUS_META[v].label })),
+      { value: 'expired', label: 'Expired' },
+    ],
+  },
+  {
+    value: 'services',
+    label: 'Service interest',
+    slug: 'service-interest',
+    title: 'Service interest',
+    blurb: 'Which STO services are being quoted, and what they are worth.',
   },
   {
     value: 'outreach',
@@ -138,6 +171,13 @@ const TABS: TabDef[] = [
       { value: 'email', label: 'Email' },
       { value: 'whatsapp', label: 'WhatsApp' },
     ],
+  },
+  {
+    value: 'conversion',
+    label: 'Visit conversion',
+    slug: 'visit-conversion',
+    title: 'Visit conversion',
+    blurb: 'How far the companies visited in the period got afterwards.',
   },
   {
     value: 'notes',
@@ -251,6 +291,50 @@ interface OutreachRow {
   preview: string
 }
 
+interface CompanyRow {
+  id: string
+  company: string
+  stage: Stage
+  stageLabel: string
+  relationship: string
+  market: string
+  location: string
+  rep: string
+  contacts: number
+  visits: number
+  visitsDone: number
+  lastVisit: string | null
+  openFollowUps: number
+  overdue: number
+  quotes: number
+  accepted: number
+  value: number
+  currency: string
+  addedOn: string
+  lastActivity: string
+  note: string | null
+}
+
+interface AgreementRow {
+  id: string
+  reference: string
+  company: string
+  contact: string
+  title: string
+  statusKey: AgreementStatus | 'expired'
+  status: string
+  createdAt: string
+  sentOn: string | null
+  answeredOn: string | null
+  validUntil: string | null
+  services: string
+  lines: number
+  discount: number
+  value: number
+  currency: string
+  note: string | null
+}
+
 interface NoteRow {
   id: string
   date: string
@@ -283,6 +367,9 @@ export default function Reports() {
   const from = params.get('from') || defaults.from
   const to = params.get('to') || defaults.to
   const repFilter = params.get('rep') ?? ''
+  const companyFilter = params.get('company') ?? ''
+  const locationFilter = params.get('location') ?? ''
+  const kindFilter = params.get('kind') ?? ''
   const relationshipFilter = params.get('relationship') ?? ''
   const marketFilter = params.get('market') ?? ''
   const stageFilter = params.get('stage') ?? ''
@@ -319,6 +406,28 @@ export default function Reports() {
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies])
   const contactById = useMemo(() => new Map(contacts.map((c) => [c.id, c])), [contacts])
   const companyName = (id: string | null) => (id && companyById.get(id)?.name) || 'Unknown company'
+
+  /** Companies for the picker, by name rather than by the list's own recency order. */
+  const companyOptions = useMemo(
+    () => [...companies].sort((a, b) => a.name.localeCompare(b.name)),
+    [companies]
+  )
+
+  /**
+   * The locations on file, as they were typed.
+   *
+   * Country is free text on the company form, so the list is whatever has been
+   * entered — matched case-insensitively, but shown with the first spelling
+   * seen so the dropdown reads like the records do.
+   */
+  const locations = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const c of companies) {
+      const name = c.country?.trim()
+      if (name && !seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), name)
+    }
+    return [...seen.values()].sort((a, b) => a.localeCompare(b))
+  }, [companies])
   const repName = (profileId: string | null, typedName: string | null) =>
     repLabel(profiles, profileId, typedName, 'Unassigned')
 
@@ -386,6 +495,9 @@ export default function Reports() {
   // a filter that is not being applied.
   const filterCount = [
     selectedRep,
+    companyFilter,
+    locationFilter,
+    kindFilter,
     relationshipFilter,
     marketFilter,
     stageFilter,
@@ -419,6 +531,12 @@ export default function Reports() {
   /** The company-shaped half of the filter bar, applied wherever a row has one. */
   const companyPasses = (company: Company | undefined) => {
     if (!company) return false
+    if (companyFilter && company.id !== companyFilter) return false
+    if (
+      locationFilter &&
+      (company.country ?? '').trim().toLowerCase() !== locationFilter.toLowerCase()
+    )
+      return false
     if (relationshipFilter && company.relationship !== relationshipFilter) return false
     if (marketFilter && company.main_market !== marketFilter) return false
     if (stageFilter && company.stage !== stageFilter) return false
@@ -436,12 +554,47 @@ export default function Reports() {
     from,
     to,
     repFilter,
+    companyFilter,
+    locationFilter,
+    kindFilter,
     relationshipFilter,
     marketFilter,
     stageFilter,
     serviceFilter,
     needle,
   ].join('|')
+
+  /**
+   * Site visit or meeting.
+   *
+   * Both live in `site_visits` and both are "a visit" in the reports; the filter
+   * is what separates a pure site-visit report from one that also counts calls
+   * and sit-downs. Every report that counts a visit reads it.
+   */
+  const kindMatches = (kind: AppointmentKind) => !kindFilter || kind === kindFilter
+
+  /**
+   * The months a report is broken down by, newest first.
+   *
+   * Normally every month the period touches, empty ones included — a month with
+   * no visits in it is the finding. Over a span too long for that (All time),
+   * `monthsBetween` declines and the months actually present in the data are
+   * used instead.
+   */
+  function monthsOf(...streams: (string | null | undefined)[][]) {
+    const spanned = monthsBetween(from, to)
+    const keys =
+      spanned.length > 0
+        ? spanned
+        : [
+            ...new Set(
+              streams.flat().filter((d): d is string => !!d).map(monthKey)
+            ),
+          ].sort()
+    return keys.map((key) => ({ key, label: monthLabel(key) })).reverse()
+  }
+
+  const inMonth = (iso: string | null | undefined, key: string) => !!iso && monthKey(iso) === key
 
   /** Companies passing the non-date filters — the denominator for the funnel. */
   const scopedCompanies = useMemo(
@@ -460,6 +613,7 @@ export default function Reports() {
     () =>
       visits
         .filter((v) => inRange(v.scheduled_for, from, to))
+        .filter((v) => kindMatches(v.kind))
         .filter((v) => companyPasses(companyById.get(v.company_id)))
         .filter((v) => repMatches(v.rep_id, v.rep_name))
         .filter((v) => !statusFilter || v.status === statusFilter)
@@ -537,6 +691,150 @@ export default function Reports() {
       label: 'Follow-up',
       value: (r) => r.followUpOn,
       cell: (r) => formatDay(r.followUpOn),
+    },
+    { key: 'note', label: 'Note', value: (r) => r.note },
+  ]
+
+  /* =========================================================================
+     Companies — one row per client property, and what the period did to it
+     ========================================================================= */
+  const companyRows = useMemo<CompanyRow[]>(() => {
+    const now = new Date()
+    return companies
+      .filter((c) => companyPasses(c) && repMatches(c.owner_id, c.owner_name))
+      .filter((c) => matchesSearch(c.name, c.notes, c.country, repName(c.owner_id, c.owner_name)))
+      .map((c) => {
+        const theirVisits = visits.filter((v) => v.company_id === c.id && kindMatches(v.kind))
+        const inPeriod = theirVisits.filter((v) => inRange(v.scheduled_for, from, to))
+        const theirFollowUps = followUps.filter((f) => f.company_id === c.id)
+        const theirAgreements = agreements.filter((a) => a.company_id === c.id)
+        const sent = theirAgreements.filter((a) => inRange(a.sent_at, from, to))
+        const accepted = theirAgreements.filter((a) => inRange(a.accepted_at, from, to))
+
+        // The last visit that has actually happened, whenever it was. The
+        // period says what was done lately; this column says how long it has
+        // been since anyone was there, which a period on its own cannot.
+        const past = theirVisits
+          .filter((v) => v.status === 'completed' && new Date(v.scheduled_for) <= now)
+          .sort((a, b) => b.scheduled_for.localeCompare(a.scheduled_for))
+
+        return {
+          id: c.id,
+          company: c.name,
+          stage: c.stage,
+          stageLabel: STAGE_META[c.stage].label,
+          relationship: relationshipLabel(c.relationship) ?? '—',
+          market: mainMarketLabel(c.main_market) ?? '—',
+          location: c.country?.trim() || '—',
+          rep: repName(c.owner_id, c.owner_name),
+          contacts: contacts.filter((x) => x.company_id === c.id).length,
+          visits: inPeriod.length,
+          visitsDone: inPeriod.filter((v) => v.status === 'completed').length,
+          lastVisit: past[0]?.scheduled_for ?? null,
+          openFollowUps: theirFollowUps.filter((f) => f.status === 'pending').length,
+          overdue: theirFollowUps.filter((f) => f.status === 'pending' && new Date(f.due_at) < now)
+            .length,
+          quotes: sent.length,
+          accepted: accepted.length,
+          value: accepted.reduce(
+            (sum, a) => sum + agreementTotals(a.items, a.discount_percent).total,
+            0
+          ),
+          currency: accepted[0]?.currency ?? 'TZS',
+          addedOn: c.created_at,
+          lastActivity: c.updated_at,
+          note: c.notes?.trim() || null,
+        }
+      })
+      .filter((r) => {
+        switch (statusFilter) {
+          case 'visited':
+            return r.visits > 0
+          case 'not_visited':
+            return r.visits === 0
+          case 'quoted':
+            return r.quotes > 0
+          case 'accepted':
+            return r.accepted > 0
+          case 'overdue':
+            return r.overdue > 0
+          default:
+            return true
+        }
+      })
+      .sort((a, b) => b.value - a.value || b.visits - a.visits || a.company.localeCompare(b.company))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companies, visits, followUps, agreements, contacts, profiles, statusFilter, filterKey])
+
+  const companyColumns: Column<CompanyRow>[] = [
+    {
+      key: 'company',
+      label: 'Company',
+      value: (r) => r.company,
+      cell: (r) => <span className="rp-strong">{r.company}</span>,
+    },
+    {
+      key: 'stage',
+      label: 'Stage',
+      value: (r) => r.stageLabel,
+      cell: (r) => (
+        <span
+          className="badge"
+          style={{ color: STAGE_META[r.stage].color, background: STAGE_META[r.stage].bg }}
+        >
+          {r.stageLabel}
+        </span>
+      ),
+    },
+    { key: 'relationship', label: 'Relationship', value: (r) => r.relationship },
+    { key: 'market', label: 'Market', value: (r) => r.market },
+    { key: 'location', label: 'Location', value: (r) => r.location },
+    { key: 'rep', label: 'Rep', value: (r) => r.rep },
+    { key: 'contacts', label: 'Contacts', value: (r) => r.contacts, numeric: true },
+    {
+      key: 'visits',
+      label: 'Visits',
+      value: (r) => r.visits,
+      numeric: true,
+      cell: (r) => (r.visits === 0 ? <span className="rp-muted">0</span> : r.visits),
+    },
+    { key: 'visitsDone', label: 'Completed', value: (r) => r.visitsDone, numeric: true },
+    {
+      key: 'lastVisit',
+      label: 'Last visit',
+      value: (r) => (r.lastVisit ? dayKey(r.lastVisit) : null),
+      cell: (r) =>
+        r.lastVisit ? (
+          <>
+            {formatDay(r.lastVisit)}
+            <span className="rp-muted"> · {daysAgo(r.lastVisit)}d ago</span>
+          </>
+        ) : (
+          <span className="rp-muted">Never</span>
+        ),
+    },
+    { key: 'open', label: 'Open follow-ups', value: (r) => r.openFollowUps, numeric: true },
+    {
+      key: 'overdue',
+      label: 'Overdue',
+      value: (r) => r.overdue,
+      numeric: true,
+      cell: (r) => (r.overdue > 0 ? <span className="rp-danger">{r.overdue}</span> : r.overdue),
+    },
+    { key: 'quotes', label: 'Quotes sent', value: (r) => r.quotes, numeric: true },
+    { key: 'accepted', label: 'Accepted', value: (r) => r.accepted, numeric: true },
+    {
+      key: 'value',
+      label: 'Accepted value',
+      value: (r) => Math.round(r.value),
+      numeric: true,
+      cell: (r) => (r.value > 0 ? formatMoney(r.value, r.currency) : '—'),
+    },
+    {
+      key: 'added',
+      label: 'Added',
+      value: (r) => dayKey(r.addedOn),
+      cell: (r) => formatDay(r.addedOn),
     },
     { key: 'note', label: 'Note', value: (r) => r.note },
   ]
@@ -836,12 +1134,142 @@ export default function Reports() {
   ]
 
   /* =========================================================================
+     STO agreements — the formal quotes themselves, raised in the period
+     ========================================================================= */
+  const agreementRows = useMemo<AgreementRow[]>(() => {
+    return agreements
+      .filter((a) => inRange(a.created_at, from, to))
+      .filter((a) => companyPasses(companyById.get(a.company_id)))
+      .filter((a) => repMatches(a.created_by, null))
+      .filter((a) =>
+        matchesSearch(
+          a.reference,
+          a.title,
+          a.notes,
+          companyName(a.company_id),
+          a.items.map((i) => i.service_name).join(' ')
+        )
+      )
+      .map((a) => {
+        // Expired is derived rather than stored — a quote whose validity ran
+        // out is still 'sent' in the database, and reading it as merely sent
+        // is how a dead quote stays on the board.
+        const expired = isExpired(a)
+        return {
+          id: a.id,
+          reference: a.reference,
+          company: companyName(a.company_id),
+          contact: (a.contact_id && contactById.get(a.contact_id)?.full_name) || '—',
+          title: a.title,
+          statusKey: (expired ? 'expired' : a.status) as AgreementStatus | 'expired',
+          status: expired ? 'Expired' : AGREEMENT_STATUS_META[a.status].label,
+          createdAt: a.created_at,
+          sentOn: a.sent_at,
+          answeredOn: a.accepted_at ?? a.declined_at,
+          validUntil: a.valid_until,
+          services: a.items.map((i) => i.service_name).join(', ') || '—',
+          lines: a.items.length,
+          discount: a.discount_percent,
+          value: agreementTotals(a.items, a.discount_percent).total,
+          currency: a.currency,
+          note: a.notes?.trim() || null,
+        }
+      })
+      .filter((r) => !statusFilter || r.statusKey === statusFilter)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agreements, companyById, contactById, profiles, statusFilter, filterKey])
+
+  const agreementSummary = useMemo(() => {
+    const count = (fn: (r: AgreementRow) => boolean) => agreementRows.filter(fn).length
+    const accepted = count((r) => r.statusKey === 'accepted')
+    const declined = count((r) => r.statusKey === 'declined')
+    return {
+      raised: agreementRows.length,
+      sent: count((r) => r.sentOn !== null),
+      accepted,
+      declined,
+      expired: count((r) => r.statusKey === 'expired'),
+      draft: count((r) => r.statusKey === 'draft'),
+      value: agreementRows.reduce((sum, r) => sum + r.value, 0),
+      acceptedValue: agreementRows
+        .filter((r) => r.statusKey === 'accepted')
+        .reduce((sum, r) => sum + r.value, 0),
+      // Against the ones that were answered: a quote still waiting is not a
+      // loss, and counting it as one understates the rate every month.
+      acceptRate: percent(accepted, accepted + declined),
+      currency: agreementRows[0]?.currency ?? 'TZS',
+      mixedCurrency: new Set(agreementRows.map((r) => r.currency)).size > 1,
+    }
+  }, [agreementRows])
+
+  const agreementColumns: Column<AgreementRow>[] = [
+    {
+      key: 'reference',
+      label: 'Reference',
+      value: (r) => r.reference,
+      cell: (r) => <span className="rp-strong">{r.reference}</span>,
+    },
+    {
+      key: 'created',
+      label: 'Raised',
+      value: (r) => dayKey(r.createdAt),
+      cell: (r) => formatDay(r.createdAt),
+    },
+    { key: 'company', label: 'Company', value: (r) => r.company },
+    { key: 'contact', label: 'Contact', value: (r) => r.contact },
+    { key: 'title', label: 'Title', value: (r) => r.title },
+    { key: 'services', label: 'Services', value: (r) => r.services },
+    { key: 'lines', label: 'Lines', value: (r) => r.lines, numeric: true },
+    {
+      key: 'discount',
+      label: 'Discount',
+      value: (r) => r.discount,
+      numeric: true,
+      cell: (r) => (r.discount > 0 ? `${r.discount}%` : '—'),
+    },
+    {
+      key: 'value',
+      label: 'Value',
+      value: (r) => Math.round(r.value),
+      numeric: true,
+      cell: (r) => formatMoney(r.value, r.currency),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      value: (r) => r.status,
+      cell: (r) => <span className={`rp-pill rp-pill-${r.statusKey}`}>{r.status}</span>,
+    },
+    {
+      key: 'sent',
+      label: 'Sent',
+      value: (r) => (r.sentOn ? dayKey(r.sentOn) : null),
+      cell: (r) => formatDay(r.sentOn),
+    },
+    {
+      key: 'answered',
+      label: 'Answered',
+      value: (r) => (r.answeredOn ? dayKey(r.answeredOn) : null),
+      cell: (r) => formatDay(r.answeredOn),
+    },
+    {
+      key: 'valid',
+      label: 'Valid until',
+      value: (r) => r.validUntil,
+      cell: (r) => formatDay(r.validUntil),
+    },
+    { key: 'note', label: 'Note', value: (r) => r.note },
+  ]
+
+  /* =========================================================================
      Visit conversion — did going out there lead anywhere?
      ========================================================================= */
   const conversionRows = useMemo<ConversionRow[]>(() => {
     const byCompany = new Map<string, { first: string; count: number }>()
     for (const v of visits) {
       if (v.status === 'cancelled') continue
+      if (!kindMatches(v.kind)) continue
       if (!inRange(v.scheduled_for, from, to)) continue
       if (!companyPasses(companyById.get(v.company_id))) continue
       if (!repMatches(v.rep_id, v.rep_name)) continue
@@ -1048,6 +1476,7 @@ export default function Reports() {
 
     for (const v of visits) {
       if (!v.summary?.trim()) continue
+      if (!kindMatches(v.kind)) continue
       if (!inRange(v.scheduled_for, from, to)) continue
       if (!companyPasses(companyById.get(v.company_id))) continue
       if (!repMatches(v.rep_id, v.rep_name)) continue
@@ -1186,6 +1615,10 @@ export default function Reports() {
     switch (tab) {
       case 'visits':
         return pack(visitColumns, visitRows)
+      case 'companies':
+        return pack(companyColumns, companyRows)
+      case 'agreements':
+        return pack(agreementColumns, agreementRows)
       case 'reps':
         return pack(repColumns, repRows)
       case 'services':
@@ -1202,7 +1635,18 @@ export default function Reports() {
         return null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, visitRows, repRows, serviceRows, followUpRows, conversionRows, outreachRows, noteRows])
+  }, [
+    tab,
+    visitRows,
+    companyRows,
+    agreementRows,
+    repRows,
+    serviceRows,
+    followUpRows,
+    conversionRows,
+    outreachRows,
+    noteRows,
+  ])
 
   function exportCsv() {
     if (!current) {
@@ -1227,11 +1671,39 @@ export default function Reports() {
   }
 
   /* =========================================================================
+     Monthly breakdowns
+     ---------------------------------------------------------------------------
+     "How many visits did we do last month, and what came back?" is the first
+     question asked of every one of these sections, so each gets the same shape
+     of answer: one row per month over the period, counts across, totals under.
+     Cheap enough to derive on render — the rows they read are already memoised.
+     ========================================================================= */
+  const visitMonths = monthsOf(visitRows.map((r) => r.date))
+  const companyMonths = monthsOf(companyRows.map((r) => r.addedOn))
+  const followUpMonths = monthsOf(followUpRows.map((r) => r.due))
+  const agreementMonths = monthsOf(agreementRows.map((r) => r.createdAt))
+  const outreachMonths = monthsOf(outreachRows.map((r) => r.sentAt))
+  const noteMonths = monthsOf(noteRows.map((r) => r.date))
+  const overviewMonths = monthsOf(
+    visitRows.map((r) => r.date),
+    followUpRows.map((r) => r.due),
+    agreementRows.map((r) => r.createdAt),
+    scopedCompanies.map((c) => c.created_at)
+  )
+
+  /** Rows of one section falling in a given month — the shape every column below counts. */
+  const inMonthOf = <T,>(rows: T[], dateOf: (row: T) => string | null, key: string) =>
+    rows.filter((r) => inMonth(dateOf(r), key))
+
+  /* =========================================================================
      Render
      ========================================================================= */
   const filterSummary = [
     `${formatDay(from)} – ${formatDay(to)}`,
     selectedRep?.name ?? 'All reps',
+    companyFilter ? companyName(companyFilter) : 'All companies',
+    locationFilter || 'All locations',
+    kindFilter ? APPOINTMENT_KIND_LABELS[kindFilter as AppointmentKind] : 'Visits and meetings',
     relationshipFilter ? relationshipLabel(relationshipFilter as Relationship) : 'All relationships',
     marketFilter ? mainMarketLabel(marketFilter as MainMarket) : 'All markets',
     stageFilter ? STAGE_META[stageFilter as Stage].label : 'All stages',
@@ -1299,8 +1771,8 @@ export default function Reports() {
           <h1>Reports</h1>
           <p>
             {isOwner
-              ? 'Executive reports across visits, reps, services, follow-ups, STO outreach and conversion.'
-              : 'Your own visits, follow-ups, outreach and conversion.'}
+              ? 'Executive reports across visits and site visits, companies, reps, follow-ups and STO — month by month, with the notes written on each.'
+              : 'Your own visits, companies, follow-ups and STO work, month by month.'}
           </p>
         </div>
         <div className="rp-header-actions">
@@ -1376,6 +1848,39 @@ export default function Reports() {
                     ))}
                 </optgroup>
               )}
+            </select>
+          </label>
+          <label className="rp-filter">
+            <span>Company</span>
+            <select value={companyFilter} onChange={(e) => setParam('company', e.target.value)}>
+              <option value="">All companies</option>
+              {companyOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="rp-filter">
+            <span>Location</span>
+            <select value={locationFilter} onChange={(e) => setParam('location', e.target.value)}>
+              <option value="">All locations</option>
+              {locations.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="rp-filter">
+            <span>Visit type</span>
+            <select value={kindFilter} onChange={(e) => setParam('kind', e.target.value)}>
+              <option value="">Visits and meetings</option>
+              {APPOINTMENT_KINDS.map((k) => (
+                <option key={k.value} value={k.value}>
+                  {k.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="rp-filter">
@@ -1520,6 +2025,46 @@ export default function Reports() {
               />
             </div>
 
+            <MonthlyPanel
+              caption="Month by month"
+              months={overviewMonths}
+              columns={[
+                {
+                  label: 'Visits',
+                  primary: true,
+                  value: (k) => inMonthOf(visitRows, (r) => r.date, k).length,
+                },
+                {
+                  label: 'Completed',
+                  value: (k) =>
+                    inMonthOf(visitRows, (r) => r.date, k).filter((r) => r.outcome === 'Completed')
+                      .length,
+                },
+                {
+                  label: 'Follow-ups due',
+                  value: (k) => inMonthOf(followUpRows, (r) => r.due, k).length,
+                },
+                {
+                  label: 'Follow-ups done',
+                  value: (k) =>
+                    inMonthOf(followUpRows, (r) => r.due, k).filter((r) => r.status === 'Done')
+                      .length,
+                },
+                {
+                  label: 'Agreements raised',
+                  value: (k) => inMonthOf(agreementRows, (r) => r.createdAt, k).length,
+                },
+                {
+                  label: 'New companies',
+                  value: (k) => scopedCompanies.filter((c) => inMonth(c.created_at, k)).length,
+                },
+                {
+                  label: 'Notes written',
+                  value: (k) => inMonthOf(noteRows, (r) => r.date, k).length,
+                },
+              ]}
+            />
+
             <h3 className="rp-sub">Pipeline by stage</h3>
             <div className="stage-bars">
               {STAGE_LIST.map((s) => {
@@ -1555,13 +2100,363 @@ export default function Reports() {
             </div>
           </>
         ) : tab === 'visits' ? (
-          renderTable(visitColumns, visitRows, 'No visits or meetings in this period.', (r) => r.note)
+          <>
+            <div className="metric-row">
+              <Metric
+                label="Visits in period"
+                value={visitRows.length}
+                sub={`${visitRows.filter((r) => r.outcome === 'Completed').length} completed`}
+              />
+              <Metric
+                label="Site visits"
+                value={visitRows.filter((r) => r.kindKey === 'site_visit').length}
+                sub="at the client's premises"
+              />
+              <Metric
+                label="Meetings"
+                value={visitRows.filter((r) => r.kindKey === 'meeting').length}
+                sub="calls and sit-downs"
+              />
+              <Metric
+                label="Companies seen"
+                value={new Set(visitRows.map((r) => r.company)).size}
+                sub="distinct clients"
+              />
+              <Metric
+                label="Cancelled"
+                value={visitRows.filter((r) => r.outcome === 'Cancelled').length}
+                sub="called off"
+                tone={visitRows.some((r) => r.outcome === 'Cancelled') ? 'danger' : undefined}
+              />
+              <Metric
+                label="Summaries written"
+                value={visitRows.filter((r) => r.note).length}
+                sub={`of ${visitRows.length} visits`}
+              />
+            </div>
+
+            <MonthlyPanel
+              caption="Visits by month"
+              months={visitMonths}
+              columns={[
+                { label: 'Visits', primary: true, value: (k) => inMonthOf(visitRows, (r) => r.date, k).length },
+                {
+                  label: 'Site visits',
+                  value: (k) =>
+                    inMonthOf(visitRows, (r) => r.date, k).filter((r) => r.kindKey === 'site_visit')
+                      .length,
+                },
+                {
+                  label: 'Meetings',
+                  value: (k) =>
+                    inMonthOf(visitRows, (r) => r.date, k).filter((r) => r.kindKey === 'meeting')
+                      .length,
+                },
+                {
+                  label: 'Completed',
+                  value: (k) =>
+                    inMonthOf(visitRows, (r) => r.date, k).filter((r) => r.outcome === 'Completed')
+                      .length,
+                },
+                {
+                  label: 'Cancelled',
+                  value: (k) =>
+                    inMonthOf(visitRows, (r) => r.date, k).filter((r) => r.outcome === 'Cancelled')
+                      .length,
+                },
+                {
+                  label: 'Companies',
+                  noTotal: true,
+                  value: (k) =>
+                    new Set(inMonthOf(visitRows, (r) => r.date, k).map((r) => r.company)).size,
+                },
+                {
+                  label: 'With a summary',
+                  value: (k) => inMonthOf(visitRows, (r) => r.date, k).filter((r) => r.note).length,
+                },
+              ]}
+            />
+
+            <h3 className="rp-sub">Every visit, with what was written after it</h3>
+            {renderTable(
+              visitColumns,
+              visitRows,
+              'No visits or meetings in this period.',
+              (r) => r.note
+            )}
+          </>
+        ) : tab === 'companies' ? (
+          <>
+            <div className="metric-row">
+              <Metric
+                label="Companies in scope"
+                value={companyRows.length}
+                sub={`${companyRows.filter((r) => inRange(r.addedOn, from, to)).length} added this period`}
+              />
+              <Metric
+                label="Visited in period"
+                value={companyRows.filter((r) => r.visits > 0).length}
+                sub={`${companyRows.filter((r) => r.visits === 0).length} not visited`}
+              />
+              <Metric
+                label="Quoted"
+                value={companyRows.filter((r) => r.quotes > 0).length}
+                sub={`${companyRows.filter((r) => r.accepted > 0).length} accepted`}
+              />
+              <Metric
+                label="Open follow-ups"
+                value={companyRows.reduce((sum, r) => sum + r.openFollowUps, 0)}
+                sub={`${companyRows.reduce((sum, r) => sum + r.overdue, 0)} overdue`}
+                tone={companyRows.some((r) => r.overdue > 0) ? 'danger' : undefined}
+              />
+              <Metric
+                label="Never visited"
+                value={companyRows.filter((r) => r.lastVisit === null).length}
+                sub="no completed visit on file"
+              />
+              <Metric
+                label="Accepted value"
+                value={formatMoney(
+                  companyRows.reduce((sum, r) => sum + r.value, 0),
+                  companyRows.find((r) => r.value > 0)?.currency ?? 'TZS'
+                )}
+                sub="signed in period"
+                small
+              />
+            </div>
+
+            <MonthlyPanel
+              caption="Companies added by month"
+              months={companyMonths}
+              columns={[
+                {
+                  label: 'Added',
+                  primary: true,
+                  value: (k) => inMonthOf(companyRows, (r) => r.addedOn, k).length,
+                },
+                {
+                  label: 'Visited since',
+                  value: (k) =>
+                    inMonthOf(companyRows, (r) => r.addedOn, k).filter((r) => r.lastVisit !== null)
+                      .length,
+                },
+                {
+                  label: 'Quoted',
+                  value: (k) =>
+                    inMonthOf(companyRows, (r) => r.addedOn, k).filter((r) => r.quotes > 0).length,
+                },
+                {
+                  label: 'Won',
+                  value: (k) =>
+                    inMonthOf(companyRows, (r) => r.addedOn, k).filter((r) => r.stage === 'won')
+                      .length,
+                },
+                {
+                  label: 'Lost',
+                  value: (k) =>
+                    inMonthOf(companyRows, (r) => r.addedOn, k).filter((r) => r.stage === 'lost')
+                      .length,
+                },
+              ]}
+            />
+
+            <h3 className="rp-sub">Every company in scope</h3>
+            {renderTable(
+              companyColumns,
+              companyRows,
+              'No companies match these filters.',
+              (r) => r.note
+            )}
+          </>
+        ) : tab === 'agreements' ? (
+          <>
+            <div className="metric-row">
+              <Metric
+                label="Agreements raised"
+                value={agreementSummary.raised}
+                sub={`${agreementSummary.draft} still draft`}
+              />
+              <Metric
+                label="Sent to clients"
+                value={agreementSummary.sent}
+                sub="left the office"
+              />
+              <Metric
+                label="Accepted"
+                value={agreementSummary.accepted}
+                sub={`${agreementSummary.declined} declined`}
+              />
+              <Metric
+                label="Expired"
+                value={agreementSummary.expired}
+                sub="past validity, unanswered"
+                tone={agreementSummary.expired > 0 ? 'danger' : undefined}
+              />
+              <Metric
+                label="Value raised"
+                value={
+                  agreementSummary.mixedCurrency
+                    ? 'Mixed'
+                    : formatMoney(agreementSummary.value, agreementSummary.currency)
+                }
+                sub={
+                  agreementSummary.mixedCurrency
+                    ? 'mixed currencies'
+                    : `${formatMoney(agreementSummary.acceptedValue, agreementSummary.currency)} accepted`
+                }
+                small
+              />
+              <Metric
+                label="Accept rate"
+                value={
+                  agreementSummary.acceptRate === null ? '—' : `${agreementSummary.acceptRate}%`
+                }
+                sub="of those answered"
+              />
+            </div>
+
+            <MonthlyPanel
+              caption="Agreements by month raised"
+              months={agreementMonths}
+              columns={[
+                {
+                  label: 'Raised',
+                  primary: true,
+                  value: (k) => inMonthOf(agreementRows, (r) => r.createdAt, k).length,
+                },
+                {
+                  label: 'Sent',
+                  value: (k) =>
+                    inMonthOf(agreementRows, (r) => r.createdAt, k).filter((r) => r.sentOn !== null)
+                      .length,
+                },
+                {
+                  label: 'Accepted',
+                  value: (k) =>
+                    inMonthOf(agreementRows, (r) => r.createdAt, k).filter(
+                      (r) => r.statusKey === 'accepted'
+                    ).length,
+                },
+                {
+                  label: 'Declined',
+                  value: (k) =>
+                    inMonthOf(agreementRows, (r) => r.createdAt, k).filter(
+                      (r) => r.statusKey === 'declined'
+                    ).length,
+                },
+                {
+                  label: 'Companies',
+                  noTotal: true,
+                  value: (k) =>
+                    new Set(
+                      inMonthOf(agreementRows, (r) => r.createdAt, k).map((r) => r.company)
+                    ).size,
+                },
+                {
+                  label: 'Value',
+                  money: true,
+                  currency: agreementSummary.currency,
+                  value: (k) =>
+                    inMonthOf(agreementRows, (r) => r.createdAt, k).reduce(
+                      (sum, r) => sum + r.value,
+                      0
+                    ),
+                },
+              ]}
+            />
+
+            <h3 className="rp-sub">Every agreement raised in the period</h3>
+            {renderTable(
+              agreementColumns,
+              agreementRows,
+              'No agreements raised in this period.',
+              (r) => r.note
+            )}
+          </>
         ) : tab === 'reps' ? (
           renderTable(repColumns, repRows, 'No rep activity in this period.')
         ) : tab === 'services' ? (
           renderTable(serviceColumns, serviceRows, 'No services quoted in this period.')
         ) : tab === 'follow-ups' ? (
-          renderTable(followUpColumns, followUpRows, 'No follow-ups due in this period.')
+          <>
+            <div className="metric-row">
+              <Metric label="Due in period" value={followUpRows.length} sub="booked to happen" />
+              <Metric
+                label="Done"
+                value={followUpRows.filter((r) => r.status === 'Done').length}
+                sub={
+                  percent(
+                    followUpRows.filter((r) => r.status === 'Done').length,
+                    followUpRows.length
+                  ) === null
+                    ? 'nothing due'
+                    : `${percent(followUpRows.filter((r) => r.status === 'Done').length, followUpRows.length)}% of those due`
+                }
+              />
+              <Metric
+                label="Still pending"
+                value={followUpRows.filter((r) => r.status === 'Pending').length}
+                sub="not yet late"
+              />
+              <Metric
+                label="Overdue"
+                value={followUpRows.filter((r) => r.status === 'Overdue').length}
+                sub="past their date"
+                tone={followUpRows.some((r) => r.status === 'Overdue') ? 'danger' : undefined}
+              />
+              <Metric
+                label="Skipped"
+                value={followUpRows.filter((r) => r.status === 'Skipped').length}
+                sub="deliberately dropped"
+              />
+              <Metric
+                label="Companies"
+                value={new Set(followUpRows.map((r) => r.company)).size}
+                sub="being chased"
+              />
+            </div>
+
+            <MonthlyPanel
+              caption="Follow-ups by month due"
+              months={followUpMonths}
+              columns={[
+                { label: 'Due', primary: true, value: (k) => inMonthOf(followUpRows, (r) => r.due, k).length },
+                {
+                  label: 'Done',
+                  value: (k) =>
+                    inMonthOf(followUpRows, (r) => r.due, k).filter((r) => r.status === 'Done')
+                      .length,
+                },
+                {
+                  label: 'Pending',
+                  value: (k) =>
+                    inMonthOf(followUpRows, (r) => r.due, k).filter((r) => r.status === 'Pending')
+                      .length,
+                },
+                {
+                  label: 'Overdue',
+                  value: (k) =>
+                    inMonthOf(followUpRows, (r) => r.due, k).filter((r) => r.status === 'Overdue')
+                      .length,
+                },
+                {
+                  label: 'Skipped',
+                  value: (k) =>
+                    inMonthOf(followUpRows, (r) => r.due, k).filter((r) => r.status === 'Skipped')
+                      .length,
+                },
+                {
+                  label: 'Companies',
+                  noTotal: true,
+                  value: (k) =>
+                    new Set(inMonthOf(followUpRows, (r) => r.due, k).map((r) => r.company)).size,
+                },
+              ]}
+            />
+
+            <h3 className="rp-sub">Everything due, and what it says</h3>
+            {renderTable(followUpColumns, followUpRows, 'No follow-ups due in this period.')}
+          </>
         ) : tab === 'conversion' ? (
           <>
             <div className="metric-row">
@@ -1632,6 +2527,42 @@ export default function Reports() {
               />
               <Metric label="Agreements sent" value={agreementsSent.length} sub="formal quotes" />
             </div>
+            <MonthlyPanel
+              caption="Messages by month"
+              months={outreachMonths}
+              columns={[
+                {
+                  label: 'Messages',
+                  primary: true,
+                  value: (k) => inMonthOf(outreachRows, (r) => r.sentAt, k).length,
+                },
+                {
+                  label: 'Email',
+                  value: (k) =>
+                    inMonthOf(outreachRows, (r) => r.sentAt, k).filter((r) => r.channel === 'Email')
+                      .length,
+                },
+                {
+                  label: 'WhatsApp',
+                  value: (k) =>
+                    inMonthOf(outreachRows, (r) => r.sentAt, k).filter(
+                      (r) => r.channel === 'WhatsApp'
+                    ).length,
+                },
+                {
+                  label: 'Companies',
+                  noTotal: true,
+                  value: (k) =>
+                    new Set(inMonthOf(outreachRows, (r) => r.sentAt, k).map((r) => r.company)).size,
+                },
+                {
+                  label: 'Agreements sent',
+                  value: (k) => agreementsSent.filter((a) => inMonth(a.sent_at, k)).length,
+                },
+              ]}
+            />
+
+            <h3 className="rp-sub">Every message sent</h3>
             {renderTable(
               outreachColumns,
               outreachRows,
@@ -1680,10 +2611,145 @@ export default function Reports() {
             )}
           </>
         ) : (
-          renderTable(noteColumns, noteRows, 'No notes recorded in this period.', (r) => r.note)
+          <>
+            <MonthlyPanel
+              caption="Notes by month"
+              months={noteMonths}
+              columns={[
+                { label: 'Notes', primary: true, value: (k) => inMonthOf(noteRows, (r) => r.date, k).length },
+                {
+                  label: 'From visits',
+                  value: (k) =>
+                    inMonthOf(noteRows, (r) => r.date, k).filter((r) => r.source === 'Visit').length,
+                },
+                {
+                  label: 'From follow-ups',
+                  value: (k) =>
+                    inMonthOf(noteRows, (r) => r.date, k).filter((r) => r.source === 'Follow-up')
+                      .length,
+                },
+                {
+                  label: 'Company notes',
+                  value: (k) =>
+                    inMonthOf(noteRows, (r) => r.date, k).filter((r) => r.source === 'Company note')
+                      .length,
+                },
+                {
+                  label: 'Companies',
+                  noTotal: true,
+                  value: (k) =>
+                    new Set(inMonthOf(noteRows, (r) => r.date, k).map((r) => r.company)).size,
+                },
+              ]}
+            />
+
+            <h3 className="rp-sub">What was written, newest first</h3>
+            {renderTable(noteColumns, noteRows, 'No notes recorded in this period.', (r) => r.note)}
+          </>
         )}
       </div>
     </div>
+  )
+}
+
+interface MonthColumn {
+  label: string
+  /** The month's figure, counted from whichever rows that section holds. */
+  value: (monthKey: string) => number
+  /** The column the bar is drawn on. Defaults to the first. */
+  primary?: boolean
+  money?: boolean
+  currency?: string
+  /** Distinct counts do not add up down the page, so their total is left blank. */
+  noTotal?: boolean
+}
+
+/**
+ * One section, month by month.
+ *
+ * The same table for every report: months down the side newest first, counts
+ * across, a total under each column. Empty months are kept — a month with no
+ * visits in it is the thing worth seeing — and the bar goes on the column the
+ * section is actually about, so the shape of the year reads without a chart.
+ */
+function MonthlyPanel({
+  caption,
+  months,
+  columns,
+}: {
+  caption: string
+  months: { key: string; label: string }[]
+  columns: MonthColumn[]
+}) {
+  if (months.length === 0) return null
+
+  const cells = months.map((m) => columns.map((c) => c.value(m.key)))
+  const totals = columns.map((_, i) => cells.reduce((sum, row) => sum + row[i], 0))
+  // Nothing at all in any month: the empty table below already says so, and a
+  // grid of zeroes on top of it is noise.
+  if (totals.every((t) => t === 0)) return null
+
+  const primary = Math.max(
+    0,
+    columns.findIndex((c) => c.primary)
+  )
+  const max = Math.max(1, ...cells.map((row) => row[primary]))
+  const show = (c: MonthColumn, n: number) => (c.money ? formatMoney(n, c.currency ?? 'TZS') : n)
+
+  return (
+    <>
+      <h3 className="rp-sub">{caption}</h3>
+      <div className="rp-table-wrap">
+        <table className="data-table rp-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              {columns.map((c) => (
+                <th key={c.label} className="rp-num">
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {months.map((m, row) => (
+              <tr key={m.key}>
+                <td>
+                  <span className="rp-strong">{m.label}</span>
+                </td>
+                {columns.map((c, i) => (
+                  <td key={c.label} className="rp-num">
+                    {i === primary ? (
+                      <span className="rp-bar-cell">
+                        <span
+                          className="rp-bar"
+                          style={{ width: `${(cells[row][i] / max) * 100}%` }}
+                        />
+                        <span>{show(c, cells[row][i])}</span>
+                      </span>
+                    ) : cells[row][i] === 0 ? (
+                      <span className="rp-muted">0</span>
+                    ) : (
+                      show(c, cells[row][i])
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="rp-total-row">
+              <td>Total</td>
+              {columns.map((c, i) => (
+                <td key={c.label} className="rp-num">
+                  {c.noTotal ? <span className="rp-muted">—</span> : show(c, totals[i])}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </>
   )
 }
 

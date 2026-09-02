@@ -1,0 +1,91 @@
+/* Chrome around the agreement document: a toolbar and a scrolling page.
+   All of it disappears when printing, leaving the document alone on the sheet. */
+
+.agr-preview-backdrop {
+  padding: 0;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.agr-preview {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--paper-dim);
+}
+
+.agr-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.agr-preview-bar strong {
+  font-family: var(--font-display);
+}
+
+.agr-preview-bar span {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.agr-preview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.agr-preview-actions .btn-ghost {
+  color: rgba(255, 255, 255, 0.75);
+  border-color: transparent;
+}
+
+.agr-preview-actions .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.agr-preview-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 20px 48px;
+}
+
+@media print {
+  /* Hide the app behind the modal. The modal itself is a child of body, so
+     everything else at that level goes. */
+  body > *:not(.modal-backdrop) {
+    display: none !important;
+  }
+
+  .agr-preview-backdrop {
+    position: static;
+    background: none;
+    display: block;
+  }
+
+  .agr-preview {
+    height: auto;
+    background: none;
+  }
+
+  .agr-preview-bar {
+    display: none !important;
+  }
+
+  .agr-preview-page {
+    overflow: visible;
+    padding: 0;
+  }
+
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+}

@@ -591,3 +591,27 @@
     grid-template-columns: 96px 1fr 62px;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Monthly breakdown
+   ---------------------------------------------------------------------------
+   Same table as the detail below it, plus a totals row: the month rows are
+   read down the page and the eye needs somewhere to land at the bottom.
+   -------------------------------------------------------------------------- */
+.rp-total-row td {
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper-dim);
+  border-top: 1px solid var(--line-strong);
+}
+
+/* Draft and expired agreements, which no other report has a pill for. */
+.rp-pill-draft {
+  color: var(--stage-lead);
+  background: var(--stage-lead-bg);
+}
+
+.rp-pill-expired {
+  color: var(--danger);
+  background: #fbeaea;
+}

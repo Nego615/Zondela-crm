@@ -24,6 +24,7 @@ union all select 'sto_agreement_items', count(*) from sto_agreement_items
 union all select 'sto_rate_card', count(*) from sto_rate_card
 union all select 'email_templates', count(*) from email_templates
 union all select 'profiles', count(*) from profiles
+union all select 'activity_logs', count(*) from activity_logs
 order by table_name;
 
 -- ---------------------------------------------------------------------------
@@ -52,16 +53,23 @@ order by table_name;
 -- commit;
 
 -- ---------------------------------------------------------------------------
--- NOT deleted, on purpose: profiles
+-- NOT deleted, on purpose: profiles and activity_logs
 -- ---------------------------------------------------------------------------
 -- A profile row is the app-side half of a login. The other half lives in
 -- auth.users, and deleting the profile alone leaves the account able to sign
--- in with no role — the app then treats them as a rep with nothing visible.
+-- in with no role — the app then treats them as a viewer with nothing visible.
 --
--- To remove a person properly, delete the auth user (Dashboard →
--- Authentication → Users). The handle_new_user trigger's counterpart, the
--- foreign key from profiles to auth.users, drops their profile with them.
+-- The normal way to remove someone is Admin → Users → Delete, which removes
+-- both halves and records it in the log. Deleting the auth user directly
+-- (Dashboard → Authentication → Users) does the same thing to the data, but
+-- leaves no audit entry.
+--
+-- activity_logs is the audit trail. It is left alone deliberately: business
+-- records can be reset, but who changed whose role and when is exactly the
+-- history that should survive a reset. Clear it only if you are certain, and
+-- know that nothing in the app can put it back.
 --
 -- To wipe every login and start over, delete all users in that same screen,
--- then re-register. The first person to sign up is not automatically an owner:
--- set that explicitly, as the README describes.
+-- then follow the README from "Create the first Super Admin". No account is
+-- automatically privileged — the first Super Admin is minted by
+-- bootstrap_super_admin() from the SQL editor and nowhere else.
