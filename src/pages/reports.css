@@ -1,81 +1,27 @@
 /* ===========================================================================
    Reports
    ---------------------------------------------------------------------------
-   Prefix `rp-`. Everything here serves one shape: a filter bar, a row of
-   tabs, and one wide table underneath — plus a print layout, because a report
-   the Owner cannot hand to someone on paper is only half a report.
+   Prefix `rp-`. One shape, repeated seven times: a filter bar, a row of tab
+   pills, and one card holding a titled table — plus a print layout, because a
+   report nobody can hand to a partner on paper is only half a report.
    =========================================================================== */
 
-.rp-header-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
 /* --------------------------------------------------------------------------
-   Filters
+   Filters — one row of seven, wrapping only when it must
    -------------------------------------------------------------------------- */
 .rp-filters {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
-.rp-filters-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-.rp-filters-head h3 {
+.rp-filters h3 {
+  margin: 0 0 12px;
   font-size: 15px;
 }
 
-.rp-presets {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.rp-preset {
-  padding: 5px 11px;
-  font-size: 12px;
-  font-weight: 500;
-  font-family: inherit;
-  color: var(--text-soft);
-  background: var(--paper-dim);
-  border: 1px solid transparent;
-  border-radius: 999px;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-
-.rp-preset:hover {
-  color: var(--ink);
-}
-
-.rp-preset.active {
-  background: var(--brand-teal-tint);
-  border-color: var(--brand-teal-bright);
-  color: var(--ink);
-}
-
-/* Set apart from the presets: it undoes state rather than choosing one. */
-.rp-preset-reset {
-  background: transparent;
-  border-color: var(--line-strong);
-  color: var(--accent);
-}
-
-.rp-preset-reset:hover {
-  background: var(--brand-brick-tint);
-  color: var(--accent-hover);
-}
-
-.rp-filter-grid {
+.rp-filter-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .rp-filter {
@@ -85,24 +31,17 @@
   min-width: 0;
 }
 
-/* The search field earns two columns — a company name is longer than a date. */
-.rp-filter-wide {
-  grid-column: span 2;
-}
-
 .rp-filter > span {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-soft);
 }
 
 .rp-filter input,
 .rp-filter select {
   width: 100%;
   min-width: 0;
-  padding: 7px 9px;
+  padding: 9px 11px;
   font-family: inherit;
   font-size: 13px;
   color: var(--text);
@@ -125,21 +64,22 @@
 }
 
 /* --------------------------------------------------------------------------
-   Tabs — eight of them, so they scroll rather than wrap on a narrow screen
+   Tabs — pills on a tinted rail, so the set reads as one control
    -------------------------------------------------------------------------- */
 .rp-tabs {
   display: flex;
   gap: 2px;
-  margin-bottom: 18px;
-  padding-bottom: 1px;
-  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+  padding: 5px;
+  background: var(--paper-dim);
+  border-radius: 999px;
   overflow-x: auto;
   scrollbar-width: thin;
 }
 
 .rp-tab {
   flex-shrink: 0;
-  padding: 9px 13px;
+  padding: 8px 16px;
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
@@ -147,7 +87,9 @@
   color: var(--text-soft);
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .rp-tab:hover {
@@ -156,7 +98,8 @@
 
 .rp-tab.active {
   color: var(--ink);
-  border-bottom-color: var(--accent);
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(12, 59, 53, 0.12);
 }
 
 /* --------------------------------------------------------------------------
@@ -167,7 +110,17 @@
 }
 
 .rp-panel-head {
-  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.rp-panel-head h2 {
+  margin: 0;
+  font-size: 17px;
 }
 
 .rp-count {
@@ -175,13 +128,9 @@
   color: var(--text-muted);
 }
 
-.rp-sub {
-  margin: 24px 0 12px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--text-soft);
+.rp-panel-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .rp-empty {
@@ -191,31 +140,30 @@
   text-align: center;
 }
 
-.rp-split {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 24px;
-}
-
 /* --------------------------------------------------------------------------
-   Metrics
+   Months — the strip above the visit table
+   ---------------------------------------------------------------------------
+   The report is called Monthly, so it opens with the month counts. Cards
+   rather than a second table: this is a glance, and the detail is underneath.
    -------------------------------------------------------------------------- */
-.metric-row {
+.rp-months {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
-.metric-card {
-  padding: 14px;
+.rp-month {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
 }
 
-.metric-label {
-  margin: 0 0 6px;
+.rp-month-label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -223,68 +171,18 @@
   color: var(--text-muted);
 }
 
-.metric-value {
-  margin: 0;
+.rp-month-value {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
-  line-height: 1.15;
+  line-height: 1.1;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
-/* Money carries a currency code and a thousands separator; at 24px a figure
-   in the millions wraps mid-number. */
-.metric-value-sm {
-  font-size: 17px;
-}
-
-.metric-sub {
-  margin: 5px 0 0;
+.rp-month-sub {
   font-size: 11px;
   color: var(--text-muted);
-}
-
-/* --------------------------------------------------------------------------
-   Bars — pipeline stages and the overview breakdowns
-   -------------------------------------------------------------------------- */
-.stage-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-
-.stage-bar-row {
-  display: grid;
-  grid-template-columns: 120px 1fr 72px;
-  align-items: center;
-  gap: 10px;
-}
-
-.stage-bar-label {
-  font-size: 12px;
-  color: var(--text-soft);
-}
-
-.stage-bar-track {
-  height: 10px;
-  background: var(--paper-dim);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.stage-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.3s ease;
-}
-
-.stage-bar-count {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 
 /* --------------------------------------------------------------------------
@@ -299,9 +197,17 @@
   min-width: 100%;
 }
 
+.rp-table th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 .rp-table th,
 .rp-table td {
-  padding: 9px 12px;
+  padding: 11px 12px;
   vertical-align: top;
 }
 
@@ -345,7 +251,7 @@
   font-size: 12px;
   font-weight: 400;
   line-height: 1.45;
-  color: var(--text-soft);
+  color: var(--brand-olive-deep, var(--text-soft));
   white-space: normal;
 }
 
@@ -363,37 +269,8 @@
   vertical-align: middle;
 }
 
-.rp-tag-plain {
-  margin-left: 0;
-  color: var(--text-soft);
-  background: var(--paper-dim);
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 11px;
-}
-
-/* A value column that is also a bar: the number stays readable, the bar gives
-   the shape of the distribution without a second column. */
-.rp-bar-cell {
-  position: relative;
-  display: block;
-  min-width: 130px;
-  padding: 2px 0;
-}
-
-.rp-bar {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: var(--brand-olive-tint);
-  border-radius: 3px;
-}
-
-.rp-bar-cell > span:last-child {
-  position: relative;
-}
-
 /* Status pills. Named for what they say, not for the column they sit in, so
-   the same class serves visits, follow-ups, agreements and channels. */
+   the same class serves visits, follow-ups and answers. */
 .rp-pill {
   display: inline-block;
   padding: 2px 8px;
@@ -414,32 +291,81 @@
 }
 
 .rp-pill-scheduled,
-.rp-pill-pending,
-.rp-pill-sent {
+.rp-pill-pending {
   color: var(--stage-contacted);
   background: var(--stage-contacted-bg);
 }
 
 .rp-pill-overdue,
-.rp-pill-declined {
+.rp-pill-cancelled {
   color: var(--danger);
   background: #fbeaea;
 }
 
-.rp-pill-email {
-  color: var(--brand-teal);
-  background: var(--brand-teal-tint);
+/* --------------------------------------------------------------------------
+   Feedback & recommendations
+   ---------------------------------------------------------------------------
+   Not a table: this report is paragraphs, and a paragraph in a cell is
+   unreadable. One card per note — who said it and when above, the words below.
+   -------------------------------------------------------------------------- */
+.rp-feedback {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.rp-pill-whatsapp {
-  color: var(--brand-olive-deep);
-  background: var(--brand-olive-tint);
+.rp-feedback-card {
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  break-inside: avoid;
+}
+
+.rp-feedback-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.rp-feedback-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rp-feedback-meta strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.rp-feedback-agent {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rp-feedback-text {
+  margin: 0;
+  max-width: 92ch;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.rp-feedback-label {
+  font-weight: 600;
+  color: var(--text-soft);
 }
 
 /* --------------------------------------------------------------------------
-   Print
+   Print — what the PDF button produces
    ---------------------------------------------------------------------------
-   The Owner prints these for partners and for board packs, so the chrome goes
+   The team prints these for partners and for board packs, so the chrome goes
    and the header that says what the numbers cover appears in its place.
    -------------------------------------------------------------------------- */
 .rp-print-head {
@@ -455,6 +381,7 @@
   .shell-rail,
   .shell-topbar,
   .shell-scrim,
+  .page-header,
   .rp-no-print {
     display: none !important;
   }
@@ -489,14 +416,21 @@
   }
 
   .rp-panel,
-  .metric-card,
   .card {
     border: none;
     padding: 0;
     background: #fff;
   }
 
-  .metric-card {
+  .rp-panel-head {
+    margin-bottom: 8px;
+  }
+
+  .rp-months {
+    gap: 6px;
+  }
+
+  .rp-month {
     border: 1px solid #ccc;
     padding: 8px;
   }
@@ -533,8 +467,7 @@
 
   .rp-pill,
   .badge,
-  .rp-tag,
-  .rp-bar {
+  .rp-tag {
     /* Backgrounds are usually dropped by the print pipeline; a border keeps
        the pills legible either way. */
     background: transparent !important;
@@ -542,13 +475,9 @@
     color: #222 !important;
   }
 
-  .rp-bar {
-    display: none;
-  }
-
-  .stage-bar-fill {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
+  .rp-feedback-card {
+    border: 1px solid #ddd;
+    padding: 8px 10px;
   }
 }
 
@@ -556,19 +485,6 @@
    Narrow screens
    -------------------------------------------------------------------------- */
 @media (max-width: 700px) {
-  .rp-filter-wide {
-    grid-column: span 1;
-  }
-
-  .rp-header-actions {
-    width: 100%;
-  }
-
-  .rp-header-actions .btn {
-    flex: 1;
-    justify-content: center;
-  }
-
   .rp-panel {
     padding: 14px;
   }
@@ -587,31 +503,7 @@
     padding-right: 14px;
   }
 
-  .stage-bar-row {
-    grid-template-columns: 96px 1fr 62px;
+  .rp-panel-actions .btn {
+    flex: 1;
   }
-}
-
-/* --------------------------------------------------------------------------
-   Monthly breakdown
-   ---------------------------------------------------------------------------
-   Same table as the detail below it, plus a totals row: the month rows are
-   read down the page and the eye needs somewhere to land at the bottom.
-   -------------------------------------------------------------------------- */
-.rp-total-row td {
-  font-weight: 700;
-  color: var(--ink);
-  background: var(--paper-dim);
-  border-top: 1px solid var(--line-strong);
-}
-
-/* Draft and expired agreements, which no other report has a pill for. */
-.rp-pill-draft {
-  color: var(--stage-lead);
-  background: var(--stage-lead-bg);
-}
-
-.rp-pill-expired {
-  color: var(--danger);
-  background: #fbeaea;
 }

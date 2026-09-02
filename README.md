@@ -362,56 +362,51 @@ on the 3rd" stays true after the message is later marked viewed.
   is there for when you would rather attach it by hand. Every
   share is logged to `sent_messages` so it shows up in that company's
   activity and rolls up into reports.
-- **Reports** (`/reports`) is ten executive reports over one period and one
-  set of filters — **Overview** (pipeline funnel, period totals, month-by-month
-  activity, and companies split by market and relationship), **Visits & site
-  visits** (every appointment with its outcome, what happens next, and the
-  summary written after it), **Companies** (one row per client property: stage,
-  relationship, market, location, rep, contacts, visits and last visit, open
-  and overdue follow-ups, rate sheets sent and accepted, and the company note),
-  **Reps** (companies, visits, follow-ups, rate sheets sent, acceptances and
-  win rate per rep), **Follow-ups** (what was due, what is still open and how
-  late),
-  **STO agreements** (every operator sent the season's rates in the period:
-  whether they opened them, when they answered, and what they wrote back),
-  **Rate sheets** (the seasons published — what each covers, the room types and
-  seasons priced, the rate range, and how operators answered it), **STO
-  outreach** (pricing shares by email and WhatsApp, plus the rate sheets sent),
-  **Visit conversion** (of the companies visited, how many were sent the rates
-  afterwards, how many accepted, and the median days from visit to rates), and
-  **Notes & feedback** (visit summaries, follow-up notes and company notes in
-  one stream — what clients actually said).
+- **Reports** (`/reports`) is seven executive reports over one period and one
+  set of filters:
 
-  **Every section leads with the month.** Visits, companies, follow-ups,
-  rate sheets, outreach and notes each open with a row of totals and a
-  month-by-month table — how many that month, split the way that section is
-  read (site visits against meetings, done against overdue, opened against
-  accepted), with a total under each column. Empty months are kept, because a
-  month with no visits in it is the finding; over a span too long for that
-  (All time) only the months with something in them are listed. The free text
-  travels with the rows underneath — a visit's summary, a follow-up's
-  instruction, what an operator wrote back when they accepted — printed under
-  the row rather than squeezed into a column, and exported as a column of its
-  own.
+  | Report | What it answers |
+  |---|---|
+  | **Monthly Visits** | How many visits a month, and what happened on each — company, agent, type, outcome, what happens next, and the summary written after it |
+  | **Agent Performance** | Per agent: visits, new companies, STO agreements sent, site visits requested and completed, and active partners |
+  | **Property Interest** | Where every company stands with the house — their type, location, interest status and the agent who owns them |
+  | **Follow-ups** | What was due, who owns it, what it says, and how late it is |
+  | **Site Visit Conversion** | Of the companies visited on site, how many were sent the rates afterwards, how quickly, and how many accepted |
+  | **STO Agreements** | Every operator sent the season's rates: whether they opened them, when they answered, who accepted and what they wrote back |
+  | **Feedback & Recs** | What was actually said — visit summaries, operators' own replies, follow-up notes and company notes, newest first |
 
-  The filter bar — dates with presets, rep, company, location, visit type,
-  relationship, market, stage, rate sheet, a per-report status and a search box —
-  applies to every tab and **lives in the URL**, so a filtered report is a link
-  you can send a colleague. **Location** is the country on the company record,
-  offered as the spellings actually on file; **Visit type** narrows visits to
-  site visits or to meetings wherever a visit is counted; **Status** means
-  whatever the open report understands (a visit's outcome, a follow-up's state,
-  a send's status, a company's activity in the period), and a status left
-  over from another tab is ignored rather than silently narrowing the next
-  table you open. **Download CSV** exports the table as shown (the same column
-  definitions drive both, so the file can never disagree with the screen),
-  and **Print / PDF** prints it through the browser with the shell, filters
-  and tabs stripped out and a header stamped with the period, the filters
-  applied and the row count.
+  **Monthly Visits opens with the months**, a card per month over the period
+  carrying the count, how many were completed, how many companies were seen and
+  how many carry a summary. Empty months are kept, because a month with no
+  visits in it is the finding; over a span too long for that only the months
+  with something in them are listed.
 
-  The **Rep** dropdown offers team members with logins and, under "No login",
-  every name that has been typed against a visit, follow-up or company — so
-  a rep without an account still gets a row.
+  **Feedback & Recs is not a table.** Feedback is a paragraph, and a paragraph
+  in a cell is unreadable, so each note is a card: the date, company and type
+  above with the agent on the right, and the words underneath. Everywhere else
+  the free text travels *with* its row — a visit's summary, an operator's
+  reply — printed under the row rather than squeezed into a column, and
+  exported as a column of its own.
+
+  The filter bar — **From, To, Agent, Company type, Location, Agreement,
+  Status** — applies to every report and **lives in the URL**, so a filtered
+  report is a link you can send a colleague. **Location** is the country on the
+  company record, offered as the spellings actually on file; **Agreement**
+  narrows to the operators sent one season's rates; **Status** means whatever
+  the open report understands (a visit's outcome, a follow-up's state, a send's
+  status, a company's interest), and a status left over from another tab is
+  ignored rather than silently narrowing the next table you open.
+
+  **CSV** exports the table as shown — the same column definitions drive both,
+  so the file can never disagree with the screen — and **PDF** prints it
+  through the browser with the shell, filters and tabs stripped out and a
+  header stamped with the property, the period, the filters applied and the row
+  count. The browser's own dialogue is the export: it makes a better PDF than
+  the app could assemble, and needs no library.
+
+  The **Agent** dropdown offers team members with logins and, under "No login",
+  every name that has been typed against a visit, follow-up or company — so an
+  agent without an account still gets a row.
 - **Admin → Users** (`/admin/users`) is where accounts are created, searched,
   edited, promoted, activated and deleted. `/team` redirects here.
   **Admin → Roles & permissions**, **Activity logs** and **System settings**
@@ -561,7 +556,7 @@ follow-up against a rep, the rep sees that item even when the company
 belongs to someone else — otherwise it would vanish from their queue.
 
 **Reports narrow accordingly.** Anyone with full visibility sees the whole funnel and every
-rep's row. A rep sees the same ten reports computed over just the records
+rep's row. A rep sees the same seven reports computed over just the records
 row-level security lets them read, so the page reads as a personal
 scorecard — including the CSV they export from it.
 
