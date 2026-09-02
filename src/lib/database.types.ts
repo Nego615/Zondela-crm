@@ -225,14 +225,22 @@ export type SendStatus = 'sent' | 'viewed' | 'accepted' | 'declined'
 export interface StoVersionRate {
   id: string
   version_id: string
+  /** The room category this line belongs to, when the contract is divided. */
+  section_id: string | null
   /** Free text — a season gets renamed more often than a schema should move. */
   season: string
   room_type: string
   description: string | null
-  /** Bed & breakfast, half board, full board. Per room, per night. */
+  /** How many people the price covers. A Suite at 2 and at 4 are two lines. */
+  pax: number
+  /** The contracted rate at each meal plan. Per room, per night. */
   bb_price: number
   hb_price: number
   fb_price: number
+  /** The published rate beside it — operators check the gap. */
+  bb_rack: number
+  hb_rack: number
+  fb_rack: number
   max_occupancy: number
   currency: string
   sort_order: number
@@ -251,18 +259,52 @@ export interface StoVersionSupplement {
 }
 
 /**
- * One numbered policy in the contract — children, cancellation, no-show.
+ * One named clause of the contract — Meal Plan, Children Policy, Cancellation.
  *
  * Rows rather than one block of terms: the document numbers them, and each is
  * renegotiated on its own between seasons.
  */
-export interface StoVersionSection {
+export interface StoVersionTerm {
   id: string
   version_id: string
   title: string
-  /** Blank-line separated. Lines opening with • or - render as a list. */
+  /** Blank-line separated. Lines opening with •, - or * render as a list. */
   body: string
   sort_order: number
+}
+
+/** One photograph on a room category. Key into the `sto` bucket. */
+export interface StoSectionImage {
+  id: string
+  section_id: string
+  storage_path: string
+  caption: string | null
+  sort_order: number
+}
+
+/**
+ * A room category as the contract sets it out: Standard, Deluxe.
+ *
+ * Zondela House is one property, so what a contract divides into is its room
+ * categories — they read differently to an operator, photograph differently
+ * and price differently.
+ */
+export interface StoPropertySection {
+  id: string
+  version_id: string
+  name: string
+  description: string | null
+  /** The full album, for operators who want more than the three shown. */
+  gallery_url: string | null
+  meal_plan_notes: string | null
+  seasonal_notes: string | null
+  /** Never printed. The team's own reminders about this category. */
+  internal_notes: string | null
+  sort_order: number
+}
+
+export interface StoPropertySectionWithImages extends StoPropertySection {
+  images: StoSectionImage[]
 }
 
 export interface StoAgreementVersion {
@@ -282,6 +324,8 @@ export interface StoAgreementVersion {
   rate_basis: string | null
   /** The line under the chart, about VAT and the tourism levy. */
   rates_note: string | null
+  /** Never printed and never sent — where the negotiation is remembered. */
+  internal_notes: string | null
   /** The uploaded rate sheet, exactly as supplied. Key into the `sto` bucket. */
   pdf_path: string | null
   pdf_name: string | null
@@ -295,7 +339,10 @@ export interface StoAgreementVersion {
 export interface StoVersionWithRates extends StoAgreementVersion {
   rates: StoVersionRate[]
   supplements: StoVersionSupplement[]
-  sections: StoVersionSection[]
+  /** The room categories — Standard, Deluxe — with their photographs. */
+  sections: StoPropertySectionWithImages[]
+  /** The named clauses, in the order they are printed. */
+  terms_list: StoVersionTerm[]
 }
 
 /** One operator, one version, and where it got to. */
@@ -471,10 +518,20 @@ export interface Database {
         Insert: Partial<StoVersionSupplement>
         Update: Partial<StoVersionSupplement>
       }
-      sto_version_sections: {
-        Row: StoVersionSection
-        Insert: Partial<StoVersionSection>
-        Update: Partial<StoVersionSection>
+      sto_version_terms: {
+        Row: StoVersionTerm
+        Insert: Partial<StoVersionTerm>
+        Update: Partial<StoVersionTerm>
+      }
+      sto_version_property_sections: {
+        Row: StoPropertySection
+        Insert: Partial<StoPropertySection>
+        Update: Partial<StoPropertySection>
+      }
+      sto_section_images: {
+        Row: StoSectionImage
+        Insert: Partial<StoSectionImage>
+        Update: Partial<StoSectionImage>
       }
       sto_agreement_sends: {
         Row: StoAgreementSend

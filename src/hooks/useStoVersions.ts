@@ -4,9 +4,11 @@ import type {
   SendStatus,
   StoAgreementSend,
   StoAgreementVersion,
+  StoPropertySection,
+  StoSectionImage,
   StoVersionRate,
-  StoVersionSection,
   StoVersionSupplement,
+  StoVersionTerm,
   StoVersionWithRates,
 } from '../lib/database.types'
 
@@ -23,24 +25,36 @@ const STO_BUCKET = 'sto'
 
 /** One rate line as the editor holds it, before the database gives it an id. */
 export interface RateInput {
+  /** The room category it belongs to, when the contract is divided. */
+  section_id: string | null
   season: string
   room_type: string
   description: string | null
+  pax: number
   bb_price: number
   hb_price: number
   fb_price: number
+  bb_rack: number
+  hb_rack: number
+  fb_rack: number
   max_occupancy: number
   currency: string
 }
 
 export type SupplementInput = Omit<StoVersionSupplement, 'id' | 'version_id' | 'sort_order'>
-export type SectionInput = Omit<StoVersionSection, 'id' | 'version_id' | 'sort_order'>
+export type TermInput = Omit<StoVersionTerm, 'id' | 'version_id' | 'sort_order'>
+export type PropertySectionInput = Omit<StoPropertySection, 'id' | 'version_id' | 'sort_order'>
 
-/** Everything printed under the header, saved and replaced as one block. */
+/**
+ * Everything printed under the header, saved and replaced as one block.
+ *
+ * Room categories are the exception: a rate line points at one and a
+ * photograph hangs off one, so they keep their ids and are saved on their own.
+ */
 export interface VersionBody {
   rates: RateInput[]
   supplements: SupplementInput[]
-  sections: SectionInput[]
+  terms: TermInput[]
 }
 
 export function useStoVersions() {
@@ -66,25 +80,45 @@ export function useStoVersions() {
     const rows = (data ?? []) as StoAgreementVersion[]
     let rates: StoVersionRate[] = []
     let supplements: StoVersionSupplement[] = []
-    let sections: StoVersionSection[] = []
+    let sections: StoPropertySection[] = []
+    let terms: StoVersionTerm[] = []
+    let images: StoSectionImage[] = []
 
     if (rows.length > 0) {
-      // Four tables, one hook: a rate sheet is never useful in pieces — the
-      // list, the document and the reports all read the whole contract — and
-      // three `in` queries beat a request per version.
+      // Five tables, one hook: a contract is never useful in pieces — the
+      // list, the document and the reports all read the whole thing — and a
+      // handful of `in` queries beats a request per version.
       const ids = rows.map((v) => v.id)
-      const [rateData, supplementData, sectionData] = await Promise.all([
+      const [rateData, supplementData, sectionData, termData] = await Promise.all([
         supabase.from('sto_version_rates').select('*').in('version_id', ids).order('sort_order'),
         supabase
           .from('sto_version_supplements')
           .select('*')
           .in('version_id', ids)
           .order('sort_order'),
-        supabase.from('sto_version_sections').select('*').in('version_id', ids).order('sort_order'),
+        supabase
+          .from('sto_version_property_sections')
+          .select('*')
+          .in('version_id', ids)
+          .order('sort_order'),
+        supabase.from('sto_version_terms').select('*').in('version_id', ids).order('sort_order'),
       ])
       rates = (rateData.data ?? []) as StoVersionRate[]
       supplements = (supplementData.data ?? []) as StoVersionSupplement[]
-      sections = (sectionData.data ?? []) as StoVersionSection[]
+      sections = (sectionData.data ?? []) as StoPropertySection[]
+      terms = (termData.data ?? []) as StoVersionTerm[]
+
+      if (sections.length > 0) {
+        const { data: imageData } = await supabase
+          .from('sto_section_images')
+          .select('*')
+          .in(
+            'section_id',
+            sections.map((x) => x.id)
+          )
+          .order('sort_order')
+        images = (imageData ?? []) as StoSectionImage[]
+      }
     }
 
     setError(null)
@@ -93,7 +127,13 @@ export function useStoVersions() {
         ...v,
         rates: rates.filter((r) => r.version_id === v.id),
         supplements: supplements.filter((r) => r.version_id === v.id),
-        sections: sections.filter((r) => r.version_id === v.id),
+        sections: sections
+          .filter((r) => r.version_id === v.id)
+          .map((section) => ({
+            ...section,
+            images: images.filter((im) => im.section_id === section.id),
+          })),
+        terms_list: terms.filter((r) => r.version_id === v.id),
       }))
     )
     setLoading(false)
@@ -114,7 +154,7 @@ export function useStoVersions() {
     const tables = [
       ['sto_version_rates', body.rates],
       ['sto_version_supplements', body.supplements],
-      ['sto_version_sections', body.sections],
+      ['sto_version_terms', body.terms],
     ] as const
 
     for (const [table, entries] of tables) {
@@ -217,6 +257,93 @@ export function useStoVersions() {
     await refresh()
   }
 
+  /* -------------------------------------------------------------------------
+     Room categories
+     ---------------------------------------------------------------------------
+     Saved one at a time rather than replaced as a block, because a rate line
+     points at a category and a photograph hangs off one: wiping and re-inserting
+     would orphan both on every save.
+     ------------------------------------------------------------------------- */
+  async function addSection(versionId: string, input: Partial<StoPropertySection>) {
+    const { data, error } = await supabase
+      .from('sto_version_property_sections')
+      .insert({ ...input, version_id: versionId })
+      .select()
+      .single()
+    if (error) throw error
+    await refresh()
+    return data as StoPropertySection
+  }
+
+  async function updateSection(id: string, input: Partial<StoPropertySection>) {
+    const { error } = await supabase
+      .from('sto_version_property_sections')
+      .update(input)
+      .eq('id', id)
+    if (error) throw error
+    await refresh()
+  }
+
+  async function deleteSection(section: { id: string; images: StoSectionImage[] }) {
+    const { error } = await supabase
+      .from('sto_version_property_sections')
+      .delete()
+      .eq('id', section.id)
+    if (error) throw error
+    // Best effort, as with the PDF: the rows are gone either way, and a
+    // stranded object is invisible rather than harmful.
+    if (section.images.length > 0) {
+      await supabase.storage.from(STO_BUCKET).remove(section.images.map((im) => im.storage_path))
+    }
+    await refresh()
+  }
+
+  /**
+   * Attach a photograph to a room category.
+   *
+   * Uploaded under a random path, like the PDFs: the bucket is public so an
+   * operator can see the picture in a document opened with no session, and an
+   * unguessable path is what keeps that from being a directory anyone can walk.
+   */
+  async function addSectionImage(sectionId: string, file: File, caption: string, sortOrder: number) {
+    if (!file.type.startsWith('image/')) throw new Error('That file is not an image.')
+
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const storagePath = `sections/${crypto.randomUUID()}.${extension}`
+    const { error: uploadError } = await supabase.storage
+      .from(STO_BUCKET)
+      .upload(storagePath, file, { contentType: file.type, upsert: false })
+    if (uploadError) throw uploadError
+
+    const { error } = await supabase.from('sto_section_images').insert({
+      section_id: sectionId,
+      storage_path: storagePath,
+      caption: caption.trim() || null,
+      sort_order: sortOrder,
+    })
+    if (error) {
+      await supabase.storage.from(STO_BUCKET).remove([storagePath])
+      throw error
+    }
+    await refresh()
+  }
+
+  async function updateSectionImage(id: string, caption: string) {
+    const { error } = await supabase
+      .from('sto_section_images')
+      .update({ caption: caption.trim() || null })
+      .eq('id', id)
+    if (error) throw error
+    await refresh()
+  }
+
+  async function deleteSectionImage(image: StoSectionImage) {
+    const { error } = await supabase.from('sto_section_images').delete().eq('id', image.id)
+    if (error) throw error
+    await supabase.storage.from(STO_BUCKET).remove([image.storage_path])
+    await refresh()
+  }
+
   async function removePdf(version: StoAgreementVersion) {
     const { error } = await supabase
       .from('sto_agreement_versions')
@@ -238,10 +365,16 @@ export function useStoVersions() {
     deleteVersion,
     uploadPdf,
     removePdf,
+    addSection,
+    updateSection,
+    deleteSection,
+    addSectionImage,
+    updateSectionImage,
+    deleteSectionImage,
   }
 }
 
-/** Permanent public URL for a stored rate sheet — this is what goes to the operator. */
+/** Permanent public URL for anything in the STO bucket — a PDF, a photograph. */
 export function stoPdfUrl(path: string) {
   const { data } = supabase.storage.from(STO_BUCKET).getPublicUrl(path)
   return data.publicUrl

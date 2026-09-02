@@ -12,6 +12,7 @@ import Appointments from './pages/Appointments'
 import FollowUps from './pages/FollowUps'
 import Sto from './pages/Sto'
 import PublicAgreement from './pages/PublicAgreement'
+import VersionDetail from './pages/VersionDetail'
 import Reports from './pages/Reports'
 import Users from './pages/admin/Users'
 import UserDetail from './pages/admin/UserDetail'
@@ -92,6 +93,14 @@ function AppRoutes() {
         <Route path="appointments" element={<Appointments />} />
         <Route path="follow-ups" element={<FollowUps />} />
         <Route path="sto" element={<Sto />} />
+        {/* One season's contract, in the five parts it is made of. A page
+            rather than a modal: photographs and a dozen clauses do not fit in
+            a dialogue you scroll. */}
+        <Route path="sto/versions/:id" element={<VersionDetail />} />
+        {/* One season's contract, in the five parts it is made of. A page
+            rather than a modal: photographs and a dozen clauses do not fit in
+            a dialogue you scroll. */}
+        <Route path="sto/versions/:id" element={<VersionDetail />} />
         {/* The section used to be the rate card alone; the rate card now sits
             under Settings, beside the branding it is shared with. */}
         <Route path="rate-card" element={<Navigate to="/sto?tab=settings" replace />} />

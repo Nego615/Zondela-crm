@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useCompanies, useProfiles } from '../hooks/useCrmData'
+import { useCompanies, useOrgSettings, useProfiles } from '../hooks/useCrmData'
+import { useAuth } from '../hooks/useAuth'
 import { useAgreementSends, useStoVersions, agreementLink, stoPdfUrl } from '../hooks/useStoVersions'
 import {
   MEAL_PLANS,
@@ -17,7 +18,6 @@ import {
 import { PLACEHOLDERS } from '../lib/stoVersion'
 import { repLabel } from '../lib/rep'
 import type { SendStatus, StoAgreementSend, StoVersionWithRates } from '../lib/database.types'
-import VersionFormModal from '../components/VersionFormModal'
 import VersionPreviewModal from '../components/VersionPreviewModal'
 import SendVersionModal from '../components/SendVersionModal'
 import TemplatesPanel from '../components/TemplatesPanel'
@@ -55,13 +55,15 @@ export default function Sto() {
     versions,
     loading,
     error,
-    refresh,
+    createVersion,
     setVersionStatus,
     deleteVersion,
   } = useStoVersions()
   const { sends, refresh: refreshSends, setSendStatus, updateSend, deleteSend } = useAgreementSends()
   const { companies } = useCompanies()
   const { profiles } = useProfiles()
+  const { settings } = useOrgSettings()
+  const { profile } = useAuth()
   const navigate = useNavigate()
 
   // Tab and filters live in the URL, so a filtered list is a link the team can
@@ -81,7 +83,7 @@ export default function Sto() {
     setParams(next, { replace: true })
   }
 
-  const [formFor, setFormFor] = useState<'new' | string | null>(null)
+  const [creating, setCreating] = useState(false)
   const [previewFor, setPreviewFor] = useState<string | null>(null)
   const [sendFor, setSendFor] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -96,7 +98,6 @@ export default function Sto() {
   const versionName = (id: string) => versionById.get(id)?.name ?? 'Withdrawn version'
   const senderName = (id: string | null) => repLabel(profiles, id, null, 'A team member')
 
-  const editing = formFor && formFor !== 'new' ? versionById.get(formFor) : undefined
   const previewing = previewFor ? versionById.get(previewFor) : undefined
   const sending = sendFor ? versionById.get(sendFor) : undefined
 
@@ -178,8 +179,39 @@ export default function Sto() {
           <p>Publish, send and track the season’s rates for Zondela House.</p>
         </div>
         {tab === 'versions' && (
-          <button className="btn btn-primary" onClick={() => setFormFor('new')}>
-            + New rate sheet
+          <button
+            className="btn btn-primary"
+            disabled={creating}
+            onClick={() =>
+              guard(async () => {
+                // Created straight away rather than behind a form: everything
+                // about a contract is edited on its own page, so the only
+                // question worth asking up front is which season it is for.
+                setCreating(true)
+                const year = new Date().getFullYear() + 1
+                try {
+                  const version = await createVersion(
+                    {
+                      name: `${settings?.org_name || 'Zondela House'} STO Rate Contract ${year}`,
+                      year,
+                      status: 'draft',
+                      valid_from: `${year}-01-01`,
+                      valid_to: `${year}-12-31`,
+                      rate_basis: 'Per room, per night',
+                      rates_note:
+                        'All rates quoted are inclusive of VAT and Tourism development levy.',
+                      created_by: profile?.id ?? null,
+                    },
+                    { rates: [], supplements: [], terms: [] }
+                  )
+                  navigate(`/sto/versions/${version.id}`)
+                } finally {
+                  setCreating(false)
+                }
+              }, 'Could not create a contract.')
+            }
+          >
+            {creating ? 'Creating…' : '+ New rate contract'}
           </button>
         )}
         {(tab === 'sent' || tab === 'accepted') && (
@@ -274,7 +306,7 @@ export default function Sto() {
                   stats={statsFor(version.id)}
                   open={expanded === version.id}
                   onToggle={() => setExpanded(expanded === version.id ? null : version.id)}
-                  onEdit={() => setFormFor(version.id)}
+                  onEdit={() => navigate(`/sto/versions/${version.id}`)}
                   onPreview={() => setPreviewFor(version.id)}
                   onSend={() => setSendFor(version.id)}
                   onStatus={(status) =>
@@ -575,13 +607,6 @@ export default function Sto() {
         </>
       )}
 
-      {formFor && (
-        <VersionFormModal
-          version={editing}
-          onClose={() => setFormFor(null)}
-          onSaved={refresh}
-        />
-      )}
       {previewing && (
         <VersionPreviewModal version={previewing} onClose={() => setPreviewFor(null)} />
       )}
@@ -658,7 +683,7 @@ function VersionCard({
             Send
           </button>
           <button className="btn btn-ghost btn-sm" onClick={onEdit}>
-            Edit
+            Open
           </button>
           {version.status !== 'active' ? (
             <button className="btn btn-ghost btn-sm" onClick={() => onStatus('active')}>
@@ -685,8 +710,9 @@ function VersionCard({
             }`
           : ''}
         {version.sections.length > 0
-          ? ` · ${version.sections.length} ${version.sections.length === 1 ? 'policy' : 'policies'}`
+          ? ` · ${version.sections.length} ${version.sections.length === 1 ? 'category' : 'categories'}`
           : ''}
+        {version.terms_list.length > 0 ? ` · ${version.terms_list.length} clauses` : ''}
         {version.pdf_path ? ` · PDF attached (${version.pdf_name})` : ' · No PDF attached'}
       </p>
 
@@ -779,12 +805,12 @@ function VersionCard({
             </>
           )}
 
-          {version.sections.map((section, index) => (
-            <div key={section.id}>
+          {version.terms_list.map((term, index) => (
+            <div key={term.id}>
               <h4 className="ver-terms-head">
-                {index + 1}. {section.title}
+                {index + 1}. {term.title}
               </h4>
-              <p className="ver-prose">{section.body}</p>
+              <p className="ver-prose">{term.body}</p>
             </div>
           ))}
 
