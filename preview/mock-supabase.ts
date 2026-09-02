@@ -112,6 +112,8 @@ function seed(): Record<string, Row[]> {
     sto_agreement_items: [],
     sto_agreement_versions: [],
     sto_version_rates: [],
+    sto_version_supplements: [],
+    sto_version_sections: [],
     sto_agreement_sends: [],
     email_templates: [],
     pricing_documents: [],
@@ -187,6 +189,8 @@ function isVisible(table: string, row: Row): boolean {
       return canAccessCompany(row.company_id) || row.sent_by === currentUserId
     case 'sto_agreement_versions':
     case 'sto_version_rates':
+    case 'sto_version_supplements':
+    case 'sto_version_sections':
       return true
 
     case 'sto_agreement_sends':
@@ -217,7 +221,8 @@ function writeCheck(table: string, row: Row, changes?: Row): string | null {
   const businessTables = [
     'companies', 'contacts', 'site_visits', 'follow_ups', 'sent_messages',
     'sto_rate_card', 'sto_agreements', 'sto_agreement_items',
-    'sto_agreement_versions', 'sto_version_rates', 'sto_agreement_sends',
+    'sto_agreement_versions', 'sto_version_rates', 'sto_version_supplements',
+    'sto_version_sections', 'sto_agreement_sends',
     'email_templates', 'pricing_documents',
   ]
   if (businessTables.includes(table) && !canWriteData()) {
@@ -405,6 +410,7 @@ class Query implements PromiseLike<{ data: any; error: { message: string } | nul
                 accepted_at: null,
                 declined_at: null,
                 responded_name: null,
+                responded_title: null,
                 responded_email: null,
                 responded_note: null,
                 follow_up_at: null,
@@ -471,6 +477,12 @@ class Query implements PromiseLike<{ data: any; error: { message: string } | nul
       // Standing in for the on delete cascade from rates and sends.
       const gone = new Set(doomed.map((r) => String(r.id)))
       db.sto_version_rates = db.sto_version_rates.filter((r) => !gone.has(String(r.version_id)))
+      db.sto_version_supplements = db.sto_version_supplements.filter(
+        (r) => !gone.has(String(r.version_id))
+      )
+      db.sto_version_sections = db.sto_version_sections.filter(
+        (r) => !gone.has(String(r.version_id))
+      )
       db.sto_agreement_sends = db.sto_agreement_sends.filter(
         (r) => !gone.has(String(r.version_id))
       )
@@ -640,10 +652,17 @@ function rpc(name: string, args: Row = {}): RpcResult {
           accepted_at: send.accepted_at ?? null,
           declined_at: send.declined_at ?? null,
           responded_name: send.responded_name ?? null,
+          responded_title: send.responded_title ?? null,
           responded_note: send.responded_note ?? null,
         },
         version: version ?? null,
         rates: db.sto_version_rates
+          .filter((r) => r.version_id === send.version_id)
+          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order)),
+        supplements: db.sto_version_supplements
+          .filter((r) => r.version_id === send.version_id)
+          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order)),
+        sections: db.sto_version_sections
           .filter((r) => r.version_id === send.version_id)
           .sort((a, b) => Number(a.sort_order) - Number(b.sort_order)),
         org: db.org_settings[0] ?? null,
@@ -661,6 +680,7 @@ function rpc(name: string, args: Row = {}): RpcResult {
       if (args.p_accept) send.accepted_at = now
       else send.declined_at = now
       send.responded_name = (args.p_name as string) ?? null
+      send.responded_title = (args.p_title as string) ?? null
       send.responded_email = (args.p_email as string) ?? null
       send.responded_note = (args.p_note as string) ?? null
       return ok({ status: send.status, already: false })

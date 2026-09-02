@@ -101,21 +101,25 @@ export function roomTypesOf(rates: Pick<StoVersionRate, 'room_type'>[]) {
 }
 
 /**
- * What the version covers, as a tag: "4 room types · High and Low season".
+ * What the version covers, as a tag: "6 room types · sleeps up to 4".
  *
  * Derived rather than typed, so it cannot drift from the rates underneath it.
  * Zondela House is one property, so the scope of a version is the rooms it
- * prices and the seasons it prices them for.
+ * prices, the seasons it prices them for, and how many people they take.
  */
-export function scopeLabel(rates: Pick<StoVersionRate, 'season' | 'room_type'>[]) {
+export function scopeLabel(
+  rates: Pick<StoVersionRate, 'season' | 'room_type' | 'max_occupancy'>[]
+) {
   if (rates.length === 0) return 'No rates yet'
   const rooms = roomTypesOf(rates)
   const seasons = seasonsOf(rates)
-  const roomPart = rooms.length === 1 ? rooms[0] : `${rooms.length} room types`
-  if (seasons.length === 1 && seasons[0] === 'All year') return roomPart
-  const seasonPart =
-    seasons.length <= 2 ? seasons.join(' and ') : `${seasons.length} seasons`
-  return `${roomPart} · ${seasonPart}`
+  const sleeps = Math.max(0, ...rates.map((r) => r.max_occupancy ?? 0))
+  const parts = [rooms.length === 1 ? rooms[0] : `${rooms.length} room types`]
+  if (!(seasons.length === 1 && seasons[0] === 'All year')) {
+    parts.push(seasons.length <= 2 ? seasons.join(' and ') : `${seasons.length} seasons`)
+  }
+  if (sleeps > 0) parts.push(`sleeps up to ${sleeps}`)
+  return parts.join(' · ')
 }
 
 /** Rates grouped the way the document prints them: a table per season. */
@@ -126,16 +130,54 @@ export function bySeason<T extends Pick<StoVersionRate, 'season'>>(rates: T[]) {
   }))
 }
 
-/** The cheapest and dearest rate on the sheet, which is how a season is summarised. */
-export function rateRange(rates: Pick<StoVersionRate, 'price' | 'currency'>[]) {
-  const priced = rates.filter((r) => r.price > 0)
-  if (priced.length === 0) return null
-  const prices = priced.map((r) => r.price)
+/** The meal plans a rate is quoted at, in the order the contract prints them. */
+export const MEAL_PLANS = [
+  { key: 'bb_price', label: 'BB', full: 'Bed & breakfast' },
+  { key: 'hb_price', label: 'HB', full: 'Half board' },
+  { key: 'fb_price', label: 'FB', full: 'Full board' },
+] as const
+
+export type MealPlanKey = (typeof MEAL_PLANS)[number]['key']
+
+/**
+ * The cheapest and dearest night on the sheet.
+ *
+ * Across all three meal plans, because that is the span an operator is being
+ * offered: the lowest BB and the highest FB are the two ends of the contract.
+ */
+export function rateRange(
+  rates: Pick<StoVersionRate, 'bb_price' | 'hb_price' | 'fb_price' | 'currency'>[]
+) {
+  const prices = rates
+    .flatMap((r) => [r.bb_price, r.hb_price, r.fb_price])
+    .filter((p) => p > 0)
+  if (prices.length === 0) return null
   return {
     from: Math.min(...prices),
     to: Math.max(...prices),
-    currency: priced[0].currency,
+    currency: rates[0].currency,
   }
+}
+
+/**
+ * A policy body, split the way it was written.
+ *
+ * A line opening with a bullet is a bullet; anything else is a paragraph. The
+ * contract is written that way, and re-typing it into markup would be one more
+ * thing to get wrong every season.
+ */
+export function policyBlocks(body: string) {
+  return body
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      const lines = block.split('\n').map((line) => line.trim()).filter(Boolean)
+      const bullets = lines.filter((line) => /^[•\-*]\s*/.test(line))
+      return bullets.length === lines.length && lines.length > 0
+        ? { kind: 'list' as const, items: lines.map((line) => line.replace(/^[•\-*]\s*/, '')) }
+        : { kind: 'text' as const, text: block }
+    })
 }
 
 /**

@@ -152,10 +152,14 @@
   break-inside: avoid;
 }
 
-.rs-season h3 {
-  margin: 0 0 8px;
-  font-family: var(--font-display);
-  font-size: 15px;
+/* A season heading, only shown when a contract prices more than one. */
+.rs-season h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b6459;
 }
 
 .rs-table {
@@ -202,11 +206,6 @@
   font-size: 12px;
   line-height: 1.45;
   color: #6b6459;
-}
-
-.rs-basis {
-  font-size: 12px;
-  color: #4a453d;
 }
 
 .rs-price {
@@ -302,10 +301,6 @@
     text-align: left;
   }
 
-  .rs-table th:nth-child(2),
-  .rs-table td.rs-basis {
-    display: none;
-  }
 }
 
 @media print {
@@ -322,5 +317,138 @@
 
   .rs-watermark {
     display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Contract sections
+   ---------------------------------------------------------------------------
+   The contract is mostly prose with one table in the middle of it, numbered
+   the way the signed PDF numbers it.
+   -------------------------------------------------------------------------- */
+.rs-section {
+  margin-top: 26px;
+  break-inside: avoid;
+}
+
+.rs-section h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.rs-num-badge {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.55;
+}
+
+/* Meal-plan key under the chart: BB/HB/FB mean nothing to a new operator. */
+.rs-plans {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #6b6459;
+}
+
+/* The VAT line. Called out, because it is the one clients ask about. */
+.rs-rates-note {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3a352e;
+  background: #faf8f4;
+  border-left: 3px solid;
+  border-radius: 0 6px 6px 0;
+}
+
+.rs-occupancy {
+  font-weight: 600;
+}
+
+.rs-supplements {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rs-supplements li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #efeae1;
+}
+
+.rs-bullets {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+
+.rs-bullets li {
+  margin-bottom: 5px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #3a352e;
+}
+
+/* --------------------------------------------------------------------------
+   Signature block
+   ---------------------------------------------------------------------------
+   Both halves of the paper contract, side by side: Zondela's signatory, and
+   the operator's. Once accepted, the second half prints who accepted and when
+   instead of a blank rule.
+   -------------------------------------------------------------------------- */
+.rs-sign {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  margin-top: 30px;
+  padding-top: 18px;
+  border-top: 1px solid #e2ddd3;
+  break-inside: avoid;
+}
+
+.rs-sign-intro {
+  margin: 0 0 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #6b6459;
+}
+
+.rs-sign .rs-sign-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #22201c;
+}
+
+.rs-sign-title {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: #6b6459;
+}
+
+@media (max-width: 700px) {
+  .rs-sign {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+  /* The chart is the one thing that cannot lose a column on a phone: an
+     operator reads across it. It scrolls instead. */
+  .rs-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .rs-note {
+    white-space: normal;
   }
 }

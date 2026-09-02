@@ -29,7 +29,8 @@ Supabase (Postgres + Auth) for persistence.
 1. In the Supabase dashboard, open **SQL Editor → New query**.
 2. Paste the entire contents of [`supabase/schema.sql`](./supabase/schema.sql)
    and run it. This creates all tables (companies, contacts, site_visits,
-   follow_ups, sto_agreement_versions, sto_version_rates, sto_agreement_sends,
+   follow_ups, sto_agreement_versions, sto_version_rates,
+   sto_version_supplements, sto_version_sections, sto_agreement_sends,
    sto_rate_card, email_templates, sent_messages, profiles, permissions,
    role_permissions, activity_logs, org_settings), indexes, the role and
    permission model, row-level security policies, and the two `security
@@ -40,6 +41,13 @@ Supabase (Postgres + Auth) for persistence.
    database predates any of them, re-run the script to add it.
 3. It's safe to re-run — the script drops/recreates policies and uses
    `if not exists` for tables.
+4. **Optional, and the fastest way to see the section working:** run
+   [`supabase/seed-sto-2026.sql`](./supabase/seed-sto-2026.sql). It enters the
+   2026 Standard Tour Operator Rate Contract exactly as signed — the six room
+   types with their BB/HB/FB rates and occupancies, both supplements, and all
+   six policies word for word — as a draft. Open it under STO → Agreement
+   versions, attach the PDF, and activate it. Re-running replaces that one
+   contract rather than adding a second.
 
 **Upgrading an existing database?** Re-running `schema.sql` is the whole
 migration. It renames the old roles (`owner` → `super_admin`,
@@ -203,19 +211,37 @@ supabase/
   price: it publishes **one rate sheet a season** and sends that same document
   to every tour operator, who accepts it. The section is five tabs.
 
-  **Agreement versions** is the rate sheets themselves. A version is a season:
-  a name, the year, validity dates, a one-line summary, an introduction and
-  terms, and its rates — **one line per room type per season** (Garden Room,
-  High season, "per person sharing, B&B", USD 180). The rates are entered as
-  data rather than left inside a file, because everything downstream reads
-  them: the document the operator opens, the tag on the card ("4 room types ·
-  High and Low season"), the description in a report. The **signed PDF is
-  attached as well** and travels with it — it is the file operators know — but
-  the CRM renders its own branded sheet from the rates, so a phone opens
-  something readable without downloading anything. A version is a **draft**
-  until it is **activated**; only an active sheet can be sent, and a past
-  season is **archived** rather than deleted. Each card carries what came back
-  from it: sent to how many operators, how many opened it, how many accepted.
+  **Agreement versions** is the rate contracts themselves, shaped like the
+  signed document: an overview of the property, the **rates chart**, the
+  supplements, and the numbered policies.
+
+  A rate is **one row per room type**, quoted at three meal plans at once and
+  carrying how many people it sleeps — exactly as the contract prints it:
+
+  | Room type | STO BB | STO HB | STO FB | Max occupancy |
+  |---|---|---|---|---|
+  | Standard Single | 130 | 150 | 170 | 1 |
+  | Standard Double | 170 | 210 | 250 | 2 |
+  | Family Room | 340 | 420 | 500 | 4 |
+
+  Under it sit the line about VAT and the tourism levy, the **supplements**
+  (lunch $20 per person, dinner $20 per person — priced per person, so they
+  cannot live in the rates table without lying about what the number means),
+  and the **policies**: children, tour leader, check-in/out, deposit,
+  cancellation, no-show. Each policy is a row rather than one blob of terms,
+  because the document numbers them and each is renegotiated on its own; a
+  line starting with • or - prints as a bullet.
+
+  All of it is entered as data rather than left inside a file, because
+  everything downstream reads it: the document the operator opens, the tag on
+  the card ("6 room types · sleeps up to 4"), the description in a report. The
+  **signed PDF is attached as well** and travels with it — it is the file
+  operators know — but the CRM renders its own branded contract, so a phone
+  opens something readable without downloading anything. A version is a
+  **draft** until it is **activated**; only an active contract can be sent, and
+  a past season is **archived** rather than deleted. Each card carries what came
+  back from it: sent to how many operators, how many opened it, how many
+  accepted.
 
   **Sent agreements** is one row per operator the sheet went to, with where it
   got to — Sent, Viewed, Accepted, Declined — the date it was opened, the date
@@ -240,16 +266,22 @@ supabase/
   send **Accepted** or **Declined** by hand, for an operator who answers by
   email or on the phone.
 - **The operator's page** (`/agreement/:token`) is the only part of the app a
-  client ever sees: no login, no app shell, no forms. They read the season's
-  rates, download the PDF if they want it, and accept — giving their name, and
-  optionally an email and a note. **No tax numbers, no registration details**;
-  Zondela is publishing rates, not onboarding a supplier. Opening the link
-  marks the send **viewed** on its own, which is the only delivery signal the
-  CRM gets without an email provider wired up, and accepting marks it
-  **accepted** the moment they do it.
+  client ever sees: no login, no app shell. They read the whole contract —
+  rates, supplements, policies — download the PDF if they want it, and accept
+  under the sentence the paper contract uses: *"I, on behalf of …, accept the
+  rates offered by Zondela House and accept the terms and conditions pertaining
+  thereto."* They give a **name in print** and a **position/title**, which is
+  what the paper asks for under a signature, plus an optional email and note.
+  **No tax numbers, no registration details**; Zondela is publishing rates, not
+  onboarding a supplier. Opening the link marks the send **viewed** on its own,
+  which is the only delivery signal the CRM gets without an email provider
+  wired up, and accepting marks it **accepted** the moment they do it — after
+  which the document's signature block prints who accepted and when instead of
+  a blank rule.
 
   The page reaches the database through two `security definer` functions —
-  `sto_public_agreement(token)` and `sto_public_respond(token, accept, …)` —
+  `sto_public_agreement(token)` and
+  `sto_public_respond(token, accept, name, title, …)` —
   and nothing else. `anon` holds no grant on any table: the functions take a
   token, act on the one row it names, and return only what the page prints,
   so there is no list to ask for and no policy to get wrong.

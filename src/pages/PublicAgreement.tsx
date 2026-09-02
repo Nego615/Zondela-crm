@@ -6,6 +6,8 @@ import { formatDayTime } from '../lib/stoVersion'
 import RateSheetDocument, {
   type SheetOrg,
   type SheetRate,
+  type SheetSection,
+  type SheetSupplement,
   type SheetVersion,
 } from '../components/RateSheetDocument'
 import './public-agreement.css'
@@ -21,10 +23,13 @@ interface AgreementPayload {
     accepted_at: string | null
     declined_at: string | null
     responded_name: string | null
+    responded_title: string | null
     responded_note: string | null
   }
   version: SheetVersion & { pdf_path: string | null; pdf_name: string | null }
   rates: SheetRate[]
+  supplements: SheetSupplement[]
+  sections: SheetSection[]
   org: SheetOrg | null
 }
 
@@ -48,6 +53,7 @@ export default function PublicAgreement() {
   const [notFound, setNotFound] = useState(false)
 
   const [name, setName] = useState('')
+  const [title, setTitle] = useState('')
   const [email, setEmail] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
@@ -64,6 +70,7 @@ export default function PublicAgreement() {
     const value = payload as AgreementPayload
     setData(value)
     setName((prev) => prev || value.send.responded_name || value.send.to_name || '')
+    setTitle((prev) => prev || value.send.responded_title || '')
     setLoading(false)
   }, [token])
 
@@ -82,6 +89,7 @@ export default function PublicAgreement() {
       p_token: token,
       p_accept: accept,
       p_name: name.trim() || null,
+      p_title: title.trim() || null,
       p_email: email.trim() || null,
       p_note: note.trim() || null,
     })
@@ -115,7 +123,7 @@ export default function PublicAgreement() {
     )
   }
 
-  const { send, version, rates, org } = data
+  const { send, version, rates, supplements, sections, org } = data
   const answered = send.status === 'accepted' || send.status === 'declined'
   const brand = org?.brand_color || '#0c3b35'
 
@@ -128,7 +136,9 @@ export default function PublicAgreement() {
         >
           <strong>
             {send.status === 'accepted'
-              ? `Accepted${send.responded_name ? ` by ${send.responded_name}` : ''}`
+              ? `Accepted${send.responded_name ? ` by ${send.responded_name}` : ''}${
+                  send.responded_title ? `, ${send.responded_title}` : ''
+                }`
               : 'You declined these rates'}
           </strong>
           <span>
@@ -142,29 +152,50 @@ export default function PublicAgreement() {
         <RateSheetDocument
           version={version}
           rates={rates}
+          supplements={supplements}
+          sections={sections}
           org={org}
           recipient={{ name: send.to_name, company: send.company_name }}
           pdfUrl={version.pdf_path ? stoPdfUrl(version.pdf_path) : null}
           pdfName={version.pdf_name}
+          acceptance={
+            send.status === 'accepted'
+              ? {
+                  name: send.responded_name,
+                  title: send.responded_title,
+                  company: send.company_name,
+                  at: send.accepted_at,
+                }
+              : null
+          }
         />
 
         {!answered && (
           <section className="pa-accept" aria-labelledby="pa-accept-title">
             <h2 id="pa-accept-title">Accept these rates</h2>
-            <p>
-              Confirming below records your acceptance of the {version.year} rates for{' '}
-              {org?.org_name || 'Zondela House'}
-              {send.company_name ? ` on behalf of ${send.company_name}` : ''}. Nothing else is asked
-              of you — no forms, no account.
+            {/* The sentence the paper contract asks the client to sign under,
+                in the same words — this is that signature, typed. */}
+            <p className="pa-declaration">
+              I, on behalf of <strong>{send.company_name || 'my company'}</strong>, accept the rates
+              offered by {org?.org_name || 'Zondela House'} for {version.year} and accept the terms
+              and conditions pertaining thereto.
             </p>
 
             <div className="pa-fields">
               <label>
-                <span>Your name</span>
+                <span>Name in print</span>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Who is confirming"
+                  placeholder="Who is accepting"
+                />
+              </label>
+              <label>
+                <span>Position / title</span>
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Director, Reservations Manager…"
                 />
               </label>
               <label>
@@ -197,7 +228,7 @@ export default function PublicAgreement() {
                 disabled={busy}
                 onClick={() => respond(true)}
               >
-                {busy ? 'Sending…' : `Accept the ${version.year} rates`}
+                {busy ? 'Sending…' : `Accept the ${version.year} rate contract`}
               </button>
               <button className="pa-btn" disabled={busy} onClick={() => respond(false)}>
                 Not this season

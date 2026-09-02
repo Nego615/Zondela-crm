@@ -5,6 +5,8 @@ import type {
   StoAgreementSend,
   StoAgreementVersion,
   StoVersionRate,
+  StoVersionSection,
+  StoVersionSupplement,
   StoVersionWithRates,
 } from '../lib/database.types'
 
@@ -23,10 +25,22 @@ const STO_BUCKET = 'sto'
 export interface RateInput {
   season: string
   room_type: string
-  basis: string | null
   description: string | null
-  price: number
+  bb_price: number
+  hb_price: number
+  fb_price: number
+  max_occupancy: number
   currency: string
+}
+
+export type SupplementInput = Omit<StoVersionSupplement, 'id' | 'version_id' | 'sort_order'>
+export type SectionInput = Omit<StoVersionSection, 'id' | 'version_id' | 'sort_order'>
+
+/** Everything printed under the header, saved and replaced as one block. */
+export interface VersionBody {
+  rates: RateInput[]
+  supplements: SupplementInput[]
+  sections: SectionInput[]
 }
 
 export function useStoVersions() {
@@ -51,20 +65,37 @@ export function useStoVersions() {
 
     const rows = (data ?? []) as StoAgreementVersion[]
     let rates: StoVersionRate[] = []
+    let supplements: StoVersionSupplement[] = []
+    let sections: StoVersionSection[] = []
+
     if (rows.length > 0) {
-      const { data: rateData } = await supabase
-        .from('sto_version_rates')
-        .select('*')
-        .in(
-          'version_id',
-          rows.map((v) => v.id)
-        )
-        .order('sort_order', { ascending: true })
-      rates = (rateData ?? []) as StoVersionRate[]
+      // Four tables, one hook: a rate sheet is never useful in pieces — the
+      // list, the document and the reports all read the whole contract — and
+      // three `in` queries beat a request per version.
+      const ids = rows.map((v) => v.id)
+      const [rateData, supplementData, sectionData] = await Promise.all([
+        supabase.from('sto_version_rates').select('*').in('version_id', ids).order('sort_order'),
+        supabase
+          .from('sto_version_supplements')
+          .select('*')
+          .in('version_id', ids)
+          .order('sort_order'),
+        supabase.from('sto_version_sections').select('*').in('version_id', ids).order('sort_order'),
+      ])
+      rates = (rateData.data ?? []) as StoVersionRate[]
+      supplements = (supplementData.data ?? []) as StoVersionSupplement[]
+      sections = (sectionData.data ?? []) as StoVersionSection[]
     }
 
     setError(null)
-    setVersions(rows.map((v) => ({ ...v, rates: rates.filter((r) => r.version_id === v.id) })))
+    setVersions(
+      rows.map((v) => ({
+        ...v,
+        rates: rates.filter((r) => r.version_id === v.id),
+        supplements: supplements.filter((r) => r.version_id === v.id),
+        sections: sections.filter((r) => r.version_id === v.id),
+      }))
+    )
     setLoading(false)
   }, [])
 
@@ -73,27 +104,35 @@ export function useStoVersions() {
   }, [refresh])
 
   /**
-   * Save the header and replace the rates in one go.
+   * Replace everything printed under the header, in order.
    *
-   * The rates are deleted and re-inserted rather than diffed: they are a rate
-   * sheet, edited as a block, and nothing points at an individual line — a send
-   * references the version, never a row inside it.
+   * Deleted and re-inserted rather than diffed: a contract is edited as a
+   * block, and nothing points at an individual line — a send references the
+   * version, never a row inside it.
    */
-  async function saveRates(versionId: string, rates: RateInput[]) {
-    const { error: clearError } = await supabase
-      .from('sto_version_rates')
-      .delete()
-      .eq('version_id', versionId)
-    if (clearError) throw clearError
+  async function saveBody(versionId: string, body: VersionBody) {
+    const tables = [
+      ['sto_version_rates', body.rates],
+      ['sto_version_supplements', body.supplements],
+      ['sto_version_sections', body.sections],
+    ] as const
 
-    if (rates.length === 0) return
-    const { error: insertError } = await supabase.from('sto_version_rates').insert(
-      rates.map((rate, index) => ({ ...rate, version_id: versionId, sort_order: index }))
-    )
-    if (insertError) throw insertError
+    for (const [table, entries] of tables) {
+      const { error: clearError } = await supabase
+        .from(table)
+        .delete()
+        .eq('version_id', versionId)
+      if (clearError) throw clearError
+
+      if (entries.length === 0) continue
+      const { error: insertError } = await supabase
+        .from(table)
+        .insert(entries.map((entry, index) => ({ ...entry, version_id: versionId, sort_order: index })))
+      if (insertError) throw insertError
+    }
   }
 
-  async function createVersion(input: Partial<StoAgreementVersion>, rates: RateInput[]) {
+  async function createVersion(input: Partial<StoAgreementVersion>, body: VersionBody) {
     const { data, error } = await supabase
       .from('sto_agreement_versions')
       .insert(input)
@@ -102,10 +141,10 @@ export function useStoVersions() {
     if (error) throw error
     const version = data as StoAgreementVersion
 
-    // A version with no rates is a header nobody can send, so a failed rate
-    // insert takes the header down with it rather than leaving one behind.
+    // A version with no rates is a header nobody can send, so a failed insert
+    // takes the header down with it rather than leaving one behind.
     try {
-      await saveRates(version.id, rates)
+      await saveBody(version.id, body)
     } catch (err) {
       await supabase.from('sto_agreement_versions').delete().eq('id', version.id)
       throw err
@@ -118,14 +157,14 @@ export function useStoVersions() {
   async function updateVersion(
     id: string,
     input: Partial<StoAgreementVersion>,
-    rates?: RateInput[]
+    body?: VersionBody
   ) {
     const { error } = await supabase
       .from('sto_agreement_versions')
       .update({ ...input, updated_at: new Date().toISOString() })
       .eq('id', id)
     if (error) throw error
-    if (rates) await saveRates(id, rates)
+    if (body) await saveBody(id, body)
     await refresh()
   }
 

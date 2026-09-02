@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useCompanies, useProfiles } from '../hooks/useCrmData'
 import { useAgreementSends, useStoVersions, agreementLink, stoPdfUrl } from '../hooks/useStoVersions'
 import {
+  MEAL_PLANS,
   SEND_STATUS_LIST,
   SEND_STATUS_META,
   VERSION_STATUS_META,
@@ -528,6 +529,9 @@ export default function Sto() {
                         <td className="sto-date">{formatDayTime(send.accepted_at)}</td>
                         <td>
                           <span className="sto-strong">{send.responded_name ?? send.to_name ?? '—'}</span>
+                          {send.responded_title && (
+                            <span className="sto-row-sub">{send.responded_title}</span>
+                          )}
                           {send.responded_email && (
                             <span className="sto-row-sub">{send.responded_email}</span>
                           )}
@@ -675,7 +679,14 @@ function VersionCard({
         {version.valid_from || version.valid_to
           ? `Valid ${formatDay(version.valid_from)} → ${formatDay(version.valid_to)}`
           : `Season ${version.year}`}
-        {range ? ` · ${formatRate(range.from, range.currency)}–${formatRate(range.to, range.currency)}` : ''}
+        {range
+          ? ` · ${formatRate(range.from, range.currency)}–${formatRate(range.to, range.currency)}${
+              version.rate_basis ? ` ${version.rate_basis.toLowerCase()}` : ''
+            }`
+          : ''}
+        {version.sections.length > 0
+          ? ` · ${version.sections.length} ${version.sections.length === 1 ? 'policy' : 'policies'}`
+          : ''}
         {version.pdf_path ? ` · PDF attached (${version.pdf_name})` : ' · No PDF attached'}
       </p>
 
@@ -719,8 +730,12 @@ function VersionCard({
                   <thead>
                     <tr>
                       <th>Room type</th>
-                      <th>Basis</th>
-                      <th className="ver-num">Rate</th>
+                      {MEAL_PLANS.map((plan) => (
+                        <th key={plan.key} className="ver-num" title={plan.full}>
+                          STO {plan.label}
+                        </th>
+                      ))}
+                      <th className="ver-num">Sleeps</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -732,8 +747,12 @@ function VersionCard({
                             <span className="sto-row-note">{rate.description}</span>
                           )}
                         </td>
-                        <td className="sto-row-sub">{rate.basis || '—'}</td>
-                        <td className="ver-num">{formatRate(rate.price, rate.currency)}</td>
+                        {MEAL_PLANS.map((plan) => (
+                          <td key={plan.key} className="ver-num">
+                            {rate[plan.key] > 0 ? formatRate(rate[plan.key], rate.currency) : '—'}
+                          </td>
+                        ))}
+                        <td className="ver-num">{rate.max_occupancy || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -742,9 +761,36 @@ function VersionCard({
             ))
           )}
 
+          {version.rates_note && <p className="ver-rates-note">{version.rates_note}</p>}
+
+          {version.supplements.length > 0 && (
+            <>
+              <h4 className="ver-terms-head">Supplements</h4>
+              <ul className="ver-supplements">
+                {version.supplements.map((item) => (
+                  <li key={item.id}>
+                    <span>{item.name}</span>
+                    <span className="sto-strong">
+                      {formatRate(item.price, item.currency)} {item.unit}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {version.sections.map((section, index) => (
+            <div key={section.id}>
+              <h4 className="ver-terms-head">
+                {index + 1}. {section.title}
+              </h4>
+              <p className="ver-prose">{section.body}</p>
+            </div>
+          ))}
+
           {version.terms && (
             <>
-              <h4 className="ver-terms-head">Terms and conditions</h4>
+              <h4 className="ver-terms-head">Anything else</h4>
               <p className="ver-prose">{version.terms}</p>
             </>
           )}

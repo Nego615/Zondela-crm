@@ -215,17 +215,53 @@ export interface StoAgreementWithItems extends StoAgreement {
 export type VersionStatus = 'draft' | 'active' | 'archived'
 export type SendStatus = 'sent' | 'viewed' | 'accepted' | 'declined'
 
+/**
+ * One room type on the rates chart.
+ *
+ * Three prices, not one: the contract quotes every room at bed & breakfast,
+ * half board and full board at once, and an operator picks per booking. The
+ * occupancy is part of the rate — "Family Room, 340, sleeps 4" is the offer.
+ */
 export interface StoVersionRate {
   id: string
   version_id: string
   /** Free text — a season gets renamed more often than a schema should move. */
   season: string
   room_type: string
-  /** How the price is read: "Per person sharing, half board". */
-  basis: string | null
+  description: string | null
+  /** Bed & breakfast, half board, full board. Per room, per night. */
+  bb_price: number
+  hb_price: number
+  fb_price: number
+  max_occupancy: number
+  currency: string
+  sort_order: number
+}
+
+/** Priced per person alongside the room: lunch, dinner. */
+export interface StoVersionSupplement {
+  id: string
+  version_id: string
+  name: string
   description: string | null
   price: number
   currency: string
+  unit: string
+  sort_order: number
+}
+
+/**
+ * One numbered policy in the contract — children, cancellation, no-show.
+ *
+ * Rows rather than one block of terms: the document numbers them, and each is
+ * renegotiated on its own between seasons.
+ */
+export interface StoVersionSection {
+  id: string
+  version_id: string
+  title: string
+  /** Blank-line separated. Lines opening with • or - render as a list. */
+  body: string
   sort_order: number
 }
 
@@ -239,9 +275,13 @@ export interface StoAgreementVersion {
   valid_to: string | null
   /** One line, read in lists and reports. */
   summary: string | null
-  /** What the operator reads above the rates. */
+  /** What the operator reads above the rates — the property overview. */
   intro: string | null
   terms: string | null
+  /** How the chart is read: "Per room, per night". */
+  rate_basis: string | null
+  /** The line under the chart, about VAT and the tourism levy. */
+  rates_note: string | null
   /** The uploaded rate sheet, exactly as supplied. Key into the `sto` bucket. */
   pdf_path: string | null
   pdf_name: string | null
@@ -251,9 +291,11 @@ export interface StoAgreementVersion {
   updated_at: string
 }
 
-/** What the version pages work with: the header plus its rates. */
+/** What the version pages work with: the header plus everything printed under it. */
 export interface StoVersionWithRates extends StoAgreementVersion {
   rates: StoVersionRate[]
+  supplements: StoVersionSupplement[]
+  sections: StoVersionSection[]
 }
 
 /** One operator, one version, and where it got to. */
@@ -278,8 +320,10 @@ export interface StoAgreementSend {
   viewed_at: string | null
   accepted_at: string | null
   declined_at: string | null
-  /** What the operator typed when they answered. No tax or registration details. */
+  /** The signature block they filled in. No tax or registration details. */
   responded_name: string | null
+  /** Signatory position/title, as the paper contract asks for. */
+  responded_title: string | null
   responded_email: string | null
   responded_note: string | null
   created_at: string
@@ -421,6 +465,16 @@ export interface Database {
         Row: StoVersionRate
         Insert: Partial<StoVersionRate>
         Update: Partial<StoVersionRate>
+      }
+      sto_version_supplements: {
+        Row: StoVersionSupplement
+        Insert: Partial<StoVersionSupplement>
+        Update: Partial<StoVersionSupplement>
+      }
+      sto_version_sections: {
+        Row: StoVersionSection
+        Insert: Partial<StoVersionSection>
+        Update: Partial<StoVersionSection>
       }
       sto_agreement_sends: {
         Row: StoAgreementSend

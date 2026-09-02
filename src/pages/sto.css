@@ -538,3 +538,32 @@
     width: 120px;
   }
 }
+
+/* The VAT line and the supplements, on an opened version card. */
+.ver-rates-note {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--paper-dim);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.ver-supplements {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+}
+
+.ver-supplements li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--text-soft);
+  border-bottom: 1px solid var(--line);
+}

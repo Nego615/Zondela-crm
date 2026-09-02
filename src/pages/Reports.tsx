@@ -249,6 +249,8 @@ interface SheetRow {
   rooms: string
   seasons: string
   rates: string
+  basis: string
+  policies: number
   validity: string
   document: string
   sent: number
@@ -329,6 +331,7 @@ interface SendRow {
   openedAt: string | null
   answeredAt: string | null
   answeredBy: string | null
+  answeredTitle: string | null
   sentBy: string
   followUpOn: string | null
   /** What the operator wrote back, or failing that the team's own note. */
@@ -961,6 +964,8 @@ export default function Reports() {
               ? formatRate(range.from, range.currency)
               : `${formatRate(range.from, range.currency)} – ${formatRate(range.to, range.currency)}`
             : 'No rates entered',
+          basis: v.rate_basis ?? '—',
+          policies: v.sections.length,
           validity:
             v.valid_from || v.valid_to
               ? `${formatDay(v.valid_from)} → ${formatDay(v.valid_to)}`
@@ -997,6 +1002,8 @@ export default function Reports() {
     { key: 'rooms', label: 'Room types', value: (r) => r.rooms },
     { key: 'seasons', label: 'Seasons priced', value: (r) => r.seasons },
     { key: 'rates', label: 'Rates', value: (r) => r.rates },
+    { key: 'basis', label: 'Quoted', value: (r) => r.basis },
+    { key: 'policies', label: 'Policies', value: (r) => r.policies, numeric: true },
     { key: 'document', label: 'Document', value: (r) => r.document },
     { key: 'sent', label: 'Sent to', value: (r) => r.sent, numeric: true },
     { key: 'opened', label: 'Opened', value: (r) => r.opened, numeric: true },
@@ -1095,6 +1102,7 @@ export default function Reports() {
           sheetName(s.version_id),
           s.note,
           s.responded_name,
+          s.responded_title,
           s.responded_note
         )
       )
@@ -1115,6 +1123,7 @@ export default function Reports() {
           openedAt: s.viewed_at,
           answeredAt: s.accepted_at ?? s.declined_at,
           answeredBy: s.responded_name,
+          answeredTitle: s.responded_title,
           sentBy: repName(s.sent_by, null),
           followUpOn: s.follow_up_at,
           // What the operator wrote back is the interesting half of this row;
@@ -1195,7 +1204,21 @@ export default function Reports() {
       value: (r) => (r.answeredAt ? dayKey(r.answeredAt) : null),
       cell: (r) => (r.answeredAt ? formatDayTime(r.answeredAt) : <span className="rp-muted">—</span>),
     },
-    { key: 'answeredBy', label: 'Answered by', value: (r) => r.answeredBy },
+    {
+      key: 'answeredBy',
+      label: 'Answered by',
+      value: (r) =>
+        r.answeredBy ? `${r.answeredBy}${r.answeredTitle ? `, ${r.answeredTitle}` : ''}` : null,
+      cell: (r) =>
+        r.answeredBy ? (
+          <>
+            <span className="rp-strong">{r.answeredBy}</span>
+            {r.answeredTitle && <span className="rp-note">{r.answeredTitle}</span>}
+          </>
+        ) : (
+          <span className="rp-muted">—</span>
+        ),
+    },
     { key: 'sentBy', label: 'Sent by', value: (r) => r.sentBy },
     {
       key: 'followUp',

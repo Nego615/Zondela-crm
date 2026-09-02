@@ -52,13 +52,84 @@
   border-radius: var(--radius);
 }
 
-/* Season and room type carry the line; the rate stays narrow and aligned down
-   the column so the list reads as the table it becomes. */
+/* Season and room type carry the line; the three rates stay narrow and aligned
+   down their columns so the list reads as the chart it becomes. */
 .version-rate-main {
   display: grid;
-  grid-template-columns: 130px minmax(0, 1fr) minmax(0, 1fr) 96px 84px auto;
+  grid-template-columns: 104px minmax(0, 1fr) 78px 78px 78px 64px 74px auto;
   gap: 6px;
   align-items: center;
+}
+
+/* Column labels over the rate rows: six numbers in a line are unreadable
+   without them, and a placeholder disappears the moment a value is typed. */
+.version-rate-headings {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) 78px 78px 78px 64px 74px auto;
+  gap: 6px;
+  padding: 0 10px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version-supp-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px 78px 130px auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.version-row-pair {
+  grid-template-columns: 1fr 2fr;
+}
+
+/* A policy: a numbered title bar with its text under it. */
+.version-section-head {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.version-section-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.version-section textarea {
+  width: 100%;
+  min-height: 84px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  resize: vertical;
+}
+
+.version-section textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(169, 70, 58, 0.14);
+}
+
+.version-suggestions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .version-rate input,
@@ -118,8 +189,17 @@
     grid-template-columns: 1fr 1fr;
   }
 
-  .version-rate-main {
+  .version-rate-headings {
+    display: none;
+  }
+
+  .version-rate-main,
+  .version-supp-main {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .version-row-pair {
+    grid-template-columns: 1fr;
   }
 
   .version-rate-main > button {

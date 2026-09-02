@@ -3,7 +3,14 @@ import { useCompanies, useContacts, useOrgSettings, useTemplates } from '../hook
 import { useAgreementSends, agreementLink } from '../hooks/useStoVersions'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import { PLACEHOLDERS, fillTemplate, formatRate, rateRange, scopeLabel } from '../lib/stoVersion'
+import {
+  MEAL_PLANS,
+  PLACEHOLDERS,
+  fillTemplate,
+  formatRate,
+  rateRange,
+  scopeLabel,
+} from '../lib/stoVersion'
 import type { StoVersionWithRates } from '../lib/database.types'
 import './ui.css'
 import './send-version.css'
@@ -79,8 +86,18 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
       return fillTemplate(template.body_html.replace(/<[^>]+>/g, ''), values)
     }
 
+    // One line per room, all three meal plans on it: an operator scanning an
+    // email wants the chart, not a link to go and find the chart.
     const rates = version.rates
-      .map((r) => `• ${r.season} — ${r.room_type}: ${formatRate(r.price, r.currency)}${r.basis ? ` (${r.basis})` : ''}`)
+      .map(
+        (r) =>
+          `• ${r.room_type} (sleeps ${r.max_occupancy}): ` +
+          MEAL_PLANS.map((plan) => `${plan.label} ${formatRate(r[plan.key], r.currency)}`).join(' · ')
+      )
+      .join('\n')
+
+    const supplements = version.supplements
+      .map((s) => `• ${s.name}: ${formatRate(s.price, s.currency)} ${s.unit}`)
       .join('\n')
 
     const signature = [
@@ -97,9 +114,12 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
       `Please find the ${version.year} STO rates for ${settings?.org_name || 'Zondela House'}${companyName ? ` for ${companyName}` : ''}.`,
       version.summary ?? '',
       '',
+      version.rate_basis ? `${version.rate_basis}:` : 'Rates:',
       rates,
+      ...(supplements ? ['', 'Supplements', supplements] : []),
+      ...(version.rates_note ? ['', version.rates_note] : []),
       '',
-      'Open the rates in full and confirm your acceptance here:',
+      'Open the full contract — rates, policies and terms — and confirm your acceptance here:',
       link,
       '',
       'Should you have any questions, please do not hesitate to reach out.',

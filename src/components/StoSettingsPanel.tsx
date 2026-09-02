@@ -16,37 +16,35 @@ const BRANDING_BUCKET = 'branding'
 const SAMPLE_VERSION: SheetVersion = {
   name: `Zondela House STO Rates ${new Date().getFullYear() + 1}`,
   year: new Date().getFullYear() + 1,
-  summary: 'Contracted rates for tour operators, valid for the whole season.',
+  summary: 'Standard tour operator rates, valid for the whole season.',
   intro:
-    'Thank you for working with us. The rates below are net, per night, and include breakfast unless stated otherwise.',
-  terms: 'Rates are valid for the dates shown. Bookings are confirmed on receipt of a rooming list.',
+    'Zondela House is a boutique property with 12 comfortable rooms, offering a warm and inviting stay for leisure, business and safari travellers.',
+  rate_basis: 'Per room, per night',
+  rates_note: 'All rates quoted are inclusive of VAT and Tourism development levy.',
+  terms: null,
   valid_from: `${new Date().getFullYear() + 1}-01-01`,
   valid_to: `${new Date().getFullYear() + 1}-12-31`,
 }
 
 const SAMPLE_RATES: SheetRate[] = [
   {
-    season: 'High season',
-    room_type: 'Garden Room',
-    basis: 'Per person sharing, B&B',
-    description: 'Twin or double, private veranda.',
-    price: 180,
+    season: 'All year',
+    room_type: 'Standard Double',
+    description: 'Twin or double, private balcony.',
+    bb_price: 170,
+    hb_price: 210,
+    fb_price: 250,
+    max_occupancy: 2,
     currency: 'USD',
   },
   {
-    season: 'High season',
-    room_type: 'Family Suite',
-    basis: 'Per room, B&B',
+    season: 'All year',
+    room_type: 'Family Room',
     description: null,
-    price: 320,
-    currency: 'USD',
-  },
-  {
-    season: 'Low season',
-    room_type: 'Garden Room',
-    basis: 'Per person sharing, B&B',
-    description: null,
-    price: 140,
+    bb_price: 340,
+    hb_price: 420,
+    fb_price: 500,
+    max_occupancy: 4,
     currency: 'USD',
   },
 ]
@@ -364,6 +362,13 @@ export default function StoSettingsPanel() {
           <RateSheetDocument
             version={SAMPLE_VERSION}
             rates={SAMPLE_RATES}
+            supplements={[{ name: 'Dinner', price: 20, currency: 'USD', unit: 'per person' }]}
+            sections={[
+              {
+                title: 'Check-In / Check-Out',
+                body: 'Check-in: 2:00 PM\nCheck-out: 10:00 AM',
+              },
+            ]}
             org={previewSettings}
             recipient={{ company: 'Serengeti Trails Safaris Ltd' }}
           />

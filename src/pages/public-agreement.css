@@ -224,3 +224,20 @@
     border: 1px solid #bbb;
   }
 }
+
+/* The acceptance sentence, in the contract's own words. Set apart, because it
+   is the thing being agreed to and not an instruction. */
+.pa-declaration {
+  margin: 0 0 18px !important;
+  padding: 12px 14px;
+  font-size: 14px !important;
+  line-height: 1.6;
+  color: var(--ink, #22201c) !important;
+  background: var(--paper-dim, #f6f3ee);
+  border-radius: 8px;
+}
+
+/* Three fields across on a desk, one on a phone. */
+.pa-fields {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
