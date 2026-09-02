@@ -5,11 +5,10 @@ import {
   useCompanies,
   useFollowUps,
   useProfiles,
-  useRateCard,
   useSentMessages,
   useSiteVisits,
-  useStoAgreements,
 } from '../hooks/useCrmData'
+import { useAgreementSends, useStoVersions } from '../hooks/useStoVersions'
 import { useAuth } from '../hooks/useAuth'
 import { STAGE_LIST, STAGE_META } from '../lib/stage'
 import {
@@ -20,13 +19,15 @@ import {
 } from '../lib/company'
 import { APPOINTMENT_KINDS, APPOINTMENT_KIND_LABELS, APPOINTMENT_KIND_STYLE } from '../lib/appointment'
 import {
-  AGREEMENT_STATUS_LIST,
-  AGREEMENT_STATUS_META,
-  agreementTotals,
-  formatMoney,
-  isExpired,
-  lineTotal,
-} from '../lib/agreement'
+  SEND_STATUS_LIST,
+  SEND_STATUS_META,
+  VERSION_STATUS_META,
+  formatRate,
+  rateRange,
+  roomTypesOf,
+  scopeLabel,
+  seasonsOf,
+} from '../lib/stoVersion'
 import { repLabel } from '../lib/rep'
 import {
   DATE_PRESETS,
@@ -47,11 +48,11 @@ import {
   type DatePreset,
 } from '../lib/reports'
 import type {
-  AgreementStatus,
   AppointmentKind,
   Company,
   MainMarket,
   Relationship,
+  SendStatus,
   Stage,
 } from '../lib/database.types'
 import '../components/ui.css'
@@ -73,7 +74,7 @@ type Tab =
   | 'reps'
   | 'follow-ups'
   | 'agreements'
-  | 'services'
+  | 'rates'
   | 'outreach'
   | 'conversion'
   | 'notes'
@@ -147,19 +148,18 @@ const TABS: TabDef[] = [
     value: 'agreements',
     label: 'STO agreements',
     slug: 'sto-agreements',
-    title: 'STO agreements',
-    blurb: 'Every agreement raised in the period, what it was worth and how the client answered.',
-    status: [
-      ...AGREEMENT_STATUS_LIST.map((v) => ({ value: v as string, label: AGREEMENT_STATUS_META[v].label })),
-      { value: 'expired', label: 'Expired' },
-    ],
+    title: 'STO agreements sent',
+    blurb:
+      'Every operator sent the season’s rates in the period: whether they opened them, what they answered, and anything they wrote back.',
+    status: SEND_STATUS_LIST.map((v) => ({ value: v as string, label: SEND_STATUS_META[v].label })),
   },
   {
-    value: 'services',
-    label: 'Service interest',
-    slug: 'service-interest',
-    title: 'Service interest',
-    blurb: 'Which STO services are being quoted, and what they are worth.',
+    value: 'rates',
+    label: 'Rate sheets',
+    slug: 'rate-sheets',
+    title: 'Rate sheets',
+    blurb:
+      'The seasons Zondela House has published — what each one covers, what it costs, and how operators answered it.',
   },
   {
     value: 'outreach',
@@ -235,24 +235,28 @@ interface RepRow {
   followUpsDone: number
   followUpsOpen: number
   overdue: number
-  quotesSent: number
+  sheetsSent: number
   accepted: number
-  acceptedValue: number
-  currency: string
   winRate: number | null
 }
 
-interface ServiceRow {
+interface SheetRow {
   id: string
-  service: string
-  quotes: number
-  companies: number
-  quantity: number
-  quoted: number
-  acceptedValue: number
-  currency: string
-  onRateCard: boolean
+  sheet: string
+  year: number
+  statusLabel: string
+  scope: string
+  rooms: string
+  seasons: string
+  rates: string
+  validity: string
+  document: string
+  sent: number
+  opened: number
+  accepted: number
+  declined: number
   acceptRate: number | null
+  note: string | null
 }
 
 interface FollowUpRow {
@@ -271,13 +275,11 @@ interface ConversionRow {
   company: string
   firstVisit: string
   visits: number
-  quoted: boolean
-  quotedOn: string | null
+  sheetSent: boolean
+  sentOn: string | null
   accepted: boolean
   stage: Stage
-  value: number
-  currency: string
-  daysToQuote: number | null
+  daysToSend: number | null
 }
 
 interface OutreachRow {
@@ -306,32 +308,30 @@ interface CompanyRow {
   lastVisit: string | null
   openFollowUps: number
   overdue: number
-  quotes: number
+  sheetsSent: number
   accepted: number
-  value: number
-  currency: string
   addedOn: string
   lastActivity: string
   note: string | null
 }
 
-interface AgreementRow {
+interface SendRow {
   id: string
-  reference: string
+  sentAt: string
   company: string
   contact: string
-  title: string
-  statusKey: AgreementStatus | 'expired'
+  email: string
+  sheet: string
+  year: number
+  scope: string
+  statusKey: SendStatus
   status: string
-  createdAt: string
-  sentOn: string | null
-  answeredOn: string | null
-  validUntil: string | null
-  services: string
-  lines: number
-  discount: number
-  value: number
-  currency: string
+  openedAt: string | null
+  answeredAt: string | null
+  answeredBy: string | null
+  sentBy: string
+  followUpOn: string | null
+  /** What the operator wrote back, or failing that the team's own note. */
   note: string | null
 }
 
@@ -350,8 +350,8 @@ export default function Reports() {
   const { visits } = useSiteVisits()
   const { followUps } = useFollowUps()
   const { profiles } = useProfiles()
-  const { agreements } = useStoAgreements()
-  const { items: rateCard } = useRateCard()
+  const { versions } = useStoVersions()
+  const { sends } = useAgreementSends()
   const { messages } = useSentMessages()
   const { contacts } = useAllContacts()
 
@@ -373,7 +373,7 @@ export default function Reports() {
   const relationshipFilter = params.get('relationship') ?? ''
   const marketFilter = params.get('market') ?? ''
   const stageFilter = params.get('stage') ?? ''
-  const serviceFilter = params.get('service') ?? ''
+  const sheetFilter = params.get('sheet') ?? ''
   const search = params.get('q') ?? ''
   const statusFilter = def.status?.some((s) => s.value === params.get('status'))
     ? (params.get('status') as string)
@@ -501,32 +501,21 @@ export default function Reports() {
     relationshipFilter,
     marketFilter,
     stageFilter,
-    serviceFilter,
+    sheetFilter,
     statusFilter,
     search,
   ].filter(Boolean).length
 
-  /**
-   * Companies that have been quoted the selected service.
-   *
-   * Matched by id *or* by the copied name: an agreement line keeps its own copy
-   * of the name (so an old quote cannot be repriced), and a line typed by hand
-   * never had an id to point at in the first place.
-   */
-  const serviceCompanyIds = useMemo(() => {
-    if (!serviceFilter) return null
-    const name = rateCard.find((i) => i.id === serviceFilter)?.service_name.trim().toLowerCase()
+  /** Operators who were sent the selected rate sheet — the season, as a filter. */
+  const sheetCompanyIds = useMemo(() => {
+    if (!sheetFilter) return null
     const ids = new Set<string>()
-    for (const a of agreements) {
-      const hit = a.items.some(
-        (i) =>
-          i.rate_card_item_id === serviceFilter ||
-          (name !== undefined && i.service_name.trim().toLowerCase() === name)
-      )
-      if (hit) ids.add(a.company_id)
-    }
+    for (const send of sends) if (send.version_id === sheetFilter) ids.add(send.company_id)
     return ids
-  }, [serviceFilter, agreements, rateCard])
+  }, [sheetFilter, sends])
+
+  const versionById = useMemo(() => new Map(versions.map((v) => [v.id, v])), [versions])
+  const sheetName = (id: string) => versionById.get(id)?.name ?? 'Withdrawn rate sheet'
 
   /** The company-shaped half of the filter bar, applied wherever a row has one. */
   const companyPasses = (company: Company | undefined) => {
@@ -540,7 +529,7 @@ export default function Reports() {
     if (relationshipFilter && company.relationship !== relationshipFilter) return false
     if (marketFilter && company.main_market !== marketFilter) return false
     if (stageFilter && company.stage !== stageFilter) return false
-    if (serviceCompanyIds && !serviceCompanyIds.has(company.id)) return false
+    if (sheetCompanyIds && !sheetCompanyIds.has(company.id)) return false
     return true
   }
 
@@ -560,7 +549,7 @@ export default function Reports() {
     relationshipFilter,
     marketFilter,
     stageFilter,
-    serviceFilter,
+    sheetFilter,
     needle,
   ].join('|')
 
@@ -707,9 +696,9 @@ export default function Reports() {
         const theirVisits = visits.filter((v) => v.company_id === c.id && kindMatches(v.kind))
         const inPeriod = theirVisits.filter((v) => inRange(v.scheduled_for, from, to))
         const theirFollowUps = followUps.filter((f) => f.company_id === c.id)
-        const theirAgreements = agreements.filter((a) => a.company_id === c.id)
-        const sent = theirAgreements.filter((a) => inRange(a.sent_at, from, to))
-        const accepted = theirAgreements.filter((a) => inRange(a.accepted_at, from, to))
+        const theirSends = sends.filter((s) => s.company_id === c.id)
+        const sent = theirSends.filter((s) => inRange(s.sent_at, from, to))
+        const accepted = theirSends.filter((s) => inRange(s.accepted_at, from, to))
 
         // The last visit that has actually happened, whenever it was. The
         // period says what was done lately; this column says how long it has
@@ -734,13 +723,8 @@ export default function Reports() {
           openFollowUps: theirFollowUps.filter((f) => f.status === 'pending').length,
           overdue: theirFollowUps.filter((f) => f.status === 'pending' && new Date(f.due_at) < now)
             .length,
-          quotes: sent.length,
+          sheetsSent: sent.length,
           accepted: accepted.length,
-          value: accepted.reduce(
-            (sum, a) => sum + agreementTotals(a.items, a.discount_percent).total,
-            0
-          ),
-          currency: accepted[0]?.currency ?? 'TZS',
           addedOn: c.created_at,
           lastActivity: c.updated_at,
           note: c.notes?.trim() || null,
@@ -753,7 +737,7 @@ export default function Reports() {
           case 'not_visited':
             return r.visits === 0
           case 'quoted':
-            return r.quotes > 0
+            return r.sheetsSent > 0
           case 'accepted':
             return r.accepted > 0
           case 'overdue':
@@ -762,9 +746,11 @@ export default function Reports() {
             return true
         }
       })
-      .sort((a, b) => b.value - a.value || b.visits - a.visits || a.company.localeCompare(b.company))
+      .sort(
+        (a, b) => b.accepted - a.accepted || b.visits - a.visits || a.company.localeCompare(b.company)
+      )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companies, visits, followUps, agreements, contacts, profiles, statusFilter, filterKey])
+  }, [companies, visits, followUps, sends, contacts, profiles, statusFilter, filterKey])
 
   const companyColumns: Column<CompanyRow>[] = [
     {
@@ -821,15 +807,8 @@ export default function Reports() {
       numeric: true,
       cell: (r) => (r.overdue > 0 ? <span className="rp-danger">{r.overdue}</span> : r.overdue),
     },
-    { key: 'quotes', label: 'Quotes sent', value: (r) => r.quotes, numeric: true },
+    { key: 'sheets', label: 'Rate sheets sent', value: (r) => r.sheetsSent, numeric: true },
     { key: 'accepted', label: 'Accepted', value: (r) => r.accepted, numeric: true },
-    {
-      key: 'value',
-      label: 'Accepted value',
-      value: (r) => Math.round(r.value),
-      numeric: true,
-      cell: (r) => (r.value > 0 ? formatMoney(r.value, r.currency) : '—'),
-    },
     {
       key: 'added',
       label: 'Added',
@@ -857,16 +836,16 @@ export default function Reports() {
             companyPasses(companyById.get(f.company_id)) &&
             belongsTo(p, f.assigned_to, f.assigned_name)
         )
-        // Agreements record their author as a link and nothing else, so a rep
-        // with no login has none to their name.
-        const theirAgreements = p.profileId
-          ? agreements.filter(
-              (a) => a.created_by === p.profileId && companyPasses(companyById.get(a.company_id))
+        // A send records its sender as a link and nothing else, so a rep with
+        // no login has none to their name.
+        const theirSends = p.profileId
+          ? sends.filter(
+              (s) => s.sent_by === p.profileId && companyPasses(companyById.get(s.company_id))
             )
           : []
 
-        const sent = theirAgreements.filter((a) => inRange(a.sent_at, from, to))
-        const accepted = theirAgreements.filter((a) => inRange(a.accepted_at, from, to))
+        const sent = theirSends.filter((s) => inRange(s.sent_at, from, to))
+        const accepted = theirSends.filter((s) => inRange(s.accepted_at, from, to))
         const won = owned.filter((c) => c.stage === 'won').length
         const lost = owned.filter((c) => c.stage === 'lost').length
         const now = new Date()
@@ -888,24 +867,19 @@ export default function Reports() {
           followUpsOpen: theirFollowUps.filter((f) => f.status === 'pending').length,
           overdue: theirFollowUps.filter((f) => f.status === 'pending' && new Date(f.due_at) < now)
             .length,
-          quotesSent: sent.length,
+          sheetsSent: sent.length,
           accepted: accepted.length,
-          acceptedValue: accepted.reduce(
-            (sum, a) => sum + agreementTotals(a.items, a.discount_percent).total,
-            0
-          ),
-          currency: accepted[0]?.currency ?? 'TZS',
           winRate: percent(won, won + lost),
         }
       })
       .filter(
         (r) =>
-          r.companies + r.visitsDone + r.visitsUpcoming + r.followUpsDone + r.followUpsOpen + r.quotesSent >
+          r.companies + r.visitsDone + r.visitsUpcoming + r.followUpsDone + r.followUpsOpen + r.sheetsSent >
           0
       )
-      .sort((a, b) => b.acceptedValue - a.acceptedValue || b.visitsDone - a.visitsDone)
+      .sort((a, b) => b.accepted - a.accepted || b.visitsDone - a.visitsDone)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, companies, visits, followUps, agreements, companyById, filterKey])
+  }, [people, companies, visits, followUps, sends, companyById, filterKey])
 
   const repColumns: Column<RepRow>[] = [
     {
@@ -934,15 +908,8 @@ export default function Reports() {
       numeric: true,
       cell: (r) => (r.overdue > 0 ? <span className="rp-danger">{r.overdue}</span> : r.overdue),
     },
-    { key: 'quotes', label: 'Quotes sent', value: (r) => r.quotesSent, numeric: true },
+    { key: 'sheets', label: 'Rate sheets sent', value: (r) => r.sheetsSent, numeric: true },
     { key: 'accepted', label: 'Accepted', value: (r) => r.accepted, numeric: true },
-    {
-      key: 'value',
-      label: 'Accepted value',
-      value: (r) => Math.round(r.acceptedValue),
-      numeric: true,
-      cell: (r) => (r.acceptedValue > 0 ? formatMoney(r.acceptedValue, r.currency) : '—'),
-    },
     {
       key: 'winRate',
       label: 'Win rate',
@@ -953,111 +920,88 @@ export default function Reports() {
   ]
 
   /* =========================================================================
-     Service interest — what the rate card is actually selling
+     Rate sheets — the seasons themselves, and how operators answered them
      ========================================================================= */
-  const serviceRows = useMemo<ServiceRow[]>(() => {
-    interface Acc extends ServiceRow {
-      companyIds: Set<string>
-      acceptedQuotes: number
-      answered: number
-    }
-    const acc = new Map<string, Acc>()
-    const onRateCard = new Set(rateCard.map((i) => i.service_name.trim().toLowerCase()))
-    const wanted = serviceFilter
-      ? rateCard.find((i) => i.id === serviceFilter)?.service_name.trim().toLowerCase()
-      : undefined
+  const sheetRows = useMemo<SheetRow[]>(() => {
+    return versions
+      .filter((v) => !sheetFilter || v.id === sheetFilter)
+      .filter((v) =>
+        matchesSearch(
+          v.name,
+          v.summary,
+          String(v.year),
+          roomTypesOf(v.rates).join(' '),
+          seasonsOf(v.rates).join(' ')
+        )
+      )
+      .map((v) => {
+        // Scoped the same way every other report is: the sends that count are
+        // the ones in the period, to companies the filters let through.
+        const mine = sends.filter(
+          (send) =>
+            send.version_id === v.id &&
+            inRange(send.sent_at, from, to) &&
+            companyPasses(companyById.get(send.company_id)) &&
+            repMatches(send.sent_by, null)
+        )
+        const accepted = mine.filter((send) => send.status === 'accepted').length
+        const declined = mine.filter((send) => send.status === 'declined').length
+        const range = rateRange(v.rates)
 
-    for (const a of agreements) {
-      if (!inRange(a.created_at, from, to)) continue
-      if (!companyPasses(companyById.get(a.company_id))) continue
-      const afterDiscount = 1 - a.discount_percent / 100
-
-      for (const item of a.items) {
-        const key = item.service_name.trim().toLowerCase()
-        if (!key) continue
-        if (serviceFilter && item.rate_card_item_id !== serviceFilter && key !== wanted) continue
-        if (!matchesSearch(item.service_name, companyName(a.company_id))) continue
-
-        let row = acc.get(key)
-        if (!row) {
-          row = {
-            id: key,
-            service: item.service_name.trim(),
-            quotes: 0,
-            companies: 0,
-            quantity: 0,
-            quoted: 0,
-            acceptedValue: 0,
-            currency: a.currency,
-            onRateCard: onRateCard.has(key),
-            acceptRate: null,
-            companyIds: new Set<string>(),
-            acceptedQuotes: 0,
-            answered: 0,
-          }
-          acc.set(key, row)
+        return {
+          id: v.id,
+          sheet: v.name,
+          year: v.year,
+          statusLabel: VERSION_STATUS_META[v.status].label,
+          scope: scopeLabel(v.rates),
+          rooms: roomTypesOf(v.rates).join(', ') || '—',
+          seasons: seasonsOf(v.rates).join(', ') || '—',
+          rates: range
+            ? range.from === range.to
+              ? formatRate(range.from, range.currency)
+              : `${formatRate(range.from, range.currency)} – ${formatRate(range.to, range.currency)}`
+            : 'No rates entered',
+          validity:
+            v.valid_from || v.valid_to
+              ? `${formatDay(v.valid_from)} → ${formatDay(v.valid_to)}`
+              : `Season ${v.year}`,
+          document: v.pdf_name ?? 'Rendered by the CRM',
+          sent: mine.length,
+          opened: mine.filter((send) => send.status === 'viewed' || send.status === 'accepted').length,
+          accepted,
+          declined,
+          // Against the ones that answered: an operator still thinking about it
+          // is not a refusal, and counting it as one understates every season.
+          acceptRate: percent(accepted, accepted + declined),
+          note: v.summary?.trim() || null,
         }
-        // Net of the agreement's discount, so the column totals what was
-        // actually asked for rather than a list price nobody was charged.
-        const value = lineTotal(item) * afterDiscount
-        row.quotes += 1
-        row.quantity += item.quantity
-        row.quoted += value
-        row.companyIds.add(a.company_id)
-        if (a.status === 'accepted') {
-          row.acceptedValue += value
-          row.acceptedQuotes += 1
-        }
-        if (a.status === 'accepted' || a.status === 'declined') row.answered += 1
-      }
-    }
-
-    return [...acc.values()]
-      .map((r) => ({
-        ...r,
-        companies: r.companyIds.size,
-        acceptRate: percent(r.acceptedQuotes, r.answered),
-      }))
-      .sort((a, b) => b.quoted - a.quoted)
+      })
+      .sort((a, b) => b.year - a.year || b.sent - a.sent)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agreements, rateCard, companyById, filterKey])
+  }, [versions, sends, companyById, filterKey])
 
-  const maxQuoted = Math.max(1, ...serviceRows.map((r) => r.quoted))
-
-  const serviceColumns: Column<ServiceRow>[] = [
+  const sheetColumns: Column<SheetRow>[] = [
     {
-      key: 'service',
-      label: 'Service',
-      value: (r) => r.service,
+      key: 'sheet',
+      label: 'Rate sheet',
+      value: (r) => r.sheet,
       cell: (r) => (
         <span className="rp-strong">
-          {r.service}
-          {!r.onRateCard && <span className="rp-tag">off rate card</span>}
+          {r.sheet}
+          {r.statusLabel !== 'Active' && <span className="rp-tag">{r.statusLabel.toLowerCase()}</span>}
         </span>
       ),
     },
-    { key: 'quotes', label: 'Times quoted', value: (r) => r.quotes, numeric: true },
-    { key: 'companies', label: 'Companies', value: (r) => r.companies, numeric: true },
-    { key: 'quantity', label: 'Units', value: (r) => r.quantity, numeric: true },
-    {
-      key: 'quoted',
-      label: 'Quoted value',
-      value: (r) => Math.round(r.quoted),
-      numeric: true,
-      cell: (r) => (
-        <span className="rp-bar-cell">
-          <span className="rp-bar" style={{ width: `${(r.quoted / maxQuoted) * 100}%` }} />
-          <span>{formatMoney(r.quoted, r.currency)}</span>
-        </span>
-      ),
-    },
-    {
-      key: 'acceptedValue',
-      label: 'Accepted value',
-      value: (r) => Math.round(r.acceptedValue),
-      numeric: true,
-      cell: (r) => (r.acceptedValue > 0 ? formatMoney(r.acceptedValue, r.currency) : '—'),
-    },
+    { key: 'year', label: 'Season', value: (r) => r.year, numeric: true },
+    { key: 'validity', label: 'Valid', value: (r) => r.validity },
+    { key: 'rooms', label: 'Room types', value: (r) => r.rooms },
+    { key: 'seasons', label: 'Seasons priced', value: (r) => r.seasons },
+    { key: 'rates', label: 'Rates', value: (r) => r.rates },
+    { key: 'document', label: 'Document', value: (r) => r.document },
+    { key: 'sent', label: 'Sent to', value: (r) => r.sent, numeric: true },
+    { key: 'opened', label: 'Opened', value: (r) => r.opened, numeric: true },
+    { key: 'accepted', label: 'Accepted', value: (r) => r.accepted, numeric: true },
+    { key: 'declined', label: 'Declined', value: (r) => r.declined, numeric: true },
     {
       key: 'acceptRate',
       label: 'Accept rate',
@@ -1065,6 +1009,7 @@ export default function Reports() {
       numeric: true,
       cell: (r) => (r.acceptRate === null ? '—' : `${r.acceptRate}%`),
     },
+    { key: 'note', label: 'Summary', value: (r) => r.note },
   ]
 
   /* =========================================================================
@@ -1134,132 +1079,131 @@ export default function Reports() {
   ]
 
   /* =========================================================================
-     STO agreements — the formal quotes themselves, raised in the period
+     STO agreements — the season's rates, and the operators they went to
      ========================================================================= */
-  const agreementRows = useMemo<AgreementRow[]>(() => {
-    return agreements
-      .filter((a) => inRange(a.created_at, from, to))
-      .filter((a) => companyPasses(companyById.get(a.company_id)))
-      .filter((a) => repMatches(a.created_by, null))
-      .filter((a) =>
+  const sendRows = useMemo<SendRow[]>(() => {
+    return sends
+      .filter((s) => inRange(s.sent_at, from, to))
+      .filter((s) => companyPasses(companyById.get(s.company_id)))
+      .filter((s) => repMatches(s.sent_by, null))
+      .filter((s) => !statusFilter || s.status === statusFilter)
+      .filter((s) =>
         matchesSearch(
-          a.reference,
-          a.title,
-          a.notes,
-          companyName(a.company_id),
-          a.items.map((i) => i.service_name).join(' ')
+          companyName(s.company_id),
+          s.to_name,
+          s.to_email,
+          sheetName(s.version_id),
+          s.note,
+          s.responded_name,
+          s.responded_note
         )
       )
-      .map((a) => {
-        // Expired is derived rather than stored — a quote whose validity ran
-        // out is still 'sent' in the database, and reading it as merely sent
-        // is how a dead quote stays on the board.
-        const expired = isExpired(a)
+      .sort((a, b) => b.sent_at.localeCompare(a.sent_at))
+      .map((s) => {
+        const version = versionById.get(s.version_id)
         return {
-          id: a.id,
-          reference: a.reference,
-          company: companyName(a.company_id),
-          contact: (a.contact_id && contactById.get(a.contact_id)?.full_name) || '—',
-          title: a.title,
-          statusKey: (expired ? 'expired' : a.status) as AgreementStatus | 'expired',
-          status: expired ? 'Expired' : AGREEMENT_STATUS_META[a.status].label,
-          createdAt: a.created_at,
-          sentOn: a.sent_at,
-          answeredOn: a.accepted_at ?? a.declined_at,
-          validUntil: a.valid_until,
-          services: a.items.map((i) => i.service_name).join(', ') || '—',
-          lines: a.items.length,
-          discount: a.discount_percent,
-          value: agreementTotals(a.items, a.discount_percent).total,
-          currency: a.currency,
-          note: a.notes?.trim() || null,
+          id: s.id,
+          sentAt: s.sent_at,
+          company: companyName(s.company_id),
+          contact: s.to_name ?? '—',
+          email: s.to_email ?? '—',
+          sheet: sheetName(s.version_id),
+          year: version?.year ?? 0,
+          scope: version ? scopeLabel(version.rates) : '—',
+          statusKey: s.status,
+          status: SEND_STATUS_META[s.status].label,
+          openedAt: s.viewed_at,
+          answeredAt: s.accepted_at ?? s.declined_at,
+          answeredBy: s.responded_name,
+          sentBy: repName(s.sent_by, null),
+          followUpOn: s.follow_up_at,
+          // What the operator wrote back is the interesting half of this row;
+          // the team's own note stands in when they wrote nothing.
+          note: s.responded_note?.trim() || s.note?.trim() || null,
         }
       })
-      .filter((r) => !statusFilter || r.statusKey === statusFilter)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agreements, companyById, contactById, profiles, statusFilter, filterKey])
+  }, [sends, versions, companyById, profiles, statusFilter, filterKey])
 
-  const agreementSummary = useMemo(() => {
-    const count = (fn: (r: AgreementRow) => boolean) => agreementRows.filter(fn).length
+  const sendSummary = useMemo(() => {
+    const count = (fn: (r: SendRow) => boolean) => sendRows.filter(fn).length
     const accepted = count((r) => r.statusKey === 'accepted')
     const declined = count((r) => r.statusKey === 'declined')
+    // Median, not mean: one operator who answered six months later would
+    // otherwise describe a turnaround nobody experienced.
+    const lags = sendRows
+      .filter((r) => r.answeredAt)
+      .map((r) => Math.max(0, Math.round((new Date(r.answeredAt as string).getTime() - new Date(r.sentAt).getTime()) / 86_400_000)))
+      .sort((a, b) => a - b)
     return {
-      raised: agreementRows.length,
-      sent: count((r) => r.sentOn !== null),
+      sent: sendRows.length,
+      operators: new Set(sendRows.map((r) => r.company)).size,
+      opened: count((r) => r.openedAt !== null),
       accepted,
       declined,
-      expired: count((r) => r.statusKey === 'expired'),
-      draft: count((r) => r.statusKey === 'draft'),
-      value: agreementRows.reduce((sum, r) => sum + r.value, 0),
-      acceptedValue: agreementRows
-        .filter((r) => r.statusKey === 'accepted')
-        .reduce((sum, r) => sum + r.value, 0),
-      // Against the ones that were answered: a quote still waiting is not a
-      // loss, and counting it as one understates the rate every month.
+      waiting: count((r) => r.statusKey === 'sent' || r.statusKey === 'viewed'),
+      openRate: percent(count((r) => r.openedAt !== null), sendRows.length),
       acceptRate: percent(accepted, accepted + declined),
-      currency: agreementRows[0]?.currency ?? 'TZS',
-      mixedCurrency: new Set(agreementRows.map((r) => r.currency)).size > 1,
+      medianAnswer: lags.length ? lags[Math.floor(lags.length / 2)] : null,
+      withWords: count((r) => r.note !== null),
     }
-  }, [agreementRows])
+  }, [sendRows])
 
-  const agreementColumns: Column<AgreementRow>[] = [
+  const sendColumns: Column<SendRow>[] = [
     {
-      key: 'reference',
-      label: 'Reference',
-      value: (r) => r.reference,
-      cell: (r) => <span className="rp-strong">{r.reference}</span>,
+      key: 'sentAt',
+      label: 'Sent',
+      value: (r) => dayKey(r.sentAt),
+      cell: (r) => formatDay(r.sentAt),
     },
     {
-      key: 'created',
-      label: 'Raised',
-      value: (r) => dayKey(r.createdAt),
-      cell: (r) => formatDay(r.createdAt),
+      key: 'company',
+      label: 'Operator',
+      value: (r) => r.company,
+      cell: (r) => <span className="rp-strong">{r.company}</span>,
     },
-    { key: 'company', label: 'Company', value: (r) => r.company },
     { key: 'contact', label: 'Contact', value: (r) => r.contact },
-    { key: 'title', label: 'Title', value: (r) => r.title },
-    { key: 'services', label: 'Services', value: (r) => r.services },
-    { key: 'lines', label: 'Lines', value: (r) => r.lines, numeric: true },
-    {
-      key: 'discount',
-      label: 'Discount',
-      value: (r) => r.discount,
-      numeric: true,
-      cell: (r) => (r.discount > 0 ? `${r.discount}%` : '—'),
-    },
-    {
-      key: 'value',
-      label: 'Value',
-      value: (r) => Math.round(r.value),
-      numeric: true,
-      cell: (r) => formatMoney(r.value, r.currency),
-    },
+    { key: 'email', label: 'Email', value: (r) => r.email },
+    { key: 'sheet', label: 'Rate sheet', value: (r) => r.sheet },
+    { key: 'scope', label: 'Covers', value: (r) => r.scope },
     {
       key: 'status',
       label: 'Status',
       value: (r) => r.status,
-      cell: (r) => <span className={`rp-pill rp-pill-${r.statusKey}`}>{r.status}</span>,
+      cell: (r) => (
+        <span
+          className="badge"
+          title={SEND_STATUS_META[r.statusKey].hint}
+          style={{
+            background: SEND_STATUS_META[r.statusKey].bg,
+            color: SEND_STATUS_META[r.statusKey].color,
+          }}
+        >
+          {r.status}
+        </span>
+      ),
     },
     {
-      key: 'sent',
-      label: 'Sent',
-      value: (r) => (r.sentOn ? dayKey(r.sentOn) : null),
-      cell: (r) => formatDay(r.sentOn),
+      key: 'opened',
+      label: 'Opened',
+      value: (r) => (r.openedAt ? dayKey(r.openedAt) : null),
+      cell: (r) => (r.openedAt ? formatDayTime(r.openedAt) : <span className="rp-muted">Not yet</span>),
     },
     {
       key: 'answered',
       label: 'Answered',
-      value: (r) => (r.answeredOn ? dayKey(r.answeredOn) : null),
-      cell: (r) => formatDay(r.answeredOn),
+      value: (r) => (r.answeredAt ? dayKey(r.answeredAt) : null),
+      cell: (r) => (r.answeredAt ? formatDayTime(r.answeredAt) : <span className="rp-muted">—</span>),
     },
+    { key: 'answeredBy', label: 'Answered by', value: (r) => r.answeredBy },
+    { key: 'sentBy', label: 'Sent by', value: (r) => r.sentBy },
     {
-      key: 'valid',
-      label: 'Valid until',
-      value: (r) => r.validUntil,
-      cell: (r) => formatDay(r.validUntil),
+      key: 'followUp',
+      label: 'Follow-up',
+      value: (r) => r.followUpOn,
+      cell: (r) => formatDay(r.followUpOn),
     },
-    { key: 'note', label: 'Note', value: (r) => r.note },
+    { key: 'note', label: 'What they said', value: (r) => r.note },
   ]
 
   /* =========================================================================
@@ -1284,60 +1228,57 @@ export default function Reports() {
     return [...byCompany.entries()]
       .filter(([id]) => matchesSearch(companyName(id)))
       .map(([id, { first, count }]) => {
-        // Only agreements sent *after* the visit count as its result; one sent
-        // a month earlier says nothing about the trip.
-        const after = agreements
-          .filter((a) => a.company_id === id && a.sent_at !== null && a.sent_at >= first)
-          .sort((a, b) => (a.sent_at ?? '').localeCompare(b.sent_at ?? ''))
-        const acceptedOnes = after.filter((a) => a.status === 'accepted')
-        const quotedOn = after[0]?.sent_at ?? null
+        // Only rates sent *after* the visit count as its result; a sheet sent a
+        // month earlier says nothing about the trip.
+        const after = sends
+          .filter((send) => send.company_id === id && send.sent_at >= first)
+          .sort((a, b) => a.sent_at.localeCompare(b.sent_at))
+        const sentOn = after[0]?.sent_at ?? null
         return {
           id,
           company: companyName(id),
           firstVisit: first,
           visits: count,
-          quoted: after.length > 0,
-          quotedOn,
-          accepted: acceptedOnes.length > 0,
+          sheetSent: after.length > 0,
+          sentOn,
+          accepted: after.some((send) => send.status === 'accepted'),
           stage: companyById.get(id)?.stage ?? 'lead',
-          value: acceptedOnes.reduce(
-            (sum, a) => sum + agreementTotals(a.items, a.discount_percent).total,
-            0
-          ),
-          currency: acceptedOnes[0]?.currency ?? 'TZS',
-          daysToQuote: quotedOn
+          daysToSend: sentOn
             ? Math.max(
                 0,
-                Math.round((new Date(quotedOn).getTime() - new Date(first).getTime()) / 86_400_000)
+                Math.round((new Date(sentOn).getTime() - new Date(first).getTime()) / 86_400_000)
               )
             : null,
         }
       })
-      .sort((a, b) => b.value - a.value || a.company.localeCompare(b.company))
+      .sort(
+        (a, b) =>
+          Number(b.accepted) - Number(a.accepted) ||
+          Number(b.sheetSent) - Number(a.sheetSent) ||
+          a.company.localeCompare(b.company)
+      )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visits, agreements, companyById, filterKey])
+  }, [visits, sends, companyById, filterKey])
 
   const conversionSummary = useMemo(() => {
     const visited = conversionRows.length
-    const quoted = conversionRows.filter((r) => r.quoted).length
+    const sheetSent = conversionRows.filter((r) => r.sheetSent).length
     const accepted = conversionRows.filter((r) => r.accepted).length
     const won = conversionRows.filter((r) => r.stage === 'won').length
-    // Median, not mean: one quote that sat for six months would otherwise
-    // describe a turnaround nobody experienced.
+    // Median, not mean: one sheet that went out six months later would
+    // otherwise describe a turnaround nobody experienced.
     const lags = conversionRows
-      .map((r) => r.daysToQuote)
+      .map((r) => r.daysToSend)
       .filter((d): d is number => d !== null)
       .sort((a, b) => a - b)
     return {
       visited,
-      quoted,
+      sheetSent,
       accepted,
       won,
-      quoteRate: percent(quoted, visited),
-      acceptRate: percent(accepted, quoted),
+      sentRate: percent(sheetSent, visited),
+      acceptRate: percent(accepted, sheetSent),
       wonRate: percent(won, visited),
-      value: conversionRows.reduce((sum, r) => sum + r.value, 0),
-      currency: conversionRows.find((r) => r.value > 0)?.currency ?? 'TZS',
       medianLag: lags.length ? lags[Math.floor(lags.length / 2)] : null,
     }
   }, [conversionRows])
@@ -1357,17 +1298,17 @@ export default function Reports() {
     },
     { key: 'visits', label: 'Visits', value: (r) => r.visits, numeric: true },
     {
-      key: 'quoted',
-      label: 'Quoted after',
-      value: (r) => (r.quotedOn ? dayKey(r.quotedOn) : 'No'),
-      cell: (r) => (r.quoted ? formatDay(r.quotedOn) : <span className="rp-muted">Not yet</span>),
+      key: 'sent',
+      label: 'Rates sent after',
+      value: (r) => (r.sentOn ? dayKey(r.sentOn) : 'No'),
+      cell: (r) => (r.sheetSent ? formatDay(r.sentOn) : <span className="rp-muted">Not yet</span>),
     },
     {
       key: 'lag',
-      label: 'Days to quote',
-      value: (r) => r.daysToQuote,
+      label: 'Days to send',
+      value: (r) => r.daysToSend,
       numeric: true,
-      cell: (r) => (r.daysToQuote === null ? '—' : r.daysToQuote),
+      cell: (r) => (r.daysToSend === null ? '—' : r.daysToSend),
     },
     {
       key: 'accepted',
@@ -1393,13 +1334,6 @@ export default function Reports() {
         </span>
       ),
     },
-    {
-      key: 'value',
-      label: 'Accepted value',
-      value: (r) => Math.round(r.value),
-      numeric: true,
-      cell: (r) => (r.value > 0 ? formatMoney(r.value, r.currency) : '—'),
-    },
   ]
 
   /* =========================================================================
@@ -1408,7 +1342,7 @@ export default function Reports() {
   const outreachRows = useMemo<OutreachRow[]>(() => {
     // A message with no company attached cannot be judged against the company
     // filters, so it only survives while none of them are set.
-    const companyFiltersOff = !relationshipFilter && !marketFilter && !stageFilter && !serviceCompanyIds
+    const companyFiltersOff = !relationshipFilter && !marketFilter && !stageFilter && !sheetCompanyIds
     return messages
       .filter((m) => inRange(m.sent_at, from, to))
       .filter((m) => (m.company_id ? companyPasses(companyById.get(m.company_id)) : companyFiltersOff))
@@ -1431,16 +1365,18 @@ export default function Reports() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, companyById, contactById, profiles, statusFilter, filterKey])
 
-  /** Agreements that went out in the period — the formal half of outreach. */
-  const agreementsSent = useMemo(
+  /** Rate sheets that went out in the period — the formal half of outreach. */
+  const sheetsSent = useMemo(
     () =>
-      agreements
-        .filter((a) => inRange(a.sent_at, from, to))
-        .filter((a) => companyPasses(companyById.get(a.company_id)))
-        .filter((a) => matchesSearch(a.reference, a.title, companyName(a.company_id)))
-        .sort((a, b) => (b.sent_at ?? '').localeCompare(a.sent_at ?? '')),
+      sends
+        .filter((send) => inRange(send.sent_at, from, to))
+        .filter((send) => companyPasses(companyById.get(send.company_id)))
+        .filter((send) =>
+          matchesSearch(sheetName(send.version_id), send.to_name, companyName(send.company_id))
+        )
+        .sort((a, b) => b.sent_at.localeCompare(a.sent_at)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agreements, companyById, filterKey]
+    [sends, versions, companyById, filterKey]
   )
 
   const outreachColumns: Column<OutreachRow>[] = [
@@ -1560,8 +1496,9 @@ export default function Reports() {
     const won = stageCounts.won ?? 0
     const lost = stageCounts.lost ?? 0
     const inScope = (companyId: string) => companyPasses(companyById.get(companyId))
-    const accepted = agreements.filter((a) => inRange(a.accepted_at, from, to) && inScope(a.company_id))
-    const sent = agreements.filter((a) => inRange(a.sent_at, from, to) && inScope(a.company_id))
+    const accepted = sends.filter((s) => inRange(s.accepted_at, from, to) && inScope(s.company_id))
+    const sent = sends.filter((s) => inRange(s.sent_at, from, to) && inScope(s.company_id))
+    const answered = accepted.length + sent.filter((s) => s.status === 'declined').length
     return {
       companies: scopedCompanies.length,
       newCompanies: scopedCompanies.filter((c) => inRange(c.created_at, from, to)).length,
@@ -1571,20 +1508,17 @@ export default function Reports() {
       overdue: followUps.filter(
         (f) => f.status === 'pending' && new Date(f.due_at) < new Date() && inScope(f.company_id)
       ).length,
-      quotesSent: sent.length,
+      sheetsSent: sent.length,
+      operators: new Set(sent.map((s) => s.company_id)).size,
       accepted: accepted.length,
-      acceptedValue: accepted.reduce(
-        (sum, a) => sum + agreementTotals(a.items, a.discount_percent).total,
-        0
-      ),
-      // Summed flat and labelled with one currency; if the period ever mixes
-      // them the tile says so rather than presenting the sum as a total.
-      currency: accepted[0]?.currency ?? 'TZS',
-      mixedCurrency: new Set(accepted.map((a) => a.currency)).size > 1,
+      opened: sent.filter((s) => s.viewed_at !== null).length,
+      // Against the operators who answered, not everyone who was sent one:
+      // a sheet still being considered is not a refusal.
+      acceptRate: percent(accepted.length, answered),
       winRate: percent(won, won + lost),
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedCompanies, stageCounts, agreements, followUps, companyById, visitRows, followUpRows, filterKey])
+  }, [scopedCompanies, stageCounts, sends, followUps, companyById, visitRows, followUpRows, filterKey])
 
   /** Where the companies in scope sit, by market and by relationship. */
   const breakdowns = useMemo(() => {
@@ -1618,11 +1552,11 @@ export default function Reports() {
       case 'companies':
         return pack(companyColumns, companyRows)
       case 'agreements':
-        return pack(agreementColumns, agreementRows)
+        return pack(sendColumns, sendRows)
       case 'reps':
         return pack(repColumns, repRows)
-      case 'services':
-        return pack(serviceColumns, serviceRows)
+      case 'rates':
+        return pack(sheetColumns, sheetRows)
       case 'follow-ups':
         return pack(followUpColumns, followUpRows)
       case 'conversion':
@@ -1639,9 +1573,9 @@ export default function Reports() {
     tab,
     visitRows,
     companyRows,
-    agreementRows,
+    sendRows,
     repRows,
-    serviceRows,
+    sheetRows,
     followUpRows,
     conversionRows,
     outreachRows,
@@ -1681,13 +1615,13 @@ export default function Reports() {
   const visitMonths = monthsOf(visitRows.map((r) => r.date))
   const companyMonths = monthsOf(companyRows.map((r) => r.addedOn))
   const followUpMonths = monthsOf(followUpRows.map((r) => r.due))
-  const agreementMonths = monthsOf(agreementRows.map((r) => r.createdAt))
+  const sendMonths = monthsOf(sendRows.map((r) => r.sentAt))
   const outreachMonths = monthsOf(outreachRows.map((r) => r.sentAt))
   const noteMonths = monthsOf(noteRows.map((r) => r.date))
   const overviewMonths = monthsOf(
     visitRows.map((r) => r.date),
     followUpRows.map((r) => r.due),
-    agreementRows.map((r) => r.createdAt),
+    sendRows.map((r) => r.sentAt),
     scopedCompanies.map((c) => c.created_at)
   )
 
@@ -1707,9 +1641,7 @@ export default function Reports() {
     relationshipFilter ? relationshipLabel(relationshipFilter as Relationship) : 'All relationships',
     marketFilter ? mainMarketLabel(marketFilter as MainMarket) : 'All markets',
     stageFilter ? STAGE_META[stageFilter as Stage].label : 'All stages',
-    serviceFilter
-      ? (rateCard.find((i) => i.id === serviceFilter)?.service_name ?? 'Selected service')
-      : 'All services',
+    sheetFilter ? sheetName(sheetFilter) : 'All rate sheets',
     statusFilter ? (def.status?.find((s) => s.value === statusFilter)?.label ?? '') : 'All statuses',
   ]
     .filter(Boolean)
@@ -1920,12 +1852,12 @@ export default function Reports() {
             </select>
           </label>
           <label className="rp-filter">
-            <span>Service</span>
-            <select value={serviceFilter} onChange={(e) => setParam('service', e.target.value)}>
-              <option value="">All services</option>
-              {rateCard.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.service_name}
+            <span>Rate sheet</span>
+            <select value={sheetFilter} onChange={(e) => setParam('sheet', e.target.value)}>
+              <option value="">All rate sheets</option>
+              {versions.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
                 </option>
               ))}
             </select>
@@ -2004,19 +1936,18 @@ export default function Reports() {
                 tone={overview.overdue > 0 ? 'danger' : undefined}
               />
               <Metric
-                label="Quotes sent"
-                value={overview.quotesSent}
-                sub={`${overview.accepted} accepted`}
+                label="Rate sheets sent"
+                value={overview.sheetsSent}
+                sub={`to ${overview.operators} ${overview.operators === 1 ? 'operator' : 'operators'}`}
               />
               <Metric
-                label="Accepted value"
-                value={
-                  overview.mixedCurrency
-                    ? 'Mixed'
-                    : formatMoney(overview.acceptedValue, overview.currency)
+                label="Operators accepted"
+                value={overview.accepted}
+                sub={
+                  overview.acceptRate === null
+                    ? 'none answered yet'
+                    : `${overview.acceptRate}% of those who answered`
                 }
-                sub={overview.mixedCurrency ? 'mixed currencies' : 'signed in period'}
-                small
               />
               <Metric
                 label="Win rate"
@@ -2051,8 +1982,14 @@ export default function Reports() {
                       .length,
                 },
                 {
-                  label: 'Agreements raised',
-                  value: (k) => inMonthOf(agreementRows, (r) => r.createdAt, k).length,
+                  label: 'Rate sheets sent',
+                  value: (k) => inMonthOf(sendRows, (r) => r.sentAt, k).length,
+                },
+                {
+                  label: 'Accepted',
+                  value: (k) =>
+                    inMonthOf(sendRows, (r) => r.sentAt, k).filter((r) => r.statusKey === 'accepted')
+                      .length,
                 },
                 {
                   label: 'New companies',
@@ -2199,9 +2136,9 @@ export default function Reports() {
                 sub={`${companyRows.filter((r) => r.visits === 0).length} not visited`}
               />
               <Metric
-                label="Quoted"
-                value={companyRows.filter((r) => r.quotes > 0).length}
-                sub={`${companyRows.filter((r) => r.accepted > 0).length} accepted`}
+                label="Sent the rates"
+                value={companyRows.filter((r) => r.sheetsSent > 0).length}
+                sub={`${companyRows.filter((r) => r.accepted > 0).length} accepted them`}
               />
               <Metric
                 label="Open follow-ups"
@@ -2215,13 +2152,9 @@ export default function Reports() {
                 sub="no completed visit on file"
               />
               <Metric
-                label="Accepted value"
-                value={formatMoney(
-                  companyRows.reduce((sum, r) => sum + r.value, 0),
-                  companyRows.find((r) => r.value > 0)?.currency ?? 'TZS'
-                )}
-                sub="signed in period"
-                small
+                label="Contacts on file"
+                value={companyRows.reduce((sum, r) => sum + r.contacts, 0)}
+                sub="people to send rates to"
               />
             </div>
 
@@ -2241,9 +2174,9 @@ export default function Reports() {
                       .length,
                 },
                 {
-                  label: 'Quoted',
+                  label: 'Sent the rates',
                   value: (k) =>
-                    inMonthOf(companyRows, (r) => r.addedOn, k).filter((r) => r.quotes > 0).length,
+                    inMonthOf(companyRows, (r) => r.addedOn, k).filter((r) => r.sheetsSent > 0).length,
                 },
                 {
                   label: 'Won',
@@ -2272,111 +2205,105 @@ export default function Reports() {
           <>
             <div className="metric-row">
               <Metric
-                label="Agreements raised"
-                value={agreementSummary.raised}
-                sub={`${agreementSummary.draft} still draft`}
+                label="Rate sheets sent"
+                value={sendSummary.sent}
+                sub={`to ${sendSummary.operators} ${sendSummary.operators === 1 ? 'operator' : 'operators'}`}
               />
               <Metric
-                label="Sent to clients"
-                value={agreementSummary.sent}
-                sub="left the office"
+                label="Opened"
+                value={sendSummary.opened}
+                sub={
+                  sendSummary.openRate === null
+                    ? 'nothing sent yet'
+                    : `${sendSummary.openRate}% of those sent`
+                }
               />
               <Metric
                 label="Accepted"
-                value={agreementSummary.accepted}
-                sub={`${agreementSummary.declined} declined`}
+                value={sendSummary.accepted}
+                sub={`${sendSummary.declined} declined`}
               />
               <Metric
-                label="Expired"
-                value={agreementSummary.expired}
-                sub="past validity, unanswered"
-                tone={agreementSummary.expired > 0 ? 'danger' : undefined}
-              />
-              <Metric
-                label="Value raised"
-                value={
-                  agreementSummary.mixedCurrency
-                    ? 'Mixed'
-                    : formatMoney(agreementSummary.value, agreementSummary.currency)
-                }
-                sub={
-                  agreementSummary.mixedCurrency
-                    ? 'mixed currencies'
-                    : `${formatMoney(agreementSummary.acceptedValue, agreementSummary.currency)} accepted`
-                }
-                small
+                label="Still to answer"
+                value={sendSummary.waiting}
+                sub="sent or opened, no reply"
+                tone={sendSummary.waiting > 0 ? 'danger' : undefined}
               />
               <Metric
                 label="Accept rate"
-                value={
-                  agreementSummary.acceptRate === null ? '—' : `${agreementSummary.acceptRate}%`
-                }
-                sub="of those answered"
+                value={sendSummary.acceptRate === null ? '—' : `${sendSummary.acceptRate}%`}
+                sub="of those who answered"
+              />
+              <Metric
+                label="Sent → answered"
+                value={sendSummary.medianAnswer === null ? '—' : `${sendSummary.medianAnswer}d`}
+                sub="median turnaround"
               />
             </div>
 
             <MonthlyPanel
-              caption="Agreements by month raised"
-              months={agreementMonths}
+              caption="Rate sheets by month sent"
+              months={sendMonths}
               columns={[
                 {
-                  label: 'Raised',
+                  label: 'Sent',
                   primary: true,
-                  value: (k) => inMonthOf(agreementRows, (r) => r.createdAt, k).length,
+                  value: (k) => inMonthOf(sendRows, (r) => r.sentAt, k).length,
                 },
                 {
-                  label: 'Sent',
+                  label: 'Opened',
                   value: (k) =>
-                    inMonthOf(agreementRows, (r) => r.createdAt, k).filter((r) => r.sentOn !== null)
-                      .length,
+                    inMonthOf(sendRows, (r) => r.sentAt, k).filter((r) => r.openedAt !== null).length,
                 },
                 {
                   label: 'Accepted',
                   value: (k) =>
-                    inMonthOf(agreementRows, (r) => r.createdAt, k).filter(
-                      (r) => r.statusKey === 'accepted'
-                    ).length,
+                    inMonthOf(sendRows, (r) => r.sentAt, k).filter((r) => r.statusKey === 'accepted')
+                      .length,
                 },
                 {
                   label: 'Declined',
                   value: (k) =>
-                    inMonthOf(agreementRows, (r) => r.createdAt, k).filter(
-                      (r) => r.statusKey === 'declined'
+                    inMonthOf(sendRows, (r) => r.sentAt, k).filter((r) => r.statusKey === 'declined')
+                      .length,
+                },
+                {
+                  label: 'Still waiting',
+                  value: (k) =>
+                    inMonthOf(sendRows, (r) => r.sentAt, k).filter(
+                      (r) => r.statusKey === 'sent' || r.statusKey === 'viewed'
                     ).length,
                 },
                 {
-                  label: 'Companies',
+                  label: 'Operators',
                   noTotal: true,
                   value: (k) =>
-                    new Set(
-                      inMonthOf(agreementRows, (r) => r.createdAt, k).map((r) => r.company)
-                    ).size,
+                    new Set(inMonthOf(sendRows, (r) => r.sentAt, k).map((r) => r.company)).size,
                 },
                 {
-                  label: 'Value',
-                  money: true,
-                  currency: agreementSummary.currency,
-                  value: (k) =>
-                    inMonthOf(agreementRows, (r) => r.createdAt, k).reduce(
-                      (sum, r) => sum + r.value,
-                      0
-                    ),
+                  label: 'Wrote back',
+                  value: (k) => inMonthOf(sendRows, (r) => r.sentAt, k).filter((r) => r.note).length,
                 },
               ]}
             />
 
-            <h3 className="rp-sub">Every agreement raised in the period</h3>
+            <h3 className="rp-sub">Every operator sent the rates, and what came back</h3>
             {renderTable(
-              agreementColumns,
-              agreementRows,
-              'No agreements raised in this period.',
+              sendColumns,
+              sendRows,
+              'No rate sheets sent in this period.',
               (r) => r.note
             )}
           </>
         ) : tab === 'reps' ? (
           renderTable(repColumns, repRows, 'No rep activity in this period.')
-        ) : tab === 'services' ? (
-          renderTable(serviceColumns, serviceRows, 'No services quoted in this period.')
+        ) : tab === 'rates' ? (
+          renderTable(
+            sheetColumns,
+            sheetRows,
+            'No rate sheets published yet.',
+            (r) => r.note
+          )
         ) : tab === 'follow-ups' ? (
           <>
             <div className="metric-row">
@@ -2462,12 +2389,12 @@ export default function Reports() {
             <div className="metric-row">
               <Metric label="Companies visited" value={conversionSummary.visited} sub="in the period" />
               <Metric
-                label="Quoted afterwards"
-                value={conversionSummary.quoted}
+                label="Sent the rates after"
+                value={conversionSummary.sheetSent}
                 sub={
-                  conversionSummary.quoteRate === null
+                  conversionSummary.sentRate === null
                     ? 'no visits yet'
-                    : `${conversionSummary.quoteRate}% of visited`
+                    : `${conversionSummary.sentRate}% of visited`
                 }
               />
               <Metric
@@ -2475,8 +2402,8 @@ export default function Reports() {
                 value={conversionSummary.accepted}
                 sub={
                   conversionSummary.acceptRate === null
-                    ? 'nothing quoted'
-                    : `${conversionSummary.acceptRate}% of quoted`
+                    ? 'nothing sent yet'
+                    : `${conversionSummary.acceptRate}% of those sent`
                 }
               />
               <Metric
@@ -2489,15 +2416,9 @@ export default function Reports() {
                 }
               />
               <Metric
-                label="Value signed"
-                value={formatMoney(conversionSummary.value, conversionSummary.currency)}
-                sub="from visits in period"
-                small
-              />
-              <Metric
-                label="Visit → quote"
+                label="Visit → rates"
                 value={conversionSummary.medianLag === null ? '—' : `${conversionSummary.medianLag}d`}
-                sub="median turnaround"
+                sub="median days from visit to rates"
               />
             </div>
             {renderTable(
@@ -2525,7 +2446,11 @@ export default function Reports() {
                 value={new Set(outreachRows.map((r) => r.company)).size}
                 sub="distinct clients"
               />
-              <Metric label="Agreements sent" value={agreementsSent.length} sub="formal quotes" />
+              <Metric
+                label="Rate sheets sent"
+                value={sheetsSent.length}
+                sub="the season’s rates"
+              />
             </div>
             <MonthlyPanel
               caption="Messages by month"
@@ -2556,8 +2481,8 @@ export default function Reports() {
                     new Set(inMonthOf(outreachRows, (r) => r.sentAt, k).map((r) => r.company)).size,
                 },
                 {
-                  label: 'Agreements sent',
-                  value: (k) => agreementsSent.filter((a) => inMonth(a.sent_at, k)).length,
+                  label: 'Rate sheets sent',
+                  value: (k) => sheetsSent.filter((send) => inMonth(send.sent_at, k)).length,
                 },
               ]}
             />
@@ -2569,38 +2494,45 @@ export default function Reports() {
               'Nothing shared in this period.',
               (r) => r.preview
             )}
-            {agreementsSent.length > 0 && (
+            {sheetsSent.length > 0 && (
               <>
-                <h3 className="rp-sub">Agreements sent in this period</h3>
+                <h3 className="rp-sub">Rate sheets sent in this period</h3>
                 <div className="rp-table-wrap">
                   <table className="data-table rp-table">
                     <thead>
                       <tr>
                         <th>Sent</th>
-                        <th>Reference</th>
-                        <th>Company</th>
-                        <th>Title</th>
+                        <th>Rate sheet</th>
+                        <th>Operator</th>
+                        <th>Contact</th>
                         <th>Status</th>
-                        <th className="rp-num">Value</th>
+                        <th>Answered</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {agreementsSent.map((a) => (
-                        <tr key={a.id}>
-                          <td>{formatDay(a.sent_at)}</td>
+                      {sheetsSent.map((send) => (
+                        <tr key={send.id}>
+                          <td>{formatDay(send.sent_at)}</td>
                           <td>
-                            <span className="rp-strong">{a.reference}</span>
+                            <span className="rp-strong">{sheetName(send.version_id)}</span>
                           </td>
-                          <td>{companyName(a.company_id)}</td>
-                          <td>{a.title}</td>
+                          <td>{companyName(send.company_id)}</td>
+                          <td>{send.to_name ?? '—'}</td>
                           <td>
-                            <span className={`rp-pill rp-pill-${a.status}`}>{a.status}</span>
+                            <span
+                              className="badge"
+                              style={{
+                                background: SEND_STATUS_META[send.status].bg,
+                                color: SEND_STATUS_META[send.status].color,
+                              }}
+                            >
+                              {SEND_STATUS_META[send.status].label}
+                            </span>
                           </td>
-                          <td className="rp-num">
-                            {formatMoney(
-                              agreementTotals(a.items, a.discount_percent).total,
-                              a.currency
-                            )}
+                          <td>
+                            {send.accepted_at || send.declined_at
+                              ? formatDay(send.accepted_at ?? send.declined_at)
+                              : '—'}
                           </td>
                         </tr>
                       ))}
@@ -2658,8 +2590,6 @@ interface MonthColumn {
   value: (monthKey: string) => number
   /** The column the bar is drawn on. Defaults to the first. */
   primary?: boolean
-  money?: boolean
-  currency?: string
   /** Distinct counts do not add up down the page, so their total is left blank. */
   noTotal?: boolean
 }
@@ -2694,7 +2624,6 @@ function MonthlyPanel({
     columns.findIndex((c) => c.primary)
   )
   const max = Math.max(1, ...cells.map((row) => row[primary]))
-  const show = (c: MonthColumn, n: number) => (c.money ? formatMoney(n, c.currency ?? 'TZS') : n)
 
   return (
     <>
@@ -2725,12 +2654,12 @@ function MonthlyPanel({
                           className="rp-bar"
                           style={{ width: `${(cells[row][i] / max) * 100}%` }}
                         />
-                        <span>{show(c, cells[row][i])}</span>
+                        <span>{cells[row][i]}</span>
                       </span>
                     ) : cells[row][i] === 0 ? (
                       <span className="rp-muted">0</span>
                     ) : (
-                      show(c, cells[row][i])
+                      cells[row][i]
                     )}
                   </td>
                 ))}
@@ -2742,7 +2671,7 @@ function MonthlyPanel({
               <td>Total</td>
               {columns.map((c, i) => (
                 <td key={c.label} className="rp-num">
-                  {c.noTotal ? <span className="rp-muted">—</span> : show(c, totals[i])}
+                  {c.noTotal ? <span className="rp-muted">—</span> : totals[i]}
                 </td>
               ))}
             </tr>

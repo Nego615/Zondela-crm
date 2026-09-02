@@ -11,6 +11,7 @@ import Contacts from './pages/Contacts'
 import Appointments from './pages/Appointments'
 import FollowUps from './pages/FollowUps'
 import Sto from './pages/Sto'
+import PublicAgreement from './pages/PublicAgreement'
 import Reports from './pages/Reports'
 import Users from './pages/admin/Users'
 import UserDetail from './pages/admin/UserDetail'
@@ -71,6 +72,11 @@ function AppRoutes() {
           recovery one the emailed link just created. */}
       <Route path="/set-password" element={<SetPassword mode="invite" />} />
       <Route path="/reset-password" element={<SetPassword mode="reset" />} />
+      {/* Where an operator lands from the rates email. Open by necessity and by
+          design: the visitor is a client, not a user, and the token in the path
+          is the only thing that names the agreement. It reaches the database
+          through two security-definer functions and nothing else. */}
+      <Route path="/agreement/:token" element={<PublicAgreement />} />
       <Route
         path="/"
         element={
@@ -86,12 +92,14 @@ function AppRoutes() {
         <Route path="appointments" element={<Appointments />} />
         <Route path="follow-ups" element={<FollowUps />} />
         <Route path="sto" element={<Sto />} />
-        {/* The section used to be the rate card alone; links and bookmarks
-            pointing at the old path land on the rate card tab. */}
-        <Route path="rate-card" element={<Navigate to="/sto?tab=rate-card" replace />} />
+        {/* The section used to be the rate card alone; the rate card now sits
+            under Settings, beside the branding it is shared with. */}
+        <Route path="rate-card" element={<Navigate to="/sto?tab=settings" replace />} />
         {/* Email templates moved into STO — they are only read when an
             agreement goes out. Old links and bookmarks land on that tab. */}
         <Route path="templates" element={<Navigate to="/sto?tab=templates" replace />} />
+        {/* The priced-agreement list was replaced by the season's rate sheets. */}
+        <Route path="agreements" element={<Navigate to="/sto?tab=versions" replace />} />
         <Route path="reports" element={<Reports />} />
 
         {/* Admin. The Team page was the owner-only roster; it is now the users

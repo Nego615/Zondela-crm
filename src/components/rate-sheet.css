@@ -1,0 +1,326 @@
+/* The season's rate sheet, on screen and on paper.
+   Sized to A4 proportions so what an operator prints matches what they read. */
+
+.rs-doc {
+  position: relative;
+  background: #fff;
+  color: #22201c;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 40px 44px 32px;
+  max-width: 794px; /* A4 at 96dpi */
+  margin: 0 auto;
+  box-shadow: 0 10px 40px rgba(12, 59, 53, 0.12);
+}
+
+.rs-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 120px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(12, 59, 53, 0.06);
+  transform: rotate(-24deg);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.rs-doc > *:not(.rs-watermark) {
+  position: relative;
+  z-index: 2;
+}
+
+/* Header */
+.rs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid;
+}
+
+.rs-head-org {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rs-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+
+.rs-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.rs-head-org h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.rs-tagline {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #6b6459;
+}
+
+.rs-head-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+
+.rs-kind {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rs-year {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.rs-validity {
+  font-size: 11px;
+  color: #6b6459;
+}
+
+/* Title block */
+.rs-title {
+  margin: 22px 0 0;
+}
+
+.rs-title h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+}
+
+.rs-summary {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #4a453d;
+}
+
+.rs-for {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #6b6459;
+}
+
+/* Prose blocks — the intro and the terms */
+.rs-prose {
+  margin: 16px 0 0;
+}
+
+.rs-prose p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #3a352e;
+  white-space: pre-wrap;
+}
+
+/* Rates, one table per season */
+.rs-season {
+  margin-top: 24px;
+  break-inside: avoid;
+}
+
+.rs-season h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.rs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rs-table th {
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  color: #4a453d;
+  border-bottom: 1px solid #e2ddd3;
+}
+
+.rs-table td {
+  padding: 10px;
+  vertical-align: top;
+  border-bottom: 1px solid #efeae1;
+}
+
+.rs-table tr {
+  break-inside: avoid;
+}
+
+.rs-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-room {
+  display: block;
+  font-weight: 600;
+}
+
+.rs-note {
+  display: block;
+  margin-top: 3px;
+  max-width: 46ch;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #6b6459;
+}
+
+.rs-basis {
+  font-size: 12px;
+  color: #4a453d;
+}
+
+.rs-price {
+  font-weight: 700;
+}
+
+.rs-empty {
+  margin: 24px 0;
+  padding: 20px;
+  font-size: 13px;
+  color: #6b6459;
+  text-align: center;
+  background: #faf8f4;
+  border-radius: 8px;
+}
+
+.rs-pdf {
+  margin: 20px 0 0;
+  font-size: 12px;
+}
+
+.rs-pdf a {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.rs-terms {
+  margin-top: 26px;
+  break-inside: avoid;
+}
+
+.rs-terms h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.rs-terms .rs-prose p {
+  font-size: 12px;
+  color: #4a453d;
+}
+
+/* Footer */
+.rs-foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 30px;
+  padding-top: 14px;
+  border-top: 1px solid;
+}
+
+.rs-foot-org,
+.rs-foot-sign {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: #6b6459;
+}
+
+.rs-foot-sign {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.rs-sign-name {
+  font-weight: 700;
+  color: #3a352e;
+}
+
+.rs-foot-note {
+  margin-top: 6px;
+  max-width: 36ch;
+}
+
+@media (max-width: 700px) {
+  .rs-doc {
+    padding: 22px 18px 20px;
+    box-shadow: none;
+  }
+
+  .rs-head,
+  .rs-foot {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .rs-head-meta,
+  .rs-foot-sign {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .rs-table th:nth-child(2),
+  .rs-table td.rs-basis {
+    display: none;
+  }
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+    size: A4;
+  }
+
+  .rs-doc {
+    box-shadow: none;
+    padding: 0;
+    max-width: none;
+  }
+
+  .rs-watermark {
+    display: none;
+  }
+}

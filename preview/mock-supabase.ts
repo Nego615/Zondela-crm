@@ -110,6 +110,9 @@ function seed(): Record<string, Row[]> {
     sto_rate_card: [],
     sto_agreements: [],
     sto_agreement_items: [],
+    sto_agreement_versions: [],
+    sto_version_rates: [],
+    sto_agreement_sends: [],
     email_templates: [],
     pricing_documents: [],
     sent_messages: [],
@@ -182,6 +185,11 @@ function isVisible(table: string, row: Row): boolean {
       return canAccessCompany(row.company_id) || row.assigned_to === currentUserId
     case 'sent_messages':
       return canAccessCompany(row.company_id) || row.sent_by === currentUserId
+    case 'sto_agreement_versions':
+    case 'sto_version_rates':
+      return true
+
+    case 'sto_agreement_sends':
     case 'sto_agreements':
       return canAccessCompany(row.company_id) || row.created_by === currentUserId
     case 'sto_agreement_items': {
@@ -209,6 +217,7 @@ function writeCheck(table: string, row: Row, changes?: Row): string | null {
   const businessTables = [
     'companies', 'contacts', 'site_visits', 'follow_ups', 'sent_messages',
     'sto_rate_card', 'sto_agreements', 'sto_agreement_items',
+    'sto_agreement_versions', 'sto_version_rates', 'sto_agreement_sends',
     'email_templates', 'pricing_documents',
   ]
   if (businessTables.includes(table) && !canWriteData()) {
@@ -380,8 +389,30 @@ class Query implements PromiseLike<{ data: any; error: { message: string } | nul
           ...(this.table === 'companies' ||
           this.table === 'email_templates' ||
           this.table === 'sto_agreements' ||
+          this.table === 'sto_agreement_versions' ||
+          this.table === 'sto_agreement_sends' ||
           this.table === 'sent_messages'
             ? { updated_at: stamped }
+            : {}),
+          // Column defaults from migration 0003. The token is what the emailed
+          // link carries; the database issues it, so the preview does too.
+          ...(this.table === 'sto_agreement_sends'
+            ? {
+                token: newId().replace(/-/g, ''),
+                status: 'sent',
+                sent_at: stamped,
+                viewed_at: null,
+                accepted_at: null,
+                declined_at: null,
+                responded_name: null,
+                responded_email: null,
+                responded_note: null,
+                follow_up_at: null,
+                note: null,
+              }
+            : {}),
+          ...(this.table === 'sto_agreement_versions'
+            ? { status: 'draft', pdf_path: null, pdf_name: null, pdf_size_bytes: 0 }
             : {}),
           // Column defaults from migration 0002. `sent` is what the app knows
           // on its own; the rest stay blank until something records them.
@@ -436,6 +467,15 @@ class Query implements PromiseLike<{ data: any; error: { message: string } | nul
     // delete
     const doomed = rows.filter((r) => isVisible(this.table, r) && this.matches(r))
     db[this.table] = rows.filter((r) => !doomed.includes(r))
+    if (this.table === 'sto_agreement_versions') {
+      // Standing in for the on delete cascade from rates and sends.
+      const gone = new Set(doomed.map((r) => String(r.id)))
+      db.sto_version_rates = db.sto_version_rates.filter((r) => !gone.has(String(r.version_id)))
+      db.sto_agreement_sends = db.sto_agreement_sends.filter(
+        (r) => !gone.has(String(r.version_id))
+      )
+    }
+
     if (this.table === 'sto_agreements') {
       // Standing in for the on delete cascade from sto_agreement_items.
       const gone = new Set(doomed.map((r) => r.id))
@@ -578,6 +618,54 @@ function writeLog(action: string, targetId: string | null, previous: string | nu
 
 function rpc(name: string, args: Row = {}): RpcResult {
   switch (name) {
+    // The two security-definer functions the operator's page calls. In the
+    // preview they read the same in-memory tables; in Postgres they are the
+    // only thing anon may execute.
+    case 'sto_public_agreement': {
+      const send = db.sto_agreement_sends.find((s) => s.token === args.p_token)
+      if (!send) return ok(null)
+      if (send.status === 'sent') {
+        send.status = 'viewed'
+        send.viewed_at = send.viewed_at ?? new Date().toISOString()
+      }
+      const version = db.sto_agreement_versions.find((v) => v.id === send.version_id)
+      const company = db.companies.find((c) => c.id === send.company_id)
+      return ok({
+        send: {
+          status: send.status,
+          to_name: send.to_name ?? null,
+          company_name: company?.name ?? null,
+          sent_at: send.sent_at,
+          viewed_at: send.viewed_at ?? null,
+          accepted_at: send.accepted_at ?? null,
+          declined_at: send.declined_at ?? null,
+          responded_name: send.responded_name ?? null,
+          responded_note: send.responded_note ?? null,
+        },
+        version: version ?? null,
+        rates: db.sto_version_rates
+          .filter((r) => r.version_id === send.version_id)
+          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order)),
+        org: db.org_settings[0] ?? null,
+      })
+    }
+
+    case 'sto_public_respond': {
+      const send = db.sto_agreement_sends.find((s) => s.token === args.p_token)
+      if (!send) return ok(null)
+      if (send.status === 'accepted' || send.status === 'declined') {
+        return ok({ status: send.status, already: true })
+      }
+      const now = new Date().toISOString()
+      send.status = args.p_accept ? 'accepted' : 'declined'
+      if (args.p_accept) send.accepted_at = now
+      else send.declined_at = now
+      send.responded_name = (args.p_name as string) ?? null
+      send.responded_email = (args.p_email as string) ?? null
+      send.responded_note = (args.p_note as string) ?? null
+      return ok({ status: send.status, already: false })
+    }
+
     case 'my_permissions': {
       const me = actingProfile()
       if (!me || me.status !== 'active') return ok([])

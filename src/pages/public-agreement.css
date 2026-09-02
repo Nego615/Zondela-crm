@@ -1,0 +1,226 @@
+/* The one page a client ever sees.
+   Deliberately outside the app shell: no nav, no chrome, one document and one
+   decision. Read on a phone more often than on a desk. */
+
+.pa-shell {
+  min-height: 100vh;
+  padding: 28px 16px 40px;
+  background: var(--paper-dim, #f6f3ee);
+}
+
+.pa-status {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--text-soft);
+}
+
+.pa-card {
+  max-width: 520px;
+  margin: 60px auto;
+  padding: 28px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(12, 59, 53, 0.1);
+}
+
+.pa-card h1 {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+.pa-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-soft);
+}
+
+/* Answered already: said once, at the top, before the document. */
+.pa-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 794px;
+  margin: 0 auto 16px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  color: #fff;
+  background: #0c3b35;
+}
+
+.pa-banner-declined {
+  color: var(--ink, #22201c);
+  background: #efe9df;
+}
+
+.pa-banner strong {
+  font-size: 15px;
+}
+
+.pa-banner span {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.pa-main {
+  max-width: 794px;
+  margin: 0 auto;
+}
+
+/* The decision, in the same column as the document it follows. */
+.pa-accept {
+  margin-top: 20px;
+  padding: 24px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(12, 59, 53, 0.08);
+}
+
+.pa-accept h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.pa-accept > p {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-soft);
+}
+
+.pa-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pa-accept label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pa-accept label > span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pa-accept input,
+.pa-accept textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--line-strong, #d9d2c6);
+  border-radius: 8px;
+}
+
+.pa-accept input:focus,
+.pa-accept textarea:focus {
+  outline: none;
+  border-color: var(--accent, #a9463a);
+  box-shadow: 0 0 0 3px rgba(169, 70, 58, 0.14);
+}
+
+.pa-note {
+  margin-top: 12px;
+}
+
+.pa-error {
+  margin: 14px 0 0;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--danger, #b3261e);
+  background: #fbeaea;
+  border-radius: 8px;
+}
+
+.pa-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.pa-btn {
+  padding: 12px 20px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink, #22201c);
+  background: #fff;
+  border: 1px solid var(--line-strong, #d9d2c6);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.pa-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pa-btn-primary {
+  color: #fff;
+  border-color: transparent;
+  /* The accept button is the point of the page; it stays the widest thing on it. */
+  flex: 1;
+  min-width: 220px;
+}
+
+.pa-quote {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-soft);
+  background: var(--paper-dim, #f6f3ee);
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+
+.pa-foot {
+  max-width: 794px;
+  margin: 22px auto 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .pa-shell {
+    padding: 14px 10px 30px;
+  }
+
+  .pa-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .pa-accept {
+    padding: 18px;
+  }
+}
+
+@media print {
+  .pa-shell {
+    background: #fff;
+    padding: 0;
+  }
+
+  .pa-accept,
+  .pa-foot {
+    display: none;
+  }
+
+  .pa-banner {
+    color: #222;
+    background: transparent !important;
+    border: 1px solid #bbb;
+  }
+}

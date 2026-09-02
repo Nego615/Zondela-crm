@@ -204,6 +204,88 @@ export interface StoAgreementWithItems extends StoAgreement {
   items: StoAgreementItem[]
 }
 
+/* ===========================================================================
+   STO rate agreements
+   ---------------------------------------------------------------------------
+   What Zondela sends an operator is the season's rate sheet for Zondela House,
+   not a priced quote: one version a year, sent to many operators, accepted by
+   each. See supabase/migrations/0003_sto_rate_agreements.sql.
+   =========================================================================== */
+
+export type VersionStatus = 'draft' | 'active' | 'archived'
+export type SendStatus = 'sent' | 'viewed' | 'accepted' | 'declined'
+
+export interface StoVersionRate {
+  id: string
+  version_id: string
+  /** Free text — a season gets renamed more often than a schema should move. */
+  season: string
+  room_type: string
+  /** How the price is read: "Per person sharing, half board". */
+  basis: string | null
+  description: string | null
+  price: number
+  currency: string
+  sort_order: number
+}
+
+export interface StoAgreementVersion {
+  id: string
+  name: string
+  /** The season the rates are for, which is not always the year they were published. */
+  year: number
+  status: VersionStatus
+  valid_from: string | null
+  valid_to: string | null
+  /** One line, read in lists and reports. */
+  summary: string | null
+  /** What the operator reads above the rates. */
+  intro: string | null
+  terms: string | null
+  /** The uploaded rate sheet, exactly as supplied. Key into the `sto` bucket. */
+  pdf_path: string | null
+  pdf_name: string | null
+  pdf_size_bytes: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** What the version pages work with: the header plus its rates. */
+export interface StoVersionWithRates extends StoAgreementVersion {
+  rates: StoVersionRate[]
+}
+
+/** One operator, one version, and where it got to. */
+export interface StoAgreementSend {
+  id: string
+  version_id: string
+  company_id: string
+  contact_id: string | null
+  /** Copied at send time: it must stay true after the contact is edited. */
+  to_name: string | null
+  to_email: string | null
+  /** What the emailed button points at. Never shown in the CRM's own URLs. */
+  token: string
+  status: SendStatus
+  subject: string | null
+  body: string | null
+  /** The team's own note about this send. */
+  note: string | null
+  follow_up_at: string | null
+  sent_by: string | null
+  sent_at: string
+  viewed_at: string | null
+  accepted_at: string | null
+  declined_at: string | null
+  /** What the operator typed when they answered. No tax or registration details. */
+  responded_name: string | null
+  responded_email: string | null
+  responded_note: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface EmailTemplate {
   id: string
   name: string
@@ -329,6 +411,21 @@ export interface Database {
         Row: StoAgreementItem
         Insert: Partial<StoAgreementItem>
         Update: Partial<StoAgreementItem>
+      }
+      sto_agreement_versions: {
+        Row: StoAgreementVersion
+        Insert: Partial<StoAgreementVersion>
+        Update: Partial<StoAgreementVersion>
+      }
+      sto_version_rates: {
+        Row: StoVersionRate
+        Insert: Partial<StoVersionRate>
+        Update: Partial<StoVersionRate>
+      }
+      sto_agreement_sends: {
+        Row: StoAgreementSend
+        Insert: Partial<StoAgreementSend>
+        Update: Partial<StoAgreementSend>
       }
       email_templates: {
         Row: EmailTemplate

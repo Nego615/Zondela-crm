@@ -1,0 +1,128 @@
+/* The rate sheet editor. Wider than most modals: a rate line is six fields
+   across, and stacking them turns a season into a scroll. */
+
+.version-modal {
+  max-width: 860px;
+}
+
+.version-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 1fr 160px;
+  gap: 12px;
+}
+
+.version-rates {
+  margin-bottom: 16px;
+}
+
+.version-rates-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.version-rates-head label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.version-rates-head .field-hint {
+  margin: 4px 0 0;
+  max-width: 52ch;
+}
+
+.version-rate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.version-rate {
+  padding: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+/* Season and room type carry the line; the rate stays narrow and aligned down
+   the column so the list reads as the table it becomes. */
+.version-rate-main {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) minmax(0, 1fr) 96px 84px auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.version-rate input,
+.version-rate select {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.version-rate input:focus,
+.version-rate select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(169, 70, 58, 0.14);
+}
+
+.version-rate-desc {
+  margin-top: 6px;
+}
+
+.version-pdf {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.version-pdf input[type='file'] {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.version-error {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--danger);
+  background: #fbeaea;
+  border-radius: var(--radius);
+}
+
+.version-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+@media (max-width: 760px) {
+  .version-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .version-rate-main {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .version-rate-main > button {
+    justify-self: end;
+  }
+}

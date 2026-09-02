@@ -2,61 +2,54 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useOrgSettings } from '../hooks/useCrmData'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import AgreementDocument from './AgreementDocument'
-import type { OrgSettings, StoAgreementWithItems } from '../lib/database.types'
+import RateSheetDocument, { type SheetRate, type SheetVersion } from './RateSheetDocument'
+import type { OrgSettings } from '../lib/database.types'
 import './ui.css'
 import './sto-settings.css'
 
 const BRANDING_BUCKET = 'branding'
 
 /**
- * A stand-in agreement, so the preview shows a real document rather than an
+ * A stand-in season, so the preview shows a real rate sheet rather than an
  * empty frame. Never saved — it exists only to be rendered beside the form.
  */
-const SAMPLE: StoAgreementWithItems = {
-  id: 'preview',
-  reference: 'STO-0000',
-  company_id: 'preview',
-  contact_id: null,
-  title: 'Search and traffic optimisation — 6 months',
-  status: 'sent',
-  currency: 'TZS',
-  discount_percent: 10,
-  starts_on: null,
-  valid_until: null,
-  terms: null,
-  notes: null,
-  sent_at: new Date().toISOString(),
-  accepted_at: null,
-  declined_at: null,
-  created_by: null,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-  items: [
-    {
-      id: 'p1',
-      agreement_id: 'preview',
-      rate_card_item_id: null,
-      service_name: 'Monthly STO retainer',
-      description: 'Keyword strategy, on-page work and monthly reporting.',
-      unit: 'per month',
-      quantity: 6,
-      unit_price: 850000,
-      sort_order: 0,
-    },
-    {
-      id: 'p2',
-      agreement_id: 'preview',
-      rate_card_item_id: null,
-      service_name: 'Technical audit',
-      description: null,
-      unit: 'one-off',
-      quantity: 1,
-      unit_price: 1200000,
-      sort_order: 1,
-    },
-  ],
+const SAMPLE_VERSION: SheetVersion = {
+  name: `Zondela House STO Rates ${new Date().getFullYear() + 1}`,
+  year: new Date().getFullYear() + 1,
+  summary: 'Contracted rates for tour operators, valid for the whole season.',
+  intro:
+    'Thank you for working with us. The rates below are net, per night, and include breakfast unless stated otherwise.',
+  terms: 'Rates are valid for the dates shown. Bookings are confirmed on receipt of a rooming list.',
+  valid_from: `${new Date().getFullYear() + 1}-01-01`,
+  valid_to: `${new Date().getFullYear() + 1}-12-31`,
 }
+
+const SAMPLE_RATES: SheetRate[] = [
+  {
+    season: 'High season',
+    room_type: 'Garden Room',
+    basis: 'Per person sharing, B&B',
+    description: 'Twin or double, private veranda.',
+    price: 180,
+    currency: 'USD',
+  },
+  {
+    season: 'High season',
+    room_type: 'Family Suite',
+    basis: 'Per room, B&B',
+    description: null,
+    price: 320,
+    currency: 'USD',
+  },
+  {
+    season: 'Low season',
+    room_type: 'Garden Room',
+    basis: 'Per person sharing, B&B',
+    description: null,
+    price: 140,
+    currency: 'USD',
+  },
+]
 
 /** Every editable field, so the form state can be built and diffed generically. */
 type Draft = Omit<OrgSettings, 'id' | 'created_at' | 'updated_at'>
@@ -365,14 +358,14 @@ export default function StoSettingsPanel() {
       <div className="sto-settings-preview">
         <div className="panel-header">
           <h2>Preview</h2>
-          <p>Sample figures, your branding. Updates as you type.</p>
+          <p>Sample rates, your branding. Updates as you type.</p>
         </div>
         <div className="sto-settings-preview-frame">
-          <AgreementDocument
-            agreement={SAMPLE}
-            company={{ name: 'Serengeti Trails Safaris Ltd', country: 'Tanzania' } as never}
-            settings={previewSettings}
-            draft={false}
+          <RateSheetDocument
+            version={SAMPLE_VERSION}
+            rates={SAMPLE_RATES}
+            org={previewSettings}
+            recipient={{ company: 'Serengeti Trails Safaris Ltd' }}
           />
         </div>
       </div>

@@ -1,9 +1,10 @@
 # Zondela CRM
 
 A pipeline CRM for Zondela's marketing team — companies and contacts,
-appointments, follow-ups, STO rates and agreements built from a rate card and
-tracked from draft to accepted, pricing shared via email/WhatsApp, and
-reusable email templates. Built with React + Vite on the frontend and
+appointments, follow-ups, and the season's STO rate sheet for Zondela House —
+published once, sent to every tour operator, and accepted by each of them on a
+link of their own. Pricing is shared via email/WhatsApp from reusable
+templates. Built with React + Vite on the frontend and
 Supabase (Postgres + Auth) for persistence.
 
 ## Stack
@@ -28,14 +29,15 @@ Supabase (Postgres + Auth) for persistence.
 1. In the Supabase dashboard, open **SQL Editor → New query**.
 2. Paste the entire contents of [`supabase/schema.sql`](./supabase/schema.sql)
    and run it. This creates all tables (companies, contacts, site_visits,
-   follow_ups, sto_rate_card, sto_agreements, sto_agreement_items,
-   email_templates, sent_messages, profiles, permissions, role_permissions,
-   activity_logs, org_settings), indexes, the role and permission model, and
-   row-level security policies. It installs empty — add your own services on
-   the STO page's Rate card tab.
-   It also creates the public `pricing` and `branding` storage buckets, for
-   price list PDFs and your logo. If your database predates either, re-run the
-   script to add it.
+   follow_ups, sto_agreement_versions, sto_version_rates, sto_agreement_sends,
+   sto_rate_card, email_templates, sent_messages, profiles, permissions,
+   role_permissions, activity_logs, org_settings), indexes, the role and
+   permission model, row-level security policies, and the two `security
+   definer` functions the operator's acceptance page calls. It installs empty —
+   publish the season's rates on the STO page's Agreement versions tab.
+   It also creates the public `pricing`, `branding` and `sto` storage buckets,
+   for price list PDFs, your logo and the season's signed rate sheet. If your
+   database predates any of them, re-run the script to add it.
 3. It's safe to re-run — the script drops/recreates policies and uses
    `if not exists` for tables.
 
@@ -43,8 +45,10 @@ Supabase (Postgres + Auth) for persistence.
 migration. It renames the old roles (`owner` → `super_admin`,
 `marketing` → `staff`), adds the new profile columns with everyone already in
 the system left `active`, installs the permission tables and audit log, and
-adds the agreement letterhead and message delivery tracking. Existing sent
-messages backfill as `sent`, which is what they were.
+adds the agreement letterhead and message delivery tracking, and installs the
+rate sheet model (versions, rates, sends) beside the old priced agreements —
+which keep their data, untouched. Existing sent messages backfill as `sent`,
+which is what they were.
 
 Each migration also stands alone in
 [`supabase/migrations/`](./supabase/migrations), if you would rather apply one
@@ -194,41 +198,78 @@ supabase/
   (where its own customers are, which is what STO keywords target) and
   **relationship** (where they stand with Zondela — New, Existing Partner,
   Works with Zondela, Dormant, Not Interested).
-- **STO** (`/sto`) is the whole quoting section, in four tabs — everything an
-  agreement needs, in the order it is needed.
-  **Rate card** is the price list — the single place a service is priced.
-  **Agreements** is the pipeline for the documents themselves: build one from
-  the rate card (or type lines in by hand), send it, and track the answer.
-  **Email templates** are the reusable openings the send modal offers (they
-  used to be their own top-level section; nothing outside STO read them, so
-  `/templates` now redirects here).
-  **Branding & email** is the letterhead and the email defaults — see
-  "Branding an agreement" below.
-  Each agreement gets a reference the database generates (`STO-0001`), and
-  its lines **copy** the rate card's name, price and unit rather than pointing
-  at them — repricing a service later cannot rewrite a number a client has
-  already accepted. Filter by status (Drafts, Sent, Accepted, Declined),
-  by company, or search reference, title and company name; the filter lives in
-  the URL, so a filtered list is a link you can send a colleague. The tiles
-  across the top count drafts, agreements awaiting a reply (flagging any past
-  their **valid until** date as expired), and accepted work.
-- **Sending an agreement** marks it sent, stamps `sent_at`, and opens your
-  email client or WhatsApp with the lines, totals, dates and terms already
-  written out — plus a link to the price list PDF if one is uploaded. It is
-  logged to `sent_messages` like any other share, linked to the agreement it
-  carried. **Accepted** and **Declined** stamp their own dates; **Reopen**
-  puts a settled agreement back in play.
-- **Preview** opens the branded agreement as the client will see it, with
+- **STO Agreements** (`/sto`) is the season's rates for Zondela House and
+  everyone who has them. Zondela is not quoting each operator a different
+  price: it publishes **one rate sheet a season** and sends that same document
+  to every tour operator, who accepts it. The section is five tabs.
+
+  **Agreement versions** is the rate sheets themselves. A version is a season:
+  a name, the year, validity dates, a one-line summary, an introduction and
+  terms, and its rates — **one line per room type per season** (Garden Room,
+  High season, "per person sharing, B&B", USD 180). The rates are entered as
+  data rather than left inside a file, because everything downstream reads
+  them: the document the operator opens, the tag on the card ("4 room types ·
+  High and Low season"), the description in a report. The **signed PDF is
+  attached as well** and travels with it — it is the file operators know — but
+  the CRM renders its own branded sheet from the rates, so a phone opens
+  something readable without downloading anything. A version is a **draft**
+  until it is **activated**; only an active sheet can be sent, and a past
+  season is **archived** rather than deleted. Each card carries what came back
+  from it: sent to how many operators, how many opened it, how many accepted.
+
+  **Sent agreements** is one row per operator the sheet went to, with where it
+  got to — Sent, Viewed, Accepted, Declined — the date it was opened, the date
+  it was answered, a follow-up date you can set inline, and a **Copy link**
+  button for when someone loses the email. **Accepted agreements** is the
+  answers: who accepted, when, and anything they wrote back, with the
+  agreement page and the PDF one click away.
+
+  **Email templates** are what the operator receives. Placeholders are filled
+  in as it is sent: `{{contact_name}}`, `{{company_name}}`,
+  `{{agreement_year}}`, `{{agreement_name}}`, `{{agreement_button}}` and
+  `{{sender_name}}` — the button becomes that operator's own link, which is
+  how the CRM knows when they open it. (`/templates` still redirects here.)
+  **Settings** is the letterhead and email defaults — see "Branding the rate
+  sheet" below — and, under it, the older **service rate card** and price list
+  PDF, which are what **Share pricing** on a company's page still uses.
+- **Sending a rate sheet** records the send first (the emailed link is the
+  token on that row, so there is nothing to compose until the database has
+  issued it), then opens your email client with the message written out. It is
+  logged to `sent_messages` like any other share. Sending to the same operator
+  again issues a new link; the old one keeps working. A rep can also mark a
+  send **Accepted** or **Declined** by hand, for an operator who answers by
+  email or on the phone.
+- **The operator's page** (`/agreement/:token`) is the only part of the app a
+  client ever sees: no login, no app shell, no forms. They read the season's
+  rates, download the PDF if they want it, and accept — giving their name, and
+  optionally an email and a note. **No tax numbers, no registration details**;
+  Zondela is publishing rates, not onboarding a supplier. Opening the link
+  marks the send **viewed** on its own, which is the only delivery signal the
+  CRM gets without an email provider wired up, and accepting marks it
+  **accepted** the moment they do it.
+
+  The page reaches the database through two `security definer` functions —
+  `sto_public_agreement(token)` and `sto_public_respond(token, accept, …)` —
+  and nothing else. `anon` holds no grant on any table: the functions take a
+  token, act on the one row it names, and return only what the page prints,
+  so there is no list to ask for and no policy to get wrong.
+- **Preview** opens the rate sheet as the operator will see it, with
   Print / Save as PDF. The browser's own print dialogue is the export — it
   produces a better PDF than the app could assemble, and needs no library.
-  Anything still in draft prints with a DRAFT watermark.
+  A sheet still in draft prints with a DRAFT watermark.
 
-### Branding an agreement
+> **The old priced agreements.** Before this, an STO agreement was invoice-
+> shaped: one per company, priced line by line with quantities and a discount.
+> `sto_agreements` and `sto_agreement_items` are left in place with their data
+> intact — they are real history — but nothing writes to them any more, and
+> `/agreements` redirects to the rate sheets.
 
-**STO → Branding & email** is one row (`org_settings`) holding the letterhead:
+### Branding the rate sheet
+
+**STO → Settings** is one row (`org_settings`) holding the letterhead:
 organisation and legal name, tagline, address and contact block, logo, the two
 brand colours, the opening paragraph, default terms, footer line and signatory.
-The agreement document reads all of it, so rebranding is this form rather than
+The rate sheet reads all of it, so rebranding is this form rather than
 a search for hardcoded strings. A live preview beside the form updates as you
 type.
 
@@ -269,20 +310,18 @@ it, from the buttons on the Delivery panel. The columns they write
 an email provider's webhooks would set instead, once one is connected; nothing
 else has to change for that.
 
-**Approved and Rejected cannot be marked there.** They follow the agreement, and
-a database trigger mirrors them down: moving an agreement to Accepted marks
-every message it went out on as approved, Declined marks them rejected, and
-Reopen drops them back to delivered. Marking them by hand on the message would
-let it contradict the agreement it carried.
+**Approved and Rejected are not marked by hand.** They followed the old priced
+agreements, mirrored down by a database trigger. A rate sheet's own answer now
+lives on its send row instead — Sent, Viewed, Accepted, Declined, on the STO
+page — and the operator sets it themselves by opening and accepting their link.
 
-An agreement's Delivery column shows its **furthest-along** send, so resending
-after a bounce stops the row reading as failed for good. Timestamps are stamped
-by the database and only ever filled once, so "delivered on the 3rd" stays true
-after the message is later marked viewed.
+Timestamps are stamped by the database and only ever filled once, so "delivered
+on the 3rd" stays true after the message is later marked viewed.
 - **Price list PDF** — upload the PDF you already send clients, on the STO
-  page's Rate card tab. One is marked default and is offered automatically when
-  sharing. It is stored in the `pricing` bucket and reaches the client
-  exactly as uploaded.
+  page's Settings tab under the service rate card. One is marked default and is
+  offered automatically when sharing. It is stored in the `pricing` bucket and
+  reaches the client exactly as uploaded. (The season's own rate sheet PDF is
+  separate: it is attached to its version and lives in the `sto` bucket.)
 - **Share STO pricing** builds a message from selected rate card items
   (optionally starting from a saved template) plus a link to the price list
   PDF, and either opens your email client (`mailto:`) or WhatsApp (`wa.me`)
@@ -297,38 +336,40 @@ after the message is later marked viewed.
   visits** (every appointment with its outcome, what happens next, and the
   summary written after it), **Companies** (one row per client property: stage,
   relationship, market, location, rep, contacts, visits and last visit, open
-  and overdue follow-ups, quotes, accepted value and the company note),
-  **Reps** (companies, visits, follow-ups, quotes, accepted value and win rate
-  per rep), **Follow-ups** (what was due, what is still open and how late),
-  **STO agreements** (every agreement raised in the period with its services,
-  discount, value, status — expired included — and when it was sent and
-  answered), **Service interest** (which rate card services get quoted, to how
-  many companies, and what they are worth), **STO outreach** (pricing shares by
-  email and WhatsApp, plus the agreements sent), **Visit conversion** (of the
-  companies visited, how many were quoted afterwards, how many accepted, and
-  the median days from visit to quote), and **Notes & feedback** (visit
-  summaries, follow-up notes and company notes in one stream — what clients
-  actually said).
+  and overdue follow-ups, rate sheets sent and accepted, and the company note),
+  **Reps** (companies, visits, follow-ups, rate sheets sent, acceptances and
+  win rate per rep), **Follow-ups** (what was due, what is still open and how
+  late),
+  **STO agreements** (every operator sent the season's rates in the period:
+  whether they opened them, when they answered, and what they wrote back),
+  **Rate sheets** (the seasons published — what each covers, the room types and
+  seasons priced, the rate range, and how operators answered it), **STO
+  outreach** (pricing shares by email and WhatsApp, plus the rate sheets sent),
+  **Visit conversion** (of the companies visited, how many were sent the rates
+  afterwards, how many accepted, and the median days from visit to rates), and
+  **Notes & feedback** (visit summaries, follow-up notes and company notes in
+  one stream — what clients actually said).
 
   **Every section leads with the month.** Visits, companies, follow-ups,
-  agreements, outreach and notes each open with a row of totals and a
+  rate sheets, outreach and notes each open with a row of totals and a
   month-by-month table — how many that month, split the way that section is
-  read (site visits against meetings, done against overdue, sent against
+  read (site visits against meetings, done against overdue, opened against
   accepted), with a total under each column. Empty months are kept, because a
   month with no visits in it is the finding; over a span too long for that
   (All time) only the months with something in them are listed. The free text
   travels with the rows underneath — a visit's summary, a follow-up's
-  instruction, an agreement's note — printed under the row rather than squeezed
-  into a column, and exported as a column of its own.
+  instruction, what an operator wrote back when they accepted — printed under
+  the row rather than squeezed into a column, and exported as a column of its
+  own.
 
   The filter bar — dates with presets, rep, company, location, visit type,
-  relationship, market, stage, service, a per-report status and a search box —
+  relationship, market, stage, rate sheet, a per-report status and a search box —
   applies to every tab and **lives in the URL**, so a filtered report is a link
   you can send a colleague. **Location** is the country on the company record,
   offered as the spellings actually on file; **Visit type** narrows visits to
   site visits or to meetings wherever a visit is counted; **Status** means
   whatever the open report understands (a visit's outcome, a follow-up's state,
-  an agreement's status, a company's activity in the period), and a status left
+  a send's status, a company's activity in the period), and a status left
   over from another tab is ignored rather than silently narrowing the next
   table you open. **Download CSV** exports the table as shown (the same column
   definitions drive both, so the file can never disagree with the screen),

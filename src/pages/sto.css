@@ -285,3 +285,256 @@
   text-transform: uppercase;
   color: var(--text-soft);
 }
+
+/* ===========================================================================
+   Rate agreements — versions, sends, acceptances
+   ---------------------------------------------------------------------------
+   The section leads with sentences rather than tiles, so the lede carries as
+   much weight here as a metric row does elsewhere.
+   =========================================================================== */
+
+.sto-lede {
+  max-width: 78ch;
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-soft);
+}
+
+.sto-section {
+  margin: 32px 0 6px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.sto-loading {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.sto-table-card {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.sto-strong {
+  display: block;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.sto-muted {
+  color: var(--text-muted);
+}
+
+/* The second line of a cell: an email under a name, a season under a sheet. */
+.sto-row-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Free text belonging to the row above it — a note, an inclusion. */
+.sto-row-note {
+  display: block;
+  max-width: 46ch;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-soft);
+  white-space: normal;
+}
+
+.sto-said {
+  max-width: 42ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-soft);
+  white-space: normal;
+}
+
+.sto-company-link {
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sto-company-link:hover {
+  color: var(--accent);
+}
+
+.sto-followup {
+  width: 138px;
+  padding: 5px 7px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.sto-followup:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* --------------------------------------------------------------------------
+   Version cards
+   -------------------------------------------------------------------------- */
+.ver-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ver-card {
+  padding: 16px 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.ver-card.open {
+  border-color: var(--line-strong);
+}
+
+.ver-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.ver-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ver-name {
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ver-name:hover,
+.ver-name[aria-expanded='true'] {
+  color: var(--accent);
+}
+
+.ver-year {
+  background: var(--brand-olive-tint);
+  color: var(--brand-olive-deep);
+}
+
+.ver-scope {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ver-meta {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ver-summary {
+  max-width: 78ch;
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-soft);
+}
+
+.ver-stats {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.ver-stats strong {
+  color: var(--ink);
+}
+
+.ver-detail {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.ver-prose {
+  max-width: 78ch;
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-soft);
+  white-space: pre-wrap;
+}
+
+.ver-season + .ver-season {
+  margin-top: 18px;
+}
+
+.ver-season h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.ver-rates th,
+.ver-rates td {
+  padding: 8px 10px;
+  vertical-align: top;
+}
+
+.ver-rates th:first-child,
+.ver-rates td:first-child {
+  padding-left: 0;
+}
+
+.ver-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.ver-terms-head {
+  margin: 18px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+@media (max-width: 700px) {
+  .ver-card-head {
+    flex-direction: column;
+  }
+
+  .sto-followup {
+    width: 120px;
+  }
+}
