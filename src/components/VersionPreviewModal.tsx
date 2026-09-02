@@ -54,6 +54,10 @@ export default function VersionPreviewModal({ version, recipient, onClose }: Pro
           <RateSheetDocument
             version={version}
             rates={version.rates}
+            supplements={version.supplements}
+            sections={version.terms_list}
+            propertySections={version.sections}
+            imageUrl={stoPdfUrl}
             org={settings}
             recipient={recipient}
             pdfUrl={version.pdf_path ? stoPdfUrl(version.pdf_path) : null}

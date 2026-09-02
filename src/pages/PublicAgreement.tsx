@@ -6,6 +6,7 @@ import { formatDayTime } from '../lib/stoVersion'
 import RateSheetDocument, {
   type SheetOrg,
   type SheetRate,
+  type SheetPropertySection,
   type SheetSection,
   type SheetSupplement,
   type SheetVersion,
@@ -29,7 +30,10 @@ interface AgreementPayload {
   version: SheetVersion & { pdf_path: string | null; pdf_name: string | null }
   rates: SheetRate[]
   supplements: SheetSupplement[]
-  sections: SheetSection[]
+  /** The room categories, with their photographs. */
+  sections: SheetPropertySection[]
+  /** The named clauses. */
+  conditions: SheetSection[]
   org: SheetOrg | null
 }
 
@@ -123,7 +127,7 @@ export default function PublicAgreement() {
     )
   }
 
-  const { send, version, rates, supplements, sections, org } = data
+  const { send, version, rates, supplements, sections, conditions, org } = data
   const answered = send.status === 'accepted' || send.status === 'declined'
   const brand = org?.brand_color || '#0c3b35'
 
@@ -153,7 +157,9 @@ export default function PublicAgreement() {
           version={version}
           rates={rates}
           supplements={supplements}
-          sections={sections}
+          sections={conditions}
+          propertySections={sections}
+          imageUrl={stoPdfUrl}
           org={org}
           recipient={{ name: send.to_name, company: send.company_name }}
           pdfUrl={version.pdf_path ? stoPdfUrl(version.pdf_path) : null}
