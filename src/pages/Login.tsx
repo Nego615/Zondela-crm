@@ -19,6 +19,7 @@ export default function Login() {
   const [mode, setMode] = useState<'sign_in' | 'forgot'>('sign_in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -71,6 +72,8 @@ export default function Login() {
     setMode(next)
     setError(null)
     setInfo(null)
+    // Never leave a password on screen once the form has moved on.
+    setShowPassword(false)
     clearBlockedReason()
   }
 
@@ -105,14 +108,28 @@ export default function Login() {
           {mode === 'sign_in' && (
             <div className="field">
               <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Your password"
-                autoComplete="current-password"
-              />
+              <div className="password-field">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Your password"
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword((v) => !v)}
+                  // The icon carries no text, so the label has to say what the
+                  // button does rather than what it currently looks like.
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  <EyeIcon crossed={showPassword} />
+                </button>
+              </div>
             </div>
           )}
 
@@ -138,5 +155,26 @@ export default function Login() {
         </p>
       </div>
     </div>
+  )
+}
+
+/** An eye, struck through once the password is actually on screen. */
+function EyeIcon({ crossed }: { crossed: boolean }) {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+      {crossed && <path d="m3.5 3.5 17 17" />}
+    </svg>
   )
 }
