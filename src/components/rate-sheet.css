@@ -1,17 +1,14 @@
-/* The season's rate sheet, on screen and on paper.
-   Sized to A4 proportions so what an operator prints matches what they read. */
+/* The season's rate contract, as the operator reads it.
+   A page rather than a printout: a banner, a covering letter, then one card
+   per thing being agreed. It still prints, but the screen is what it is for. */
 
 .rs-doc {
   position: relative;
-  background: #fff;
+  background: linear-gradient(180deg, #faf7f1 0%, #fff 240px);
   color: #22201c;
   font-family: var(--font-body);
-  font-size: 13px;
-  line-height: 1.55;
-  padding: 40px 44px 32px;
-  max-width: 794px; /* A4 at 96dpi */
-  margin: 0 auto;
-  box-shadow: 0 10px 40px rgba(12, 59, 53, 0.12);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .rs-watermark {
@@ -35,492 +32,589 @@
   z-index: 2;
 }
 
-/* Header */
-.rs-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid;
+/* --------------------------------------------------------------------------
+   Banner
+   ---------------------------------------------------------------------------
+   Both names, the terms of the offer, and the file itself — everything an
+   operator checks before reading a single rate.
+   -------------------------------------------------------------------------- */
+.rs-banner {
+  background: #fff;
+  border-bottom: 1px solid #e7e1d7;
 }
 
-.rs-head-org {
+.rs-banner-inner {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 32px;
 }
 
 .rs-logo {
-  width: 52px;
-  height: 52px;
+  height: 56px;
+  width: auto;
   object-fit: contain;
 }
 
-.rs-logo-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 10px;
-  color: #fff;
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 700;
+.rs-logo-mark {
+  display: inline-flex;
 }
 
-.rs-head-org h1 {
+.rs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rs-banner-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 22px;
-  line-height: 1.1;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.15;
 }
 
-.rs-tagline {
-  margin: 3px 0 0;
-  font-size: 12px;
+.rs-banner-sub {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 15px;
   color: #6b6459;
 }
 
-.rs-head-meta {
+/* Label over value, wrapping two to a row on a wide screen. */
+.rs-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 32px;
+  width: 100%;
+}
+
+.rs-meta-item {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  text-align: right;
 }
 
-.rs-kind {
+.rs-meta-label {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: #8a8378;
 }
 
-.rs-year {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.rs-validity {
-  font-size: 11px;
-  color: #6b6459;
-}
-
-/* Title block */
-.rs-title {
-  margin: 22px 0 0;
-}
-
-.rs-title h2 {
+.rs-meta-value {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 19px;
+  font-weight: 600;
 }
 
-.rs-summary {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: #4a453d;
+.rs-banner-actions {
+  margin: 4px 0 0;
 }
 
-.rs-for {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: #6b6459;
+.rs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
 }
 
-/* Prose blocks — the intro and the terms */
-.rs-prose {
-  margin: 16px 0 0;
+.rs-btn:hover {
+  filter: brightness(1.08);
 }
 
-.rs-prose p {
-  margin: 0 0 10px;
-  font-size: 13px;
-  line-height: 1.6;
+.rs-btn-outline {
+  background: none !important;
+  border: 1px solid #d8d1c6;
   color: #3a352e;
-  white-space: pre-wrap;
 }
 
-/* Rates, one table per season */
-.rs-season {
-  margin-top: 24px;
+.rs-btn-outline:hover {
+  background: #faf8f4 !important;
+  filter: none;
+}
+
+.rs-link {
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rs-link:hover {
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   Body
+   -------------------------------------------------------------------------- */
+.rs-main {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.rs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   break-inside: avoid;
 }
 
-/* A season heading, only shown when a contract prices more than one. */
-.rs-season h4 {
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.rs-h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 23px;
+  font-weight: 600;
+}
+
+.rs-section-sub {
+  margin: 4px 0 0;
+  font-size: 14px;
   color: #6b6459;
+  white-space: pre-line;
+}
+
+.rs-muted {
+  margin: 0;
+  font-size: 14px;
+  color: #6b6459;
+}
+
+.rs-card {
+  background: #fff;
+  border: 1px solid #e7e1d7;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(12, 59, 53, 0.04);
+  overflow: hidden;
+  break-inside: avoid;
+}
+
+.rs-card-head {
+  padding: 18px 20px 8px;
+}
+
+.rs-card-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.rs-card-foot {
+  margin: 0;
+  padding: 0 20px 20px;
+}
+
+.rs-letter {
+  padding: 24px;
+}
+
+.rs-letter p {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.rs-letter p:last-child {
+  margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Photographs
+   ---------------------------------------------------------------------------
+   Three across, as they come. A category with none says so rather than
+   collapsing, so nobody has to guess whether the pictures failed to load.
+   -------------------------------------------------------------------------- */
+.rs-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.rs-shot {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #f1ece3;
+}
+
+.rs-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rs-gallery-action {
+  margin: 0;
+}
+
+.rs-shots-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 128px;
+  border-radius: 10px;
+  background: #f1ece3;
+  font-size: 14px;
+  color: #8a8378;
+}
+
+/* --------------------------------------------------------------------------
+   Rate charts
+   ---------------------------------------------------------------------------
+   One row per room type, its seasons side by side under a season heading, so
+   the chart reads across the way an operator compares an offer.
+   -------------------------------------------------------------------------- */
+.rs-table-wrap {
+  overflow-x: auto;
 }
 
 .rs-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 14px;
+}
+
+.rs-table thead {
+  background: #faf7f1;
 }
 
 .rs-table th {
-  padding: 8px 10px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  padding: 8px 12px;
+  font-weight: 500;
   text-align: left;
-  color: #4a453d;
-  border-bottom: 1px solid #e2ddd3;
+  white-space: nowrap;
 }
 
 .rs-table td {
-  padding: 10px;
+  padding: 9px 12px;
   vertical-align: top;
-  border-bottom: 1px solid #efeae1;
 }
 
-.rs-table tr {
+.rs-table tbody tr {
+  border-top: 1px solid #efeae1;
   break-inside: avoid;
+}
+
+.rs-col-group {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8378;
 }
 
 .rs-num {
   text-align: right;
-  white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .rs-room {
-  display: block;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .rs-note {
   display: block;
   margin-top: 3px;
-  max-width: 46ch;
-  font-size: 12px;
+  max-width: 44ch;
+  font-size: 13px;
+  font-weight: 400;
   line-height: 1.45;
-  color: #6b6459;
-}
-
-.rs-price {
-  font-weight: 700;
-}
-
-.rs-empty {
-  margin: 24px 0;
-  padding: 20px;
-  font-size: 13px;
-  color: #6b6459;
-  text-align: center;
-  background: #faf8f4;
-  border-radius: 8px;
-}
-
-.rs-pdf {
-  margin: 20px 0 0;
-  font-size: 12px;
-}
-
-.rs-pdf a {
-  font-weight: 600;
-  text-decoration: underline;
-}
-
-.rs-terms {
-  margin-top: 26px;
-  break-inside: avoid;
-}
-
-.rs-terms h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 15px;
-}
-
-.rs-terms .rs-prose p {
-  font-size: 12px;
-  color: #4a453d;
-}
-
-/* Footer */
-.rs-foot {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-top: 30px;
-  padding-top: 14px;
-  border-top: 1px solid;
-}
-
-.rs-foot-org,
-.rs-foot-sign {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 11px;
-  color: #6b6459;
-}
-
-.rs-foot-sign {
-  align-items: flex-end;
-  text-align: right;
-}
-
-.rs-sign-name {
-  font-weight: 700;
-  color: #3a352e;
-}
-
-.rs-foot-note {
-  margin-top: 6px;
-  max-width: 36ch;
-}
-
-@media (max-width: 700px) {
-  .rs-doc {
-    padding: 22px 18px 20px;
-    box-shadow: none;
-  }
-
-  .rs-head,
-  .rs-foot {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .rs-head-meta,
-  .rs-foot-sign {
-    align-items: flex-start;
-    text-align: left;
-  }
-
-}
-
-@media print {
-  @page {
-    margin: 14mm;
-    size: A4;
-  }
-
-  .rs-doc {
-    box-shadow: none;
-    padding: 0;
-    max-width: none;
-  }
-
-  .rs-watermark {
-    display: none;
-  }
-}
-
-/* --------------------------------------------------------------------------
-   Contract sections
-   ---------------------------------------------------------------------------
-   The contract is mostly prose with one table in the middle of it, numbered
-   the way the signed PDF numbers it.
-   -------------------------------------------------------------------------- */
-.rs-section {
-  margin-top: 26px;
-  break-inside: avoid;
-}
-
-.rs-section h3 {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 0 0 8px;
-  font-family: var(--font-display);
-  font-size: 15px;
-}
-
-.rs-num-badge {
-  font-size: 13px;
-  font-weight: 700;
-  opacity: 0.55;
-}
-
-/* Meal-plan key under the chart: BB/HB/FB mean nothing to a new operator. */
-.rs-plans {
-  margin: 8px 0 0;
-  font-size: 11px;
-  color: #6b6459;
-}
-
-/* The VAT line. Called out, because it is the one clients ask about. */
-.rs-rates-note {
-  margin: 10px 0 0;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #3a352e;
-  background: #faf8f4;
-  border-left: 3px solid;
-  border-radius: 0 6px 6px 0;
-}
-
-.rs-occupancy {
-  font-weight: 600;
-}
-
-.rs-supplements {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.rs-supplements li {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 0;
-  font-size: 13px;
-  border-bottom: 1px solid #efeae1;
-}
-
-.rs-bullets {
-  margin: 0 0 10px;
-  padding-left: 18px;
-}
-
-.rs-bullets li {
-  margin-bottom: 5px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #3a352e;
-}
-
-/* --------------------------------------------------------------------------
-   Signature block
-   ---------------------------------------------------------------------------
-   Both halves of the paper contract, side by side: Zondela's signatory, and
-   the operator's. Once accepted, the second half prints who accepted and when
-   instead of a blank rule.
-   -------------------------------------------------------------------------- */
-.rs-sign {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 28px;
-  margin-top: 30px;
-  padding-top: 18px;
-  border-top: 1px solid #e2ddd3;
-  break-inside: avoid;
-}
-
-.rs-sign-intro {
-  margin: 0 0 18px;
-  font-size: 12px;
-  line-height: 1.55;
-  color: #6b6459;
-}
-
-.rs-sign .rs-sign-name {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #22201c;
-}
-
-.rs-sign-title {
-  margin: 3px 0 0;
-  font-size: 11px;
-  color: #6b6459;
-}
-
-@media (max-width: 700px) {
-  .rs-sign {
-    grid-template-columns: 1fr;
-    gap: 22px;
-  }
-
-  /* The chart is the one thing that cannot lose a column on a phone: an
-     operator reads across it. It scrolls instead. */
-  .rs-table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-
-  .rs-note {
-    white-space: normal;
-  }
-}
-
-/* --------------------------------------------------------------------------
-   Room category photographs and side notes
-   -------------------------------------------------------------------------- */
-.rs-gallery {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin: 14px 0 4px;
-  break-inside: avoid;
-}
-
-.rs-gallery figure {
-  margin: 0;
-}
-
-.rs-gallery img {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border-radius: 6px;
-}
-
-.rs-gallery figcaption {
-  margin-top: 4px;
-  font-size: 11px;
-  line-height: 1.4;
   color: #6b6459;
 }
 
 /* The rack column is secondary information: present, but not competing with
    the rate the operator is actually being offered. */
-.rs-rack-head,
 .rs-rack {
   color: #8a8378;
-  font-weight: 500;
+}
+
+.rs-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: #8a8378;
+}
+
+/* Meal-plan key under the charts: BB/HB/FB mean nothing to a new operator. */
+.rs-plans {
+  margin: -12px 0 0;
+  font-size: 12px;
+  color: #8a8378;
+}
+
+/* The VAT line. Called out, because it is the one clients ask about. */
+.rs-rates-note {
+  margin: -18px 0 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3a352e;
+  background: #faf7f1;
+  border-left: 3px solid;
+  border-radius: 0 8px 8px 0;
 }
 
 .rs-side-notes {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-top: 14px;
+  gap: 24px;
   break-inside: avoid;
 }
 
-.rs-side-notes h5 {
+.rs-side-notes h4 {
   margin: 0 0 4px;
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #6b6459;
+  color: #8a8378;
 }
 
 .rs-side-notes p {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
   color: #4a453d;
   white-space: pre-wrap;
 }
 
-@media (max-width: 700px) {
-  .rs-gallery {
+/* --------------------------------------------------------------------------
+   Terms
+   -------------------------------------------------------------------------- */
+.rs-terms {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+}
+
+.rs-terms h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.rs-terms p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #6b6459;
+  white-space: pre-wrap;
+}
+
+.rs-terms p:last-child {
+  margin-bottom: 0;
+}
+
+.rs-bullets {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.rs-bullets li {
+  margin-bottom: 4px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #6b6459;
+}
+
+/* --------------------------------------------------------------------------
+   The signed file, shown rather than only offered
+   -------------------------------------------------------------------------- */
+.rs-pdf-frame {
+  height: 600px;
+  margin: 0 20px;
+  border: 1px solid #e7e1d7;
+  border-radius: 10px;
+  background: #f1ece3;
+  overflow: hidden;
+}
+
+.rs-pdf-frame object {
+  width: 100%;
+  height: 100%;
+}
+
+.rs-pdf-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   Acceptance
+   -------------------------------------------------------------------------- */
+.rs-accept {
+  padding: 24px;
+}
+
+.rs-accepted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.rs-record {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 32px;
+  margin: 18px 0 0;
+}
+
+.rs-record dt,
+.rs-record dd {
+  margin: 0;
+}
+
+.rs-sign {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.rs-sign-party {
+  margin: 0;
+  font-size: 13px;
+  color: #6b6459;
+}
+
+/* Room for an actual signature, on paper and on screen alike. */
+.rs-sign-space {
+  height: 70px;
+}
+
+.rs-sign-rule {
+  border-top: 1px solid #b9b2a6;
+}
+
+.rs-sign-name {
+  margin: 7px 0 0;
+  min-height: 1.2em;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rs-sign-title {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #6b6459;
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+.rs-foot-mark {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.rs-foot-mark img {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.8;
+}
+
+.rs-foot {
+  margin: -20px 0 0;
+  font-size: 12px;
+  color: #8a8378;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .rs-banner-inner,
+  .rs-main {
+    padding: 24px 16px;
+  }
+
+  .rs-banner-title {
+    font-size: 25px;
+  }
+
+  .rs-meta,
+  .rs-record,
+  .rs-gallery,
+  .rs-side-notes,
+  .rs-sign {
     grid-template-columns: 1fr;
   }
 
-  .rs-side-notes {
-    grid-template-columns: 1fr;
+  .rs-sign {
+    gap: 24px;
+  }
+
+  .rs-pdf-frame {
+    height: 420px;
+  }
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+    size: A4;
+  }
+
+  .rs-doc {
+    background: #fff;
+    font-size: 12px;
+  }
+
+  .rs-banner-inner,
+  .rs-main {
+    max-width: none;
+    padding: 0;
+  }
+
+  .rs-main {
+    gap: 22px;
+    padding-top: 22px;
+  }
+
+  .rs-watermark,
+  .rs-banner-actions,
+  .rs-pdf-frame,
+  .rs-card-foot {
+    display: none;
+  }
+
+  .rs-card {
+    box-shadow: none;
+  }
+
+  /* The badge and the buttons carry the brand; without this they print as
+     bare outlines. */
+  .rs-badge,
+  .rs-table thead {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

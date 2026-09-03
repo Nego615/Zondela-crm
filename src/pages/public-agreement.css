@@ -41,7 +41,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  max-width: 794px;
+  max-width: 960px;
   margin: 0 auto 16px;
   padding: 14px 18px;
   border-radius: 12px;
@@ -64,7 +64,7 @@
 }
 
 .pa-main {
-  max-width: 794px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
@@ -186,7 +186,7 @@
 }
 
 .pa-foot {
-  max-width: 794px;
+  max-width: 960px;
   margin: 22px auto 0;
   font-size: 12px;
   color: var(--text-muted);
@@ -240,4 +240,46 @@
 /* Three fields across on a desk, one on a phone. */
 .pa-fields {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+/* The required marker on a field label. */
+.pa-accept label > span em {
+  font-style: normal;
+  color: var(--danger, #b3261e);
+}
+
+/* What the operator is confirming by pressing accept. Set off above the
+   button, because the button is closed until all three are ticked. */
+.pa-confirms {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line, #e7e1d7);
+}
+
+.pa-confirms label {
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.pa-confirms input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  accent-color: var(--accent, #a9463a);
+}
+
+.pa-confirms label > span {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--text, #22201c) !important;
 }

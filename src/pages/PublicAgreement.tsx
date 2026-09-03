@@ -61,6 +61,10 @@ export default function PublicAgreement() {
   const [email, setEmail] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
+  // The three things the operator is asked to confirm before the button opens.
+  const [reviewed, setReviewed] = useState(false)
+  const [authorised, setAuthorised] = useState(false)
+  const [confidential, setConfidential] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -178,7 +182,7 @@ export default function PublicAgreement() {
 
         {!answered && (
           <section className="pa-accept" aria-labelledby="pa-accept-title">
-            <h2 id="pa-accept-title">Accept these rates</h2>
+            <h2 id="pa-accept-title">Company Details and Agreement Acceptance</h2>
             {/* The sentence the paper contract asks the client to sign under,
                 in the same words — this is that signature, typed. */}
             <p className="pa-declaration">
@@ -189,7 +193,9 @@ export default function PublicAgreement() {
 
             <div className="pa-fields">
               <label>
-                <span>Name in print</span>
+                <span>
+                  Authorized representative — full name<em>*</em>
+                </span>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -197,7 +203,7 @@ export default function PublicAgreement() {
                 />
               </label>
               <label>
-                <span>Position / title</span>
+                <span>Authorized representative — designation</span>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -205,7 +211,7 @@ export default function PublicAgreement() {
                 />
               </label>
               <label>
-                <span>Email (optional)</span>
+                <span>Contact email address</span>
                 <input
                   type="email"
                   value={email}
@@ -225,13 +231,44 @@ export default function PublicAgreement() {
               />
             </label>
 
+            {/* Ticked before the button opens. Nothing is stored from them —
+                they are what the operator is confirming by pressing accept. */}
+            <div className="pa-confirms">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={reviewed}
+                  onChange={(e) => setReviewed(e.target.checked)}
+                />
+                <span>I confirm that I have reviewed the STO rates and terms and conditions.</span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={authorised}
+                  onChange={(e) => setAuthorised(e.target.checked)}
+                />
+                <span>
+                  I confirm that I am authorized to accept this agreement on behalf of the company.
+                </span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={confidential}
+                  onChange={(e) => setConfidential(e.target.checked)}
+                />
+                <span>I understand that the STO rates and terms are confidential.</span>
+              </label>
+            </div>
+
             {error && <p className="pa-error">{error}</p>}
 
             <div className="pa-actions">
               <button
                 className="pa-btn pa-btn-primary"
                 style={{ background: brand }}
-                disabled={busy}
+                disabled={busy || !reviewed || !authorised || !confidential || !name.trim()}
                 onClick={() => respond(true)}
               >
                 {busy ? 'Sending…' : `Accept the ${version.year} rate contract`}

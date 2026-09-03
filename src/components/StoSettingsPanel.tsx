@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useOrgSettings } from '../hooks/useCrmData'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import BrandMark from './BrandMark'
 import RateSheetDocument, { type SheetRate, type SheetVersion } from './RateSheetDocument'
 import type { OrgSettings } from '../lib/database.types'
 import './ui.css'
@@ -96,6 +97,8 @@ export default function StoSettingsPanel() {
   const [saved, setSaved] = useState(false)
 
   const editable = can('settings.branding')
+  // Narrower than the rest of the letterhead: the mark is Admin's to change.
+  const canChangeLogo = can('settings.logo')
 
   // The row arrives after the first render, so the form is seeded here rather
   // than in initial state.
@@ -247,13 +250,18 @@ export default function StoSettingsPanel() {
             </div>
           </div>
 
-          <div className="field">
+          {/* The logo is the one branding field a Manager may not touch. The
+              nested fieldset disables it inside the outer one; Postgres
+              refuses the write regardless (guard_org_logo, 0006). */}
+          <fieldset className="field" disabled={!canChangeLogo}>
             <label htmlFor="s_logo">Logo</label>
             <div className="sto-logo-row">
               {draft.logo_url ? (
                 <img className="sto-logo-thumb" src={draft.logo_url} alt="Current logo" />
               ) : (
-                <span className="sto-logo-empty">No logo</span>
+                <span className="sto-logo-empty">
+                  <BrandMark size={30} />
+                </span>
               )}
               <input
                 id="s_logo"
@@ -272,9 +280,15 @@ export default function StoSettingsPanel() {
               )}
             </div>
             <span className="field-hint">
-              {uploading ? 'Uploading…' : 'Stored publicly so it loads in a client’s email.'}
+              {!canChangeLogo
+                ? 'Only an administrator can change the logo. Everything else on this page is yours to edit.'
+                : uploading
+                  ? 'Uploading…'
+                  : draft.logo_url
+                    ? 'Stored publicly so it loads in a client’s email.'
+                    : 'Agreements use the Zondela House mark until a file is uploaded here.'}
             </span>
-          </div>
+          </fieldset>
 
           <h3>Agreement wording</h3>
 

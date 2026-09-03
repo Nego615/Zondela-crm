@@ -93,10 +93,11 @@
   padding: 3px 6px;
 }
 
+/* No upload yet: the house mark itself, which is what agreements will use. */
 .sto-logo-empty {
-  font-size: 12px;
-  color: var(--text-muted);
-  padding: 8px 10px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
   background: var(--paper-dim);
   border-radius: var(--radius);
 }
@@ -150,14 +151,12 @@
   overflow-x: auto;
 }
 
-.sto-settings-preview-frame .agr-doc {
+/* The document lays itself out to whatever width it is given, so the frame
+   only has to make it look like a page sitting on the desk. */
+.sto-settings-preview-frame .rs-doc {
+  border-radius: var(--radius);
   box-shadow: 0 6px 24px rgba(12, 59, 53, 0.1);
-  /* The document is fixed at A4 width; shrinking it keeps the whole page in
-     view instead of scrolling a column of it. */
-  transform: scale(0.78);
-  transform-origin: top left;
-  width: 794px;
-  margin-bottom: -22%;
+  overflow: hidden;
 }
 
 @media (max-width: 1100px) {

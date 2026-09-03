@@ -63,6 +63,7 @@ export type Permission =
   | 'logs.view'
   | 'settings.manage'
   | 'settings.branding'
+  | 'settings.logo'
   | 'data.view_all'
   | 'data.write'
   | 'reports.view'
@@ -86,6 +87,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'logs.view',
     'settings.manage',
     'settings.branding',
+    'settings.logo',
     'data.view_all',
     'data.write',
     'reports.view',
@@ -100,6 +102,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'roles.view',
     'logs.view',
     'settings.branding',
+    'settings.logo',
     'data.view_all',
     'data.write',
     'reports.view',

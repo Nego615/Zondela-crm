@@ -1,4 +1,12 @@
-import { MEAL_PLANS, bySeason, formatDay, formatRate, policyBlocks } from '../lib/stoVersion'
+import BrandMark from './BrandMark'
+import {
+  MEAL_PLANS,
+  bySeason,
+  formatDay,
+  formatDayTime,
+  scopeLabel,
+  policyBlocks,
+} from '../lib/stoVersion'
 import './rate-sheet.css'
 
 /** The rack column that sits beside each contracted rate. */
@@ -117,11 +125,11 @@ interface Props {
 /**
  * The Standard Tour Operator Rate Contract, as the operator reads it.
  *
- * Laid out the way the signed PDF is, because that is the document both sides
- * argue from: overview, the rates chart, the VAT line, supplements, then the
- * numbered policies, and the signature block at the end. The original PDF is
- * still linked for anyone who wants the file itself — this is the version that
- * opens on a phone without a download.
+ * A page rather than a printout: a banner carrying both names and the terms of
+ * the offer, a covering letter, then one block per room category — photographs,
+ * what the rooms are, and a rates chart that reads across the seasons — and the
+ * named clauses under it. The signed PDF, when there is one, is embedded at the
+ * end rather than only linked, because most operators never download it.
  *
  * Everything identifying Zondela comes from org_settings, so rebranding is the
  * STO → Settings form rather than an edit in here. The two colours are applied
@@ -145,11 +153,11 @@ export default function RateSheetDocument({
   const brand = org?.brand_color || '#0c3b35'
   const accent = org?.accent_color || '#a9463a'
   const orgName = org?.org_name || 'Zondela House'
+  const partner = recipient?.company || recipient?.name || 'Partner'
 
   // Rack rates are optional on a contract; a column of dashes is worse than no
   // column, so they appear only once one has been entered.
   const showRack = rates.some((r) => (r.bb_rack ?? 0) + (r.hb_rack ?? 0) + (r.fb_rack ?? 0) > 0)
-  const seasonCount = bySeason(rates).length
 
   /**
    * The rooms, grouped the way the contract sets them out.
@@ -177,23 +185,16 @@ export default function RateSheetDocument({
       : []),
   ]
 
-  const orgLines = [
-    org?.address,
-    [org?.city, org?.country].filter(Boolean).join(', ') || null,
-    org?.phone,
-    org?.email,
-    org?.website,
-  ].filter(Boolean) as string[]
-
   const validity =
-    version.valid_from || version.valid_to
-      ? `Valid ${formatDay(version.valid_from)} → ${formatDay(version.valid_to)}`
-      : `Season ${version.year}`
+    version.valid_from && version.valid_to
+      ? `${formatDay(version.valid_from)} – ${formatDay(version.valid_to)}`
+      : `${version.year} season`
 
-  // Numbered continuously through the document, the way the contract is: the
-  // overview is 1, the rates are 2, and the policies carry on from there.
-  let sectionNumber = 0
-  const next = () => ++sectionNumber
+  /** The clauses, with the free-text terms carried in as one more of them. */
+  const clauses: SheetSection[] = [
+    ...sections,
+    ...(version.terms ? [{ id: 'terms', title: 'Additional terms', body: version.terms }] : []),
+  ]
 
   return (
     <article className="rs-doc" aria-label={version.name}>
@@ -203,271 +204,480 @@ export default function RateSheetDocument({
         </div>
       )}
 
-      <header className="rs-head" style={{ borderBottomColor: brand }}>
-        <div className="rs-head-org">
+      {/* The banner: who this is between, what it covers, and how long for. */}
+      <header className="rs-banner">
+        <div className="rs-banner-inner">
+          {/* An uploaded logo wins; otherwise the contract heads itself with
+              Zondela's own mark rather than an initial in a box. Admin swaps
+              it in STO → Settings. */}
           {org?.logo_url ? (
-            <img className="rs-logo" src={org.logo_url} alt="" />
+            <img className="rs-logo" src={org.logo_url} alt={orgName} />
           ) : (
-            <div className="rs-logo-fallback" style={{ background: brand }}>
-              {orgName.slice(0, 1)}
-            </div>
+            <span className="rs-logo-mark">
+              <BrandMark size={56} />
+            </span>
           )}
-          <div>
-            <h1 style={{ color: brand }}>{orgName}</h1>
-            {org?.tagline && <p className="rs-tagline">{org.tagline}</p>}
-          </div>
-        </div>
 
-        <div className="rs-head-meta">
-          <span className="rs-kind" style={{ color: accent }}>
-            Standard Tour Operator Rate Contract
+          <span
+            className="rs-badge"
+            style={{ color: brand, background: `${brand}1a`, borderColor: `${brand}4d` }}
+          >
+            <ShieldIcon /> Secure agreement · Confidential
           </span>
-          <span className="rs-year">{version.year}</span>
-          <span className="rs-validity">{validity}</span>
-        </div>
-      </header>
 
-      <section className="rs-title">
-        <h2 style={{ color: brand }}>{version.name}</h2>
-        {version.summary && <p className="rs-summary">{version.summary}</p>}
-        {(recipient?.company || recipient?.name) && (
-          <p className="rs-for">
-            Prepared for <strong>{recipient.company || recipient.name}</strong>
-            {recipient.company && recipient.name ? ` · ${recipient.name}` : ''}
-          </p>
-        )}
-      </section>
+          <h1 className="rs-banner-title">
+            {orgName} &amp; {partner} STO Agreement – {version.year}
+          </h1>
 
-      {version.intro && (
-        <section className="rs-section">
-          <h3 style={{ color: brand }}>
-            <span className="rs-num-badge">{next()}</span> Overview
-          </h3>
-          <div className="rs-prose">{paragraphs(version.intro)}</div>
-        </section>
-      )}
+          {version.summary && <p className="rs-banner-sub">{version.summary}</p>}
 
-      {/* One block per room category: what the rooms are, what they look like,
-          and what they cost. An operator reads a category at a time. */}
-      {groups.map((group) => (
-        <section key={group.key} className="rs-section">
-          <h3 style={{ color: brand }}>
-            <span className="rs-num-badge">{next()}</span>{' '}
-            {group.name === null ? 'Accommodation rates' : group.name}
-            {version.rate_basis ? ` — ${version.rate_basis.toLowerCase()}` : ''}
-          </h3>
+          <div className="rs-meta">
+            <Meta label="Prepared for" value={recipient?.company || recipient?.name} />
+            <Meta label="Prepared by" value={org?.signatory_name || orgName} />
+            <Meta label="Valid period" value={validity} />
+            <Meta label="Agreement" value={version.name} />
+            <Meta
+              label="Rooms included"
+              value={rates.length > 0 ? scopeLabel(rates) : null}
+            />
+          </div>
 
-          {group.section?.description && (
-            <div className="rs-prose">{paragraphs(group.section.description)}</div>
-          )}
-
-          {group.section && group.section.images.length > 0 && imageUrl && (
-            <div className="rs-gallery">
-              {group.section.images.map((image, i) => (
-                <figure key={image.id ?? i}>
-                  <img src={imageUrl(image.storage_path)} alt={image.caption ?? group.name ?? ''} />
-                  {image.caption && <figcaption>{image.caption}</figcaption>}
-                </figure>
-              ))}
-            </div>
-          )}
-
-          {group.section?.gallery_url && (
-            <p className="rs-pdf">
-              <a href={group.section.gallery_url} target="_blank" rel="noreferrer" style={{ color: accent }}>
-                See more photographs of {group.name}
+          {pdfUrl && (
+            <p className="rs-banner-actions">
+              <a
+                className="rs-btn"
+                style={{ background: brand }}
+                href={pdfUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <DownloadIcon /> Download Official STO PDF
               </a>
             </p>
           )}
+        </div>
+      </header>
 
-          {group.rates.length === 0 ? (
-            <p className="rs-empty">No rates entered for these rooms yet.</p>
+      <main className="rs-main">
+        {/* The covering letter. The version's own intro when it has one, and
+            the standing wording when it does not. */}
+        <div className="rs-card rs-letter">
+          <p>Dear {recipient?.name || partner},</p>
+          {version.intro ? (
+            paragraphs(version.intro)
           ) : (
-            bySeason(group.rates).map(({ season, rates: seasonRates }) => (
-              <div key={season} className="rs-season">
-                {(seasonCount > 1 || season !== 'All year') && <h4>{season}</h4>}
-                <table className="rs-table">
-                  <thead>
-                    <tr style={{ background: `${brand}0f` }}>
-                      <th>Room type</th>
-                      <th className="rs-num">Pax</th>
-                      {MEAL_PLANS.map((plan) => (
-                        <th key={plan.key} className="rs-num" title={plan.full}>
-                          {plan.label} STO
-                        </th>
-                      ))}
-                      {showRack &&
-                        MEAL_PLANS.map((plan) => (
-                          <th key={`${plan.key}-rack`} className="rs-num rs-rack-head">
-                            {plan.label} rack
+            <p>
+              Thank you for your interest in working with {orgName}. We are pleased to share our STO
+              rates and terms for the {version.year} season.
+            </p>
+          )}
+          <p>
+            Kindly review the rates, terms and conditions, and complete the company details section
+            below to accept the agreement.
+          </p>
+        </div>
+
+        {/* One block per room category: photographs, what the rooms are, and
+            a chart that reads across every season at once. */}
+        {groups.map((group) => {
+          const columns = rateColumns(group.rates, showRack)
+          const rows = rateRows(group.rates)
+          const currencies = [...new Set(group.rates.map((r) => r.currency))]
+          const currency = currencies.length === 1 ? currencies[0] : null
+
+          return (
+            <section key={group.key} className="rs-section">
+              <div>
+                <h2 className="rs-h2">
+                  {group.name === null ? 'Accommodation' : group.name}
+                </h2>
+                {group.section?.description && (
+                  <p className="rs-section-sub">{group.section.description}</p>
+                )}
+              </div>
+
+              <div className="rs-gallery">
+                {group.section && group.section.images.length > 0 && imageUrl ? (
+                  group.section.images.map((image, i) => (
+                    <div key={image.id ?? i} className="rs-shot">
+                      <img
+                        src={imageUrl(image.storage_path)}
+                        alt={image.caption || `${group.name ?? 'Room'} ${i + 1}`}
+                        loading="lazy"
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="rs-shots-empty">
+                    <ImageIcon /> Images coming soon
+                  </div>
+                )}
+              </div>
+
+              {/* Sits directly under the three photographs, because three is
+                  never the whole room and the album is where the rest is. */}
+              {group.section?.gallery_url && (
+                <p className="rs-gallery-action">
+                  <a
+                    className="rs-btn rs-btn-outline"
+                    href={group.section.gallery_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <ImageIcon /> View the full {group.name ?? 'room'} gallery →
+                  </a>
+                </p>
+              )}
+
+              <div className="rs-card">
+                <div className="rs-card-head">
+                  <h3>
+                    Rates ({currency ?? 'per currency shown'},{' '}
+                    {version.rate_basis ? version.rate_basis.toLowerCase() : 'per room per night'})
+                  </h3>
+                </div>
+                <div className="rs-table-wrap">
+                  <table className="rs-table">
+                    <thead>
+                      <tr>
+                        <th>Room type</th>
+                        <th>Pax</th>
+                        {columns.map((column) => (
+                          <th key={column.key} className="rs-num">
+                            <span className="rs-col-group">{column.group}</span>
+                            {column.label}
                           </th>
                         ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {seasonRates.map((rate, i) => (
-                      <tr key={rate.id ?? `${season}-${i}`}>
-                        <td>
-                          <span className="rs-room">{rate.room_type}</span>
-                          {rate.description && <span className="rs-note">{rate.description}</span>}
-                        </td>
-                        <td className="rs-num rs-occupancy">
-                          {rate.pax || rate.max_occupancy || '—'}
-                        </td>
-                        {MEAL_PLANS.map((plan) => (
-                          <td key={plan.key} className="rs-num rs-price">
-                            {rate[plan.key] > 0 ? formatRate(rate[plan.key], rate.currency) : '—'}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row) => (
+                        <tr key={row.key}>
+                          <td className="rs-room">
+                            {row.room_type}
+                            {row.description && <span className="rs-note">{row.description}</span>}
                           </td>
-                        ))}
-                        {showRack &&
-                          MEAL_PLANS.map((plan) => {
-                            const rack = rate[RACK_OF[plan.key]] ?? 0
+                          <td>{row.pax || '—'}</td>
+                          {columns.map((column) => {
+                            const value = row.cells[column.key]
                             return (
-                              <td key={`${plan.key}-rack`} className="rs-num rs-rack">
-                                {rack > 0 ? formatRate(rack, rate.currency) : '—'}
+                              <td
+                                key={column.key}
+                                className={`rs-num${column.rack ? ' rs-rack' : ''}`}
+                              >
+                                {value ? cell(value, currency ? null : row.currency) : '—'}
                               </td>
                             )
                           })}
+                        </tr>
+                      ))}
+                      {rows.length === 0 && (
+                        <tr>
+                          <td className="rs-empty" colSpan={columns.length + 2}>
+                            Rates to be confirmed.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {(group.section?.meal_plan_notes || group.section?.seasonal_notes) && (
+                <div className="rs-side-notes">
+                  {group.section?.meal_plan_notes && (
+                    <div>
+                      <h4>Meal plan</h4>
+                      <p>{group.section.meal_plan_notes}</p>
+                    </div>
+                  )}
+                  {group.section?.seasonal_notes && (
+                    <div>
+                      <h4>Seasons</h4>
+                      <p>{group.section.seasonal_notes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )
+        })}
+
+        <p className="rs-plans">
+          {MEAL_PLANS.map((plan) => `${plan.label} — ${plan.full.toLowerCase()}`).join(' · ')}
+          {showRack ? ' · STO is the contracted rate, rack the published one' : ''}
+        </p>
+
+        {version.rates_note && (
+          <p className="rs-rates-note" style={{ borderLeftColor: accent }}>
+            {version.rates_note}
+          </p>
+        )}
+
+        {supplements.length > 0 && (
+          <section className="rs-section">
+            <h2 className="rs-h2">Supplements</h2>
+            <div className="rs-card">
+              <div className="rs-table-wrap">
+                <table className="rs-table">
+                  <thead>
+                    <tr>
+                      <th>Supplement</th>
+                      <th className="rs-num">Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {supplements.map((item, i) => (
+                      <tr key={item.id ?? i}>
+                        <td className="rs-room">
+                          {item.name}
+                          {item.description && <span className="rs-note">{item.description}</span>}
+                        </td>
+                        <td className="rs-num">
+                          {cell(item.price, item.currency)} {item.unit}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            ))
-          )}
-
-          {(group.section?.meal_plan_notes || group.section?.seasonal_notes) && (
-            <div className="rs-side-notes">
-              {group.section?.meal_plan_notes && (
-                <div>
-                  <h5>Meal plan</h5>
-                  <p>{group.section.meal_plan_notes}</p>
-                </div>
-              )}
-              {group.section?.seasonal_notes && (
-                <div>
-                  <h5>Seasons</h5>
-                  <p>{group.section.seasonal_notes}</p>
-                </div>
-              )}
             </div>
-          )}
-        </section>
-      ))}
+          </section>
+        )}
 
-      <p className="rs-plans">
-        {MEAL_PLANS.map((plan) => `${plan.label} — ${plan.full.toLowerCase()}`).join(' · ')}
-        {showRack ? ' · STO is the contracted rate, rack the published one' : ''}
-      </p>
-
-      {version.rates_note && (
-        <p className="rs-rates-note" style={{ borderLeftColor: accent }}>
-          {version.rates_note}
-        </p>
-      )}
-
-      {supplements.length > 0 && (
         <section className="rs-section">
-          <h3 style={{ color: brand }}>
-            <span className="rs-num-badge">{next()}</span> Supplements
-          </h3>
-          <ul className="rs-supplements">
-            {supplements.map((item, i) => (
-              <li key={item.id ?? i}>
-                <span>
-                  <strong>{item.name}</strong>
-                  {item.description ? ` — ${item.description}` : ''}
-                </span>
-                <span className="rs-price">
-                  {formatRate(item.price, item.currency)} {item.unit}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {sections.map((section) => (
-        <section key={section.id ?? section.title} className="rs-section">
-          <h3 style={{ color: brand }}>
-            <span className="rs-num-badge">{next()}</span> {section.title}
-          </h3>
-          <div className="rs-prose">
-            {policyBlocks(section.body).map((block, i) =>
-              block.kind === 'list' ? (
-                <ul key={i} className="rs-bullets">
-                  {block.items.map((item, j) => (
-                    <li key={j}>{item}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p key={i}>{block.text}</p>
-              )
+          <h2 className="rs-h2">Terms and Conditions</h2>
+          <div className="rs-card rs-terms">
+            {clauses.length === 0 ? (
+              <p className="rs-muted">Detailed terms are provided in the official STO PDF.</p>
+            ) : (
+              clauses.map((clause) => (
+                <div key={clause.id ?? clause.title}>
+                  <h3>{clause.title}</h3>
+                  {policyBlocks(clause.body).map((block, i) =>
+                    block.kind === 'list' ? (
+                      <ul key={i} className="rs-bullets">
+                        {block.items.map((item, j) => (
+                          <li key={j}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p key={i}>{block.text}</p>
+                    )
+                  )}
+                </div>
+              ))
             )}
           </div>
         </section>
-      ))}
 
-      {version.terms && (
-        <section className="rs-section">
-          <h3 style={{ color: brand }}>
-            <span className="rs-num-badge">{next()}</span> Additional terms
-          </h3>
-          <div className="rs-prose">{paragraphs(version.terms)}</div>
-        </section>
-      )}
-
-      {pdfUrl && (
-        <p className="rs-pdf">
-          <a href={pdfUrl} target="_blank" rel="noreferrer" style={{ color: accent }}>
-            Download the signed contract{pdfName ? ` — ${pdfName}` : ''} (PDF)
-          </a>
-        </p>
-      )}
-
-      <section className="rs-sign">
-        <div className="rs-sign-col">
-          <p className="rs-sign-intro">On behalf of {orgName}</p>
-          <p className="rs-sign-name">{org?.signatory_name || '________________________'}</p>
-          <p className="rs-sign-title">{org?.signatory_title || 'Signatory position / title'}</p>
-        </div>
-        <div className="rs-sign-col">
-          <p className="rs-sign-intro">
-            On behalf of {acceptance?.company || recipient?.company || '________________________'},
-            accepting the rates offered by {orgName} and the terms and conditions pertaining thereto
-          </p>
-          {acceptance?.name ? (
-            <>
-              <p className="rs-sign-name">{acceptance.name}</p>
-              <p className="rs-sign-title">
-                {acceptance.title ? `${acceptance.title} · ` : ''}
-                Accepted {formatDay(acceptance.at)}
+        {/* The signed file itself, shown rather than only offered: most
+            operators never click a download. */}
+        {pdfUrl && (
+          <section className="rs-section">
+            <div className="rs-card">
+              <div className="rs-card-head">
+                <h3>Official STO PDF{pdfName ? ` — ${pdfName}` : ''}</h3>
+              </div>
+              <div className="rs-pdf-frame">
+                <object data={pdfUrl} type="application/pdf">
+                  <div className="rs-pdf-fallback">
+                    <p>Your browser can&apos;t display the PDF inline.</p>
+                    <a
+                      className="rs-btn"
+                      style={{ background: brand }}
+                      href={pdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <DownloadIcon /> Download PDF
+                    </a>
+                  </div>
+                </object>
+              </div>
+              <p className="rs-card-foot">
+                <a className="rs-btn rs-btn-outline" href={pdfUrl} target="_blank" rel="noreferrer">
+                  <DownloadIcon /> Download Official STO PDF
+                </a>
               </p>
-            </>
+            </div>
+          </section>
+        )}
+
+        {/* Once answered, the acceptance itself is the record — the same four
+            lines the CRM keeps. Before that, the signature block stands in. */}
+        <section className="rs-section">
+          <h2 className="rs-h2">Agreement Acceptance</h2>
+          <div className="rs-card rs-accept">
+            {acceptance?.name ? (
+              <>
+                <p className="rs-accepted" style={{ color: brand }}>
+                  <CheckIcon /> Agreement accepted
+                </p>
+                <p className="rs-muted">
+                  Thank you. Your STO Agreement with {orgName} has been accepted successfully.
+                </p>
+                <dl className="rs-record">
+                  <Record label="Company" value={acceptance.company || recipient?.company} />
+                  <Record label="Agreement year" value={String(version.year)} />
+                  <Record label="Accepted at" value={formatDayTime(acceptance.at)} />
+                  <Record
+                    label="Authorized representative"
+                    value={[acceptance.name, acceptance.title].filter(Boolean).join(' · ')}
+                  />
+                </dl>
+              </>
+            ) : (
+              <div className="rs-sign">
+                <div>
+                  <p className="rs-sign-party">{orgName}</p>
+                  <div className="rs-sign-space" aria-hidden="true" />
+                  <div className="rs-sign-rule" />
+                  <p className="rs-sign-name">{org?.signatory_name || ' '}</p>
+                  <p className="rs-sign-title">
+                    {org?.signatory_title || 'Signatory position / title'}
+                  </p>
+                </div>
+                <div>
+                  <p className="rs-sign-party">{recipient?.company || 'The Partner'}</p>
+                  <div className="rs-sign-space" aria-hidden="true" />
+                  <div className="rs-sign-rule" />
+                  <p className="rs-sign-name"> </p>
+                  <p className="rs-sign-title">Signatory position / title</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <div className="rs-foot-mark">
+          {org?.logo_url ? (
+            <img src={org.logo_url} alt={orgName} />
           ) : (
-            <>
-              <p className="rs-sign-name">________________________</p>
-              <p className="rs-sign-title">Signatory position / title</p>
-            </>
+            <BrandMark size={40} />
           )}
         </div>
-      </section>
 
-      <footer className="rs-foot" style={{ borderTopColor: brand }}>
-        <div className="rs-foot-org">
-          <strong>{org?.legal_name || orgName}</strong>
-          {orgLines.map((line) => (
-            <span key={line}>{line}</span>
-          ))}
-        </div>
-        {org?.agreement_footer && (
-          <div className="rs-foot-sign">
-            <span className="rs-foot-note">{org.agreement_footer}</span>
-          </div>
-        )}
-      </footer>
+        <p className="rs-foot">
+          {org?.email || org?.phone ? (
+            <>
+              Questions? Contact {org?.email}
+              {org?.email && org?.phone ? ' · ' : ''}
+              {org?.phone}
+            </>
+          ) : (
+            <>Questions? Reply to the email this agreement came with.</>
+          )}
+        </p>
+
+        {org?.agreement_footer && <p className="rs-foot">{org.agreement_footer}</p>}
+      </main>
     </article>
   )
+}
+
+/** One label-over-value pair, as the banner and the acceptance record set them. */
+function Meta({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="rs-meta-item">
+      <span className="rs-meta-label">{label}</span>
+      <span className="rs-meta-value">{value || '—'}</span>
+    </div>
+  )
+}
+
+function Record({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="rs-meta-item">
+      <dt className="rs-meta-label">{label}</dt>
+      <dd className="rs-meta-value">{value || '—'}</dd>
+    </div>
+  )
+}
+
+interface RateColumn {
+  key: string
+  group: string
+  label: string
+  rack: boolean
+}
+
+/**
+ * The price columns, one per season and meal plan.
+ *
+ * The chart reads across rather than down: a room type is one row, and its
+ * seasons sit beside each other under a season heading, which is how an
+ * operator compares what they are being offered.
+ */
+function rateColumns(rates: SheetRate[], showRack: boolean): RateColumn[] {
+  return bySeason(rates).flatMap(({ season }) =>
+    MEAL_PLANS.flatMap((plan) => [
+      { key: `${season}|${plan.key}`, group: season, label: `${plan.label} STO`, rack: false },
+      ...(showRack
+        ? [
+            {
+              key: `${season}|${RACK_OF[plan.key]}`,
+              group: season,
+              label: `${plan.label} Rack`,
+              rack: true,
+            },
+          ]
+        : []),
+    ])
+  )
+}
+
+interface RateRow {
+  key: string
+  room_type: string
+  description: string | null
+  pax: number
+  currency: string
+  cells: Record<string, number>
+}
+
+/**
+ * One row per room type at a given occupancy.
+ *
+ * Keyed on both, because a Suite at 2 and the same Suite at 4 are two prices
+ * and collapsing them onto one row would quietly drop one of them.
+ */
+function rateRows(rates: SheetRate[]): RateRow[] {
+  const rows: RateRow[] = []
+  const seen = new Map<string, RateRow>()
+
+  for (const rate of rates) {
+    const pax = rate.pax || rate.max_occupancy || 0
+    const key = `${rate.room_type}|${pax}`
+    let row = seen.get(key)
+    if (!row) {
+      row = {
+        key,
+        room_type: rate.room_type,
+        description: rate.description,
+        pax,
+        currency: rate.currency,
+        cells: {},
+      }
+      seen.set(key, row)
+      rows.push(row)
+    }
+    if (!row.description && rate.description) row.description = rate.description
+
+    const season = rate.season.trim() || 'All year'
+    for (const plan of MEAL_PLANS) {
+      row.cells[`${season}|${plan.key}`] = rate[plan.key]
+      row.cells[`${season}|${RACK_OF[plan.key]}`] = rate[RACK_OF[plan.key]] ?? 0
+    }
+  }
+
+  return rows
+}
+
+/** A figure in the chart. The currency rides in the heading unless it varies. */
+function cell(value: number, currency: string | null) {
+  const amount = Math.round(value).toLocaleString()
+  return currency ? `${currency} ${amount}` : amount
 }
 
 /** Blank-line-separated text, as the paragraphs whoever typed it meant. */
@@ -477,4 +687,54 @@ function paragraphs(text: string) {
     .map((block) => block.trim())
     .filter(Boolean)
     .map((block, i) => <p key={i}>{block}</p>)
+}
+
+const iconProps = {
+  width: 14,
+  height: 14,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+  'aria-hidden': true,
+}
+
+function ShieldIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M20 13c0 5-3.5 7.5-7.7 8.9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1 1 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  )
+}
+
+function DownloadIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M12 15V3" />
+    </svg>
+  )
+}
+
+function ImageIcon() {
+  return (
+    <svg {...iconProps} width={16} height={16}>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+    </svg>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg {...iconProps} width={18} height={18}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  )
 }
