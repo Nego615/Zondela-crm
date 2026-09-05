@@ -19,6 +19,8 @@ interface AgreementPayload {
     status: 'sent' | 'viewed' | 'accepted' | 'declined'
     to_name: string | null
     company_name: string | null
+    /** Their own site, and where the agreement looks for their mark. */
+    company_website: string | null
     sent_at: string
     viewed_at: string | null
     accepted_at: string | null
@@ -165,7 +167,11 @@ export default function PublicAgreement() {
           propertySections={sections}
           imageUrl={stoPdfUrl}
           org={org}
-          recipient={{ name: send.to_name, company: send.company_name }}
+          recipient={{
+            name: send.to_name,
+            company: send.company_name,
+            website: send.company_website,
+          }}
           pdfUrl={version.pdf_path ? stoPdfUrl(version.pdf_path) : null}
           pdfName={version.pdf_name}
           acceptance={

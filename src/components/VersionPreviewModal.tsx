@@ -9,7 +9,7 @@ import './agreement-preview.css'
 interface Props {
   version: StoVersionWithRates
   /** Shown under the title, when previewing what one operator will see. */
-  recipient?: { name?: string | null; company?: string | null }
+  recipient?: { name?: string | null; company?: string | null; website?: string | null }
   onClose: () => void
 }
 

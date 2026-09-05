@@ -1,4 +1,5 @@
 import BrandMark from './BrandMark'
+import PartnerMark from './PartnerMark'
 import {
   MEAL_PLANS,
   bySeason,
@@ -108,7 +109,7 @@ interface Props {
   imageUrl?: (path: string) => string
   org: SheetOrg | null
   /** Who it was sent to, printed under the title so the operator sees their own name. */
-  recipient?: { name?: string | null; company?: string | null }
+  recipient?: { name?: string | null; company?: string | null; website?: string | null }
   /** The signed PDF, offered alongside the rendered contract. */
   pdfUrl?: string | null
   pdfName?: string | null
@@ -207,16 +208,27 @@ export default function RateSheetDocument({
       {/* The banner: who this is between, what it covers, and how long for. */}
       <header className="rs-banner">
         <div className="rs-banner-inner">
-          {/* An uploaded logo wins; otherwise the contract heads itself with
-              Zondela's own mark rather than an initial in a box. Admin swaps
-              it in STO → Settings. */}
-          {org?.logo_url ? (
-            <img className="rs-logo" src={org.logo_url} alt={orgName} />
-          ) : (
-            <span className="rs-logo-mark">
-              <BrandMark size={56} />
-            </span>
-          )}
+          {/* Both houses, across the top: ours on the left, theirs on the
+              right. An uploaded logo wins for ours; otherwise the contract
+              heads itself with Zondela's own mark rather than an initial in a
+              box. Admin swaps it in STO → Settings. */}
+          <div className="rs-marks">
+            {org?.logo_url ? (
+              <img className="rs-logo" src={org.logo_url} alt={orgName} />
+            ) : (
+              <span className="rs-logo-mark">
+                <BrandMark size={56} />
+              </span>
+            )}
+
+            {/* Keyed on the site so a different partner starts its search
+                over rather than inheriting the last one's failures. */}
+            <PartnerMark
+              key={recipient?.website ?? partner}
+              name={partner}
+              website={recipient?.website}
+            />
+          </div>
 
           <span
             className="rs-badge"

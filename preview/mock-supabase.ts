@@ -663,6 +663,7 @@ function rpc(name: string, args: Row = {}): RpcResult {
           status: send.status,
           to_name: send.to_name ?? null,
           company_name: company?.name ?? null,
+          company_website: company?.website ?? null,
           sent_at: send.sent_at,
           viewed_at: send.viewed_at ?? null,
           accepted_at: send.accepted_at ?? null,

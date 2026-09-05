@@ -53,6 +53,32 @@
   padding: 40px 32px;
 }
 
+/* Both marks on one line: ours left, the operator's right. */
+.rs-marks {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+}
+
+.pm-logo {
+  max-width: 190px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* No reachable icon: the operator's name, set to read as a mark rather than
+   as a line of prose. */
+.pm-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: right;
+  color: #4a453d;
+}
+
 .rs-logo {
   height: 56px;
   width: auto;
@@ -558,6 +584,19 @@
 
   .rs-banner-title {
     font-size: 25px;
+  }
+
+  .rs-marks {
+    gap: 12px;
+  }
+
+  .pm-logo {
+    max-width: 110px;
+    max-height: 40px !important;
+  }
+
+  .pm-name {
+    font-size: 14px;
   }
 
   .rs-meta,
