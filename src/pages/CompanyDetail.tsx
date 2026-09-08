@@ -9,7 +9,7 @@ import CompanyFormModal from '../components/CompanyFormModal'
 import ContactFormModal from '../components/ContactFormModal'
 import AppointmentFormModal from '../components/AppointmentFormModal'
 import FollowUpFormModal from '../components/FollowUpFormModal'
-import SharePricingModal from '../components/SharePricingModal'
+import SendVersionModal from '../components/SendVersionModal'
 import { repLabel } from '../lib/rep'
 import '../components/ui.css'
 import './company-detail.css'
@@ -29,7 +29,7 @@ export default function CompanyDetail() {
   const [contactModal, setContactModal] = useState<'new' | string | null>(null)
   const [visitModal, setVisitModal] = useState<'new' | string | null>(null)
   const [followUpModal, setFollowUpModal] = useState<'new' | string | null>(null)
-  const [shareModal, setShareModal] = useState(false)
+  const [sendModal, setSendModal] = useState(false)
 
   if (!company) {
     return (
@@ -86,8 +86,8 @@ export default function CompanyDetail() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" onClick={() => setShareModal(true)}>
-            Share STO pricing
+          <button className="btn" onClick={() => setSendModal(true)}>
+            Send STO agreement
           </button>
           <button className="btn" onClick={() => setEditCompany(true)}>
             Edit
@@ -302,7 +302,18 @@ export default function CompanyDetail() {
           onSaved={() => setFollowUpModal(null)}
         />
       )}
-      {shareModal && <SharePricingModal company={company} contacts={contacts} onClose={() => setShareModal(false)} />}
+      {/* No version handed in: from here the operator is the known half and the
+          agreement is what gets chosen. */}
+      {sendModal && (
+        <SendVersionModal
+          companyId={company.id}
+          onClose={() => setSendModal(false)}
+          // Left open on send: the modal's own last step is the operator's
+          // link, which is the thing worth copying before closing. The lists
+          // behind it refresh themselves.
+          onSent={() => {}}
+        />
+      )}
     </div>
   )
 }

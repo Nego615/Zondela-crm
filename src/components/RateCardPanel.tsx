@@ -76,7 +76,10 @@ export default function RateCardPanel() {
       <div className="panel-header">
         <div>
           <h2>Rate card</h2>
-          <p>The price list agreements are built from, and what "Share STO pricing" sends.</p>
+          <p>
+            The services quoted alongside a season's rooms. They are offered as optional lines when
+            an STO agreement is sent.
+          </p>
         </div>
         <button
           className="btn btn-primary"

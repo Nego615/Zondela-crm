@@ -266,8 +266,8 @@ export default function Sto() {
           <StoSettingsPanel />
           <h2 className="sto-section">Service rate card</h2>
           <p className="sto-lede">
-            Separate from the season’s rates: this is the list behind <strong>Share pricing</strong>{' '}
-            on a company’s page, along with the price list PDF it links to.
+            Separate from the season’s rates: these are the services offered as optional lines when
+            an agreement is sent, along with the price list PDF that can travel with it.
           </p>
           <RateCardPanel />
         </>

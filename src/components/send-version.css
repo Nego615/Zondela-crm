@@ -48,6 +48,37 @@
   border-radius: var(--radius);
 }
 
+/* The optional service lines. Scrolls at a fixed height so a long rate card
+   cannot push the message preview and the send button off the modal. */
+.sv-extras {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 150px;
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.sv-extras label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-soft);
+}
+
+.sv-extras input {
+  margin-top: 3px;
+}
+
+.sv-extras strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* The message exactly as the mail client will receive it — monospaced, because
    what is previewed has to be what is sent, wrapping and all. */
 .sv-preview {

@@ -271,8 +271,8 @@ supabase/
   `{{sender_name}}` — the button becomes that operator's own link, which is
   how the CRM knows when they open it. (`/templates` still redirects here.)
   **Settings** is the letterhead and email defaults — see "Branding the rate
-  sheet" below — and, under it, the older **service rate card** and price list
-  PDF, which are what **Share pricing** on a company's page still uses.
+  sheet" below — and, under it, the **service rate card** and price list PDF,
+  which ride along as optional lines when an agreement is sent.
 - **Sending a rate sheet** records the send first (the emailed link is the
   token on that row, so there is nothing to compose until the database has
   issued it), then opens your email client with the message written out. It is
@@ -365,18 +365,19 @@ page — and the operator sets it themselves by opening and accepting their link
 Timestamps are stamped by the database and only ever filled once, so "delivered
 on the 3rd" stays true after the message is later marked viewed.
 - **Price list PDF** — upload the PDF you already send clients, on the STO
-  page's Settings tab under the service rate card. One is marked default and is
-  offered automatically when sharing. It is stored in the `pricing` bucket and
-  reaches the client exactly as uploaded. (The season's own rate sheet PDF is
+  page's Settings tab under the service rate card. It is stored in the
+  `pricing` bucket and reaches the client exactly as uploaded, offered as an
+  optional link when an agreement is sent. (The season's own rate sheet PDF is
   separate: it is attached to its version and lives in the `sto` bucket.)
-- **Share STO pricing** builds a message from selected rate card items
-  (optionally starting from a saved template) plus a link to the price list
-  PDF, and either opens your email client (`mailto:`) or WhatsApp (`wa.me`)
-  with the message pre-filled. Neither `mailto:` nor `wa.me` can carry a file
-  attachment, so the PDF travels as a link the client opens; **Download PDF**
-  is there for when you would rather attach it by hand. Every
-  share is logged to `sent_messages` so it shows up in that company's
-  activity and rolls up into reports.
+- **Send STO agreement**, on a company's page, is the same send as the one on
+  the STO page and the two meet in the middle: there the agreement is picked
+  first and the modal chooses the operator; here the operator is known and the
+  agreement is chosen in the modal, newest active season first. Either way the
+  send is recorded once, the operator gets their own tracked link, and it shows
+  up under STO → Sends as viewed and then accepted. Service rate card lines and
+  the price list PDF can be ticked on before it goes, for a client being quoted
+  services alongside the rooms. Every send is logged to `sent_messages` so it
+  shows up in that company's activity and rolls up into reports.
 - **Reports** (`/reports`) is seven executive reports over one period and one
   set of filters:
 

@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useCompanies, useContacts, useOrgSettings, useTemplates } from '../hooks/useCrmData'
-import { useAgreementSends, agreementLink } from '../hooks/useStoVersions'
+import {
+  useCompanies,
+  useContacts,
+  useOrgSettings,
+  usePricingDocuments,
+  useRateCard,
+  useTemplates,
+} from '../hooks/useCrmData'
+import { useAgreementSends, useStoVersions, agreementLink } from '../hooks/useStoVersions'
 import { invalidate } from '../hooks/sharedResource'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
@@ -18,7 +25,11 @@ import './ui.css'
 import './send-version.css'
 
 interface Props {
-  version: StoVersionWithRates
+  /**
+   * The agreement being sent. Left out from a company's page, where the
+   * agreement is the thing being chosen rather than the thing already known.
+   */
+  version?: StoVersionWithRates
   /** Pre-selects the operator, when sending from a company's own page. */
   companyId?: string
   onClose: () => void
@@ -30,17 +41,46 @@ interface Props {
  *
  * The send row is created first, because the link in the email is the token on
  * that row — there is nothing to paste into a message until the database has
- * issued it. The message itself goes out through the user's own mail client:
- * the CRM has no mail server, and pretending otherwise would mean claiming a
- * delivery it cannot see. What it does know is when the operator opens the
- * link, and that comes back on its own.
+ * issued it. The operator opens that link, reads the contract and accepts it
+ * there, which is how the CRM knows what happened without anyone chasing.
+ *
+ * Two ways in, and they differ only in what is already decided. From the STO
+ * page an agreement is picked first and this modal chooses the operator; from a
+ * company's page the operator is known and the agreement is chosen here. Either
+ * way it is the same send, recorded once.
+ *
+ * The service rate card and the price list PDF ride along as extras, for a
+ * client who is being quoted services alongside the season's rooms.
  */
-export default function SendVersionModal({ version, companyId, onClose, onSent }: Props) {
+export default function SendVersionModal({ version: fixedVersion, companyId, onClose, onSent }: Props) {
   const { companies } = useCompanies()
   const { templates } = useTemplates()
   const { settings } = useOrgSettings()
   const { sends, createSend } = useAgreementSends()
+  const { versions, loading: versionsLoading } = useStoVersions()
+  const { items: rateCard } = useRateCard()
+  const { documents, documentUrl } = usePricingDocuments()
   const { profile } = useAuth()
+
+  // Only offered when one was not handed in. Active sheets first and the newest
+  // season at the top: sending last year's rates is the mistake this ordering
+  // is here to prevent.
+  const choices = useMemo(
+    () =>
+      versions
+        .filter((v) => v.status !== 'archived')
+        .sort((a, b) => {
+          if (a.status !== b.status) return a.status === 'active' ? -1 : 1
+          return b.year - a.year
+        }),
+    [versions]
+  )
+
+  const [versionChoice, setVersionChoice] = useState<string | null>(null)
+  const version =
+    fixedVersion ??
+    (versionChoice ? versions.find((v) => v.id === versionChoice) : undefined) ??
+    choices[0]
 
   const [company, setCompany] = useState(companyId ?? '')
   const { contacts } = useContacts(company || undefined)
@@ -51,8 +91,22 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
   const companyName = companies.find((c) => c.id === company)?.name ?? ''
 
   const [templateId, setTemplateId] = useState('')
-  const [subject, setSubject] = useState(`${settings?.org_name || 'Zondela House'} STO Rates — ${version.year}`)
+  // Resolved at render, not seeded into state: the agreement is still being
+  // chosen here, and the subject carries its season — seeded once it would keep
+  // the year of whichever sheet happened to be offered first. A subject the
+  // user has typed wins, and stops following the picker.
+  const [subjectDraft, setSubjectDraft] = useState<string | null>(null)
+  const subject =
+    subjectDraft ?? `${settings?.org_name || 'Zondela House'} STO Rates — ${version?.year ?? ''}`.trim()
   const [note, setNote] = useState('')
+
+  // The extras, both off until asked for: the agreement is what is being sent,
+  // and a quote for services is something a client is given as well, not
+  // instead.
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [documentId, setDocumentId] = useState('')
+  const chosenDoc = documents.find((d) => d.id === documentId)
+  const chosenDocUrl = chosenDoc ? documentUrl(chosenDoc) : null
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -71,12 +125,21 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
   }, [])
 
   const template = templates.find((t) => t.id === templateId)
-  const range = rateRange(version.rates)
+  const range = version ? rateRange(version.rates) : null
 
   // Already sent this season's sheet to this operator? Sending again is
   // legitimate — a contact changes, a link is lost — but doing it unknowingly
   // is not, so the modal says so before the button is pressed.
-  const previous = sends.filter((s) => s.version_id === version.id && s.company_id === company)
+  const previous = sends.filter((s) => s.version_id === version?.id && s.company_id === company)
+
+  /** The ticked services, as the lines they print as. */
+  const serviceLines = rateCard
+    .filter((i) => selectedItems.has(i.id))
+    .map(
+      (i) =>
+        `• ${i.service_name} — ${formatRate(i.price, i.currency)}${i.unit ? ` (${i.unit})` : ''}`
+    )
+    .join('\n')
 
   /**
    * The message, with the link left as a placeholder until there is one.
@@ -85,6 +148,8 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
    * previewed here is exactly what the mail client is handed.
    */
   const compose = (link: string) => {
+    if (!version) return ''
+
     const values = {
       contactName: contact?.full_name?.split(' ')[0] || 'there',
       companyName: companyName || 'your team',
@@ -94,10 +159,20 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
       senderName: profile?.full_name || settings?.org_name || 'Zondela House',
     }
 
+    // The extras go after whatever the body turns out to be, template or not: a
+    // template is about the agreement, and these are the things added to this
+    // one send.
+    const extras = [
+      ...(serviceLines ? ['', 'Services', serviceLines] : []),
+      ...(chosenDocUrl ? ['', `Full price list (PDF): ${chosenDocUrl}`] : []),
+    ]
+
     if (template) {
       // Templates are stored as HTML; the mail client is handed text, so the
       // tags come out and the placeholders go in.
-      return fillTemplate(template.body_html.replace(/<[^>]+>/g, ''), values)
+      return [fillTemplate(template.body_html.replace(/<[^>]+>/g, ''), values), ...extras]
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
     }
 
     // One line per room, all three meal plans on it: an operator scanning an
@@ -132,6 +207,7 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
       rates,
       ...(supplements ? ['', 'Supplements', supplements] : []),
       ...(version.rates_note ? ['', version.rates_note] : []),
+      ...extras,
       '',
       'Open the full contract — rates, policies and terms — and confirm your acceptance here:',
       link,
@@ -148,11 +224,15 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
   const preview = useMemo(
     () => compose('[the operator’s own agreement link]'),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, contact, companyName, version, profile, settings]
+    [template, contact, companyName, version, profile, settings, serviceLines, chosenDocUrl]
   )
 
   async function handleSend() {
     setError(null)
+    if (!version) {
+      setError('Choose the agreement being sent.')
+      return
+    }
     if (!company) {
       setError('Choose the operator this is going to.')
       return
@@ -270,13 +350,28 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal send-version" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Send {version.name}</h2>
+          <h2>{version ? `Send ${version.name}` : 'Send an STO agreement'}</h2>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>
             Close
           </button>
         </div>
 
-        {sentLink ? (
+        {!version ? (
+          <div className="sv-done">
+            <h3>{versionsLoading ? 'Loading agreements…' : 'No agreement to send yet'}</h3>
+            {!versionsLoading && (
+              <p>
+                A rate sheet is one season's rates — room types, seasons and what each costs.
+                Publish one on the STO page and it can be sent from here.
+              </p>
+            )}
+            <div className="version-actions">
+              <button className="btn btn-primary" onClick={onClose}>
+                Close
+              </button>
+            </div>
+          </div>
+        ) : sentLink ? (
           <div className="sv-done">
             <h3>Sent to {contact?.full_name}</h3>
             <p>
@@ -302,6 +397,30 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
           </div>
         ) : (
           <>
+            {!fixedVersion && (
+              <div className="field">
+                <label htmlFor="sv_version">STO agreement</label>
+                <select
+                  id="sv_version"
+                  value={version.id}
+                  onChange={(e) => setVersionChoice(e.target.value)}
+                >
+                  {choices.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} — {v.year}
+                      {v.status === 'active' ? ' (active)' : ` (${v.status})`}
+                    </option>
+                  ))}
+                </select>
+                {version.status !== 'active' && (
+                  <p className="field-hint">
+                    This sheet is a {version.status}. It can still be sent, and the operator sees it
+                    exactly as it stands.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="sv-version">
               <strong>{version.name}</strong>
               <span>
@@ -366,7 +485,7 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
 
             <div className="field">
               <label htmlFor="sv_subject">Subject</label>
-              <input id="sv_subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+              <input id="sv_subject" value={subject} onChange={(e) => setSubjectDraft(e.target.value)} />
             </div>
 
             <div className="field">
@@ -397,6 +516,67 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
                 placeholder="Only the team sees this — why this operator, what they asked for"
               />
             </div>
+
+            <div className="field">
+              <label>Add services from the rate card (optional)</label>
+              {rateCard.length === 0 ? (
+                <p className="field-hint">
+                  No service rate card items yet. Add them on the STO page's Settings tab and they
+                  will be offered here.
+                </p>
+              ) : (
+                <>
+                  <div className="sv-extras">
+                    {rateCard.map((item) => (
+                      <label key={item.id}>
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(item.id)}
+                          onChange={() =>
+                            setSelectedItems((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(item.id)) next.delete(item.id)
+                              else next.add(item.id)
+                              return next
+                            })
+                          }
+                        />
+                        <span>
+                          <strong>{item.service_name}</strong> —{' '}
+                          {formatRate(item.price, item.currency)}
+                          {item.unit ? ` (${item.unit})` : ''}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="field-hint">
+                    Printed under the season's rates, for a client being quoted services as well.
+                  </p>
+                </>
+              )}
+            </div>
+
+            {documents.length > 0 && (
+              <div className="field">
+                <label htmlFor="sv_pdf">Price list PDF (optional)</label>
+                <select
+                  id="sv_pdf"
+                  value={documentId}
+                  onChange={(e) => setDocumentId(e.target.value)}
+                >
+                  <option value="">Don't include one</option>
+                  {documents.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}.pdf{d.is_default ? ' (default)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="field-hint">
+                  A link to the file goes in the message — email cannot carry an attachment from
+                  here. The agreement's own rates are in the body either way.
+                </p>
+              </div>
+            )}
 
             <div className="field">
               <label>Message</label>
