@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useUsers } from '../../hooks/useUsers'
 import UserFormModal from '../../components/UserFormModal'
 import { ROLE_LABELS, ROLES, STATUS_LABELS, canManageUser } from '../../lib/permissions'
-import type { Role, UserStatus } from '../../lib/database.types'
+import type { Profile, Role, UserStatus } from '../../lib/database.types'
 import '../../components/ui.css'
 import '../admin.css'
 
@@ -17,7 +17,7 @@ function formatDate(value: string | null) {
 
 export default function Users() {
   const { profile, can } = useAuth()
-  const { users, loading, error, setStatus, sendPasswordReset } = useUsers()
+  const { users, loading, error, setStatus, sendPasswordReset, deleteUser } = useUsers()
 
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all')
@@ -40,6 +40,24 @@ export default function Users() {
       )
     })
   }, [users, search, roleFilter, statusFilter])
+
+  /**
+   * Deleting from the roster, rather than from the user's own page.
+   *
+   * Same confirmation wording as UserDetail: the row vanishing from a table is
+   * a quieter thing than a page redirecting, so the dialog has to carry the
+   * whole warning — what goes, what stays, and the softer option.
+   */
+  async function handleDelete(user: Profile) {
+    const name = user.full_name || user.email
+    const confirmed = window.confirm(
+      `Delete ${name}? Their login and profile are removed for good. ` +
+        'Their companies, follow-ups and agreements stay, unassigned. ' +
+        'If you only want to block access, deactivate them instead.',
+    )
+    if (!confirmed) return
+    await run(user.id, () => deleteUser(user.id), `${name} deleted.`)
+  }
 
   async function run(id: string, work: () => Promise<void>, success: string) {
     setBusyId(id)
@@ -202,6 +220,15 @@ export default function Users() {
                         <Link to={`/admin/users/${user.id}`} className="btn btn-sm">
                           Details
                         </Link>
+                        {can('users.delete') && manageable && (
+                          <button
+                            className="btn btn-sm btn-danger"
+                            disabled={busy}
+                            onClick={() => handleDelete(user)}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
