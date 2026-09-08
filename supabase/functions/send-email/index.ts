@@ -37,7 +37,7 @@
 //
 // Deploy:  supabase functions deploy send-email
 // Secrets: supabase secrets set RESEND_API_KEY=re_xxx
-//          supabase secrets set EMAIL_FROM="Zondela House <reservations@zondelahouse.com>"
+//          supabase secrets set EMAIL_FROM="Zondela House <info@zondelahouse.com>"
 //          (SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY are
 //           injected by the platform.)
 //
@@ -99,7 +99,7 @@ function asHtml(text: string) {
  * The secret wins when it is set. Otherwise the letterhead decides: the
  * reply-to on org_settings, or failing that the organisation's own address.
  * Falling through to nothing would mean replies going to the From address,
- * which is typically `reservations@` — a mailbox that may exist only to send.
+ * which may well be a mailbox that exists only to send.
  */
 async function replyTo(admin: ReturnType<typeof createClient>) {
   if (EMAIL_REPLY_TO) return EMAIL_REPLY_TO

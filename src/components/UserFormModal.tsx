@@ -144,7 +144,7 @@ export default function UserFormModal({ user, onClose, onSaved }: Props) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="john@zondela.co.tz"
+              placeholder="john@zondelahouse.com"
               disabled={editing}
               autoComplete="off"
             />

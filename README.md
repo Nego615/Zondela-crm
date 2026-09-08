@@ -609,7 +609,7 @@ records it gives you in place:
   at `p=none`, tighten once you see clean reports)
 
 Skipping this is why hotel mail lands in spam. Send from
-`reservations@zondelahouse.com` or similar — **never** from a gmail.com
+`info@zondelahouse.com` or similar — **never** from a gmail.com
 address, which Gmail rejects outright when someone else sends it.
 
 ### 2. Deploy `send-email`
@@ -621,10 +621,10 @@ onto the row.
 ```bash
 supabase functions deploy send-email
 supabase secrets set RESEND_API_KEY=re_xxx
-supabase secrets set EMAIL_FROM="Zondela House <reservations@zondelahouse.com>"
+supabase secrets set EMAIL_FROM="Zondela House <info@zondelahouse.com>"
 # Optional. Left unset, Reply-To comes from the letterhead in org_settings, so
 # replies land in the inbox the team already reads.
-supabase secrets set EMAIL_REPLY_TO=info@zondelahouse.com
+supabase secrets set EMAIL_REPLY_TO=reservations@zondelahouse.com
 supabase secrets set EMAIL_BCC=records@zondelahouse.com
 ```
 
@@ -664,7 +664,7 @@ moves backwards, and each timestamp is stamped once and never overwritten, so
 ### What it buys, and what it does not
 
 With the functions deployed, the send modal reads *"Sent by the CRM from
-Zondela House <reservations@…>"* and the button says **Send the agreement**.
+Zondela House <info@…>"* and the button says **Send the agreement**.
 Without them it reads *"Opens in your own mail client"* and behaves exactly as
 before — and if the provider ever refuses a message, the CRM falls back to the
 mail client rather than leaving you with a dead end, because the rates still

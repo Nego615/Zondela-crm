@@ -220,11 +220,11 @@ export default function StoSettingsPanel() {
           <div className="sto-settings-grid">
             <div className="field">
               <label htmlFor="s_email">Email</label>
-              <input id="s_email" type="email" value={draft.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="hello@zondela.co.tz" />
+              <input id="s_email" type="email" value={draft.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="hello@zondelahouse.com" />
             </div>
             <div className="field">
               <label htmlFor="s_website">Website</label>
-              <input id="s_website" value={draft.website ?? ''} onChange={(e) => set('website', e.target.value)} placeholder="zondela.co.tz" />
+              <input id="s_website" value={draft.website ?? ''} onChange={(e) => set('website', e.target.value)} placeholder="zondelahouse.com" />
             </div>
           </div>
 
@@ -332,25 +332,25 @@ export default function StoSettingsPanel() {
             </div>
             <div className="field">
               <label htmlFor="s_from_addr">From address</label>
-              <input id="s_from_addr" type="email" value={draft.email_from_address ?? ''} onChange={(e) => set('email_from_address', e.target.value)} placeholder="sto@zondela.co.tz" />
+              <input id="s_from_addr" type="email" value={draft.email_from_address ?? ''} onChange={(e) => set('email_from_address', e.target.value)} placeholder="info@zondelahouse.com" />
             </div>
           </div>
 
           <div className="sto-settings-grid">
             <div className="field">
               <label htmlFor="s_reply">Reply-to</label>
-              <input id="s_reply" type="email" value={draft.email_reply_to ?? ''} onChange={(e) => set('email_reply_to', e.target.value)} placeholder="hello@zondela.co.tz" />
+              <input id="s_reply" type="email" value={draft.email_reply_to ?? ''} onChange={(e) => set('email_reply_to', e.target.value)} placeholder="hello@zondelahouse.com" />
             </div>
             <div className="field">
               <label htmlFor="s_bcc">BCC every send to</label>
-              <input id="s_bcc" type="email" value={draft.email_bcc ?? ''} onChange={(e) => set('email_bcc', e.target.value)} placeholder="records@zondela.co.tz" />
+              <input id="s_bcc" type="email" value={draft.email_bcc ?? ''} onChange={(e) => set('email_bcc', e.target.value)} placeholder="records@zondelahouse.com" />
               <span className="field-hint">Added to the mail client's BCC line.</span>
             </div>
           </div>
 
           <div className="field">
             <label htmlFor="s_signature">Email signature</label>
-            <textarea id="s_signature" value={draft.email_signature ?? ''} onChange={(e) => set('email_signature', e.target.value)} placeholder={'Zondela House\n+255 7XX XXX XXX · zondela.co.tz'} />
+            <textarea id="s_signature" value={draft.email_signature ?? ''} onChange={(e) => set('email_signature', e.target.value)} placeholder={'Zondela House\n+255 7XX XXX XXX · zondelahouse.com'} />
             <span className="field-hint">Closes every agreement email, under the sender's name.</span>
           </div>
         </fieldset>
