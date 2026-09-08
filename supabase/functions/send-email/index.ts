@@ -53,7 +53,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
 const EMAIL_FROM = Deno.env.get('EMAIL_FROM') ?? ''
 // Where an operator's reply lands. Left unset, it is taken from the letterhead
-// in org_settings — see replyTo() below — because the address the team reads is
+// in org_settings — see letterhead() below — because the address the team reads is
 // already recorded there and a send-only From address is not it.
 const EMAIL_REPLY_TO = Deno.env.get('EMAIL_REPLY_TO') ?? ''
 const EMAIL_BCC = Deno.env.get('EMAIL_BCC') ?? ''
@@ -71,44 +71,106 @@ function json(body: unknown, status = 200) {
   })
 }
 
+/** What the agreement button says. The one action the email is asking for. */
+const BUTTON_LABEL = 'View STO Agreement'
+
+/**
+ * The agreement link, as a button.
+ *
+ * A table rather than a styled `<a>` on its own: Outlook on Windows renders
+ * mail through Word, which drops padding on an inline-block and would leave the
+ * label sitting on the background with no button around it. The table cell
+ * carries the colour, so the shape survives everywhere, and the anchor keeps
+ * its own padding for the clients that do honour it.
+ */
+function button(href: string, brand: string) {
+  return (
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0">` +
+    `<tr><td align="center" style="border-radius:6px;background:${brand}">` +
+    `<a href="${href}" style="display:inline-block;padding:13px 28px;font-family:Helvetica,Arial,sans-serif;` +
+    `font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px">${BUTTON_LABEL}</a>` +
+    `</td></tr></table>`
+  )
+}
+
 /**
  * Plain text as an email body.
  *
  * The app composes messages as text, because that is what a mail client is
  * handed. A provider wants HTML as well or the message renders as one run-on
  * paragraph, so the text is escaped and its line breaks are kept.
+ *
+ * A URL alone on its own line is the agreement link — that is where the
+ * template's `{{agreement_button}}` lands — and it becomes the button. Any
+ * other URL is left as an ordinary inline link, since it is something someone
+ * wrote into the message rather than the action being asked for. The plain
+ * text part still carries the bare URL, which is what a `mailto:` handoff and
+ * any client refusing HTML will show.
  */
-function asHtml(text: string) {
+function asHtml(text: string, brand: string) {
   const escaped = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  // A bare URL on its own line is the agreement link. Left as text it is still
-  // clickable in most clients, but not all, and this is the one link that
-  // matters.
-  const linked = escaped.replace(
-    /(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" style="color:#0c3b35">$1</a>'
+
+  // The button is lifted out before the remaining URLs are linkified and put
+  // back afterwards. Linkifying around it instead would mean a pattern that has
+  // to avoid matching the button's own href — and one that quietly breaks the
+  // day the button's markup changes.
+  const TOKEN = '\u0000agreement-button\u0000'
+  let buttonHtml = ''
+
+  const withToken = escaped.replace(
+    /^[ \t]*(https?:\/\/[^\s<]+)[ \t]*$/m,
+    (_m, href: string) => {
+      buttonHtml = button(href, brand)
+      return TOKEN
+    }
   )
-  return `<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#22201c;white-space:pre-wrap">${linked}</div>`
+
+  const linked = withToken.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    `<a href="$1" style="color:${brand}">$1</a>`
+  )
+
+  // The blank lines that surrounded the link in the text are swallowed with it.
+  // The container is `pre-wrap`, so leaving them would render as line breaks on
+  // top of the button's own margin and open a hole in the message.
+  const body = buttonHtml
+    ? linked.replace(new RegExp(`\\n*${TOKEN}\\n*`), buttonHtml)
+    : linked
+
+  return `<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#22201c;white-space:pre-wrap">${body}</div>`
 }
 
+/** The agreement's own green, used when the letterhead has no colour set. */
+const FALLBACK_BRAND = '#0c3b35'
+
 /**
- * The inbox an operator's reply should land in.
+ * The two things the letterhead decides about an outgoing message: where a
+ * reply lands, and what colour the button is.
  *
- * The secret wins when it is set. Otherwise the letterhead decides: the
- * reply-to on org_settings, or failing that the organisation's own address.
- * Falling through to nothing would mean replies going to the From address,
- * which may well be a mailbox that exists only to send.
+ * **Reply-To**: the secret wins when it is set. Otherwise the reply-to on
+ * org_settings, or failing that the organisation's own address. Falling
+ * through to nothing would mean replies going to the From address, which may
+ * well be a mailbox that exists only to send.
+ *
+ * **Brand**: read from the same row the rate sheet is branded with, so the
+ * button in the email is the colour of the document it opens.
+ *
+ * Both come from one query because the send needs them at the same moment.
  */
-async function replyTo(admin: ReturnType<typeof createClient>) {
-  if (EMAIL_REPLY_TO) return EMAIL_REPLY_TO
+async function letterhead(admin: ReturnType<typeof createClient>) {
   const { data } = await admin
     .from('org_settings')
-    .select('email_reply_to, email')
+    .select('email_reply_to, email, brand_color')
     .eq('id', 1)
     .maybeSingle()
-  return (data?.email_reply_to || data?.email || '') as string
+
+  return {
+    replyTo: (EMAIL_REPLY_TO || data?.email_reply_to || data?.email || '') as string,
+    brand: (data?.brand_color || FALLBACK_BRAND) as string,
+  }
 }
 
 Deno.serve(async (req) => {
@@ -127,7 +189,7 @@ Deno.serve(async (req) => {
 
   if (action === 'status') {
     const replyAddress = configured
-      ? await replyTo(createClient(SUPABASE_URL, SERVICE_ROLE_KEY))
+      ? (await letterhead(createClient(SUPABASE_URL, SERVICE_ROLE_KEY))).replyTo
       : ''
     return json({ configured, from: EMAIL_FROM || null, replyTo: replyAddress || null })
   }
@@ -176,14 +238,14 @@ Deno.serve(async (req) => {
   // can only ever be set by something that actually talked to the provider.
   // Needed before the send as well, to read the letterhead's reply address.
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
-  const replyAddress = await replyTo(admin)
+  const { replyTo: replyAddress, brand } = await letterhead(admin)
 
   const payload: Record<string, unknown> = {
     from: EMAIL_FROM,
     to: [to],
     subject: message.subject ?? 'Zondela House',
     text: message.body,
-    html: asHtml(message.body),
+    html: asHtml(message.body, brand),
   }
   // Always set when there is an address to set it to: the whole point is that
   // the answer arrives where the team is already looking.

@@ -383,6 +383,11 @@ export interface EmailTemplate {
   subject: string
   body_html: string
   category: TemplateCategory
+  /**
+   * The one the agreement send modal reaches for. Only one row can carry it —
+   * a partial unique index enforces that, as it does on pricing_documents.
+   */
+  is_default: boolean
   created_by: string | null
   created_at: string
   updated_at: string

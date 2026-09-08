@@ -189,6 +189,7 @@ export function policyBlocks(body: string) {
 export const PLACEHOLDERS = [
   '{{contact_name}}',
   '{{company_name}}',
+  '{{org_name}}',
   '{{agreement_year}}',
   '{{agreement_name}}',
   '{{agreement_button}}',
@@ -198,15 +199,19 @@ export const PLACEHOLDERS = [
 /**
  * Fill a template.
  *
- * `{{agreement_button}}` becomes the link itself in plain text — the CRM hands
- * off to the user's own mail client, which is given text rather than HTML, so
- * a bare URL is the only button that survives the trip.
+ * `{{agreement_button}}` becomes the bare link, on a line of its own. That line
+ * is the button: when the CRM sends the message itself, `send-email` recognises
+ * a URL alone on its own line and renders it as a "View STO Agreement" button
+ * in the HTML part. The text part keeps the URL as written, which is what a
+ * `mailto:` handoff shows — so keep the placeholder on its own line, or it
+ * degrades to an ordinary inline link.
  */
 export function fillTemplate(
   text: string,
   values: {
     contactName: string
     companyName: string
+    orgName: string
     year: number | string
     versionName: string
     link: string
@@ -216,11 +221,54 @@ export function fillTemplate(
   return text
     .replace(/\{\{contact_name\}\}/g, values.contactName)
     .replace(/\{\{company_name\}\}/g, values.companyName)
+    .replace(/\{\{org_name\}\}/g, values.orgName)
     .replace(/\{\{agreement_year\}\}/g, String(values.year))
     .replace(/\{\{agreement_name\}\}/g, values.versionName)
     .replace(/\{\{agreement_button\}\}/g, values.link)
     .replace(/\{\{sender_name\}\}/g, values.senderName)
 }
+
+/**
+ * A stored template body as the plain text both delivery routes want.
+ *
+ * `body_html` is named for an intention the app never acted on: the editor is a
+ * textarea, so what is actually in the column is text with line breaks. Tags
+ * are stripped rather than trusted in case someone has pasted markup in, and
+ * `<br>` and `</p>` become the line breaks they stood for instead of vanishing
+ * and running two paragraphs together.
+ */
+export function templateToText(body: string) {
+  return body
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/**
+ * The wording used when no template is marked default.
+ *
+ * Deliberately price-free: the rates are in the agreement the link opens,
+ * signed and dated. A second copy in the covering email is one nothing keeps in
+ * step, and leaves an operator guessing which of the two is the contract.
+ */
+export const DEFAULT_AGREEMENT_TEMPLATE = {
+  subject: '{{org_name}} STO Agreement — {{agreement_year}}',
+  body: `Dear {{contact_name}},
+
+Please find the STO agreement between {{org_name}} and {{company_name}} for the {{agreement_year}} season.
+
+Kindly click the button below to view the rates, terms and conditions, and accept the agreement.
+
+{{agreement_button}}
+
+Should you have any questions, please do not hesitate to reach out.`,
+} as const
 
 /** Whether a version is still inside its validity dates, on the day it is read. */
 export function isCurrent(version: { valid_from: string | null; valid_to: string | null }) {

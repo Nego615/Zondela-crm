@@ -265,17 +265,24 @@ supabase/
   answers: who accepted, when, and anything they wrote back, with the
   agreement page and the PDF one click away.
 
-  **Email templates** are what the operator receives. Placeholders are filled
-  in as it is sent: `{{contact_name}}`, `{{company_name}}`,
-  `{{agreement_year}}`, `{{agreement_name}}`, `{{agreement_button}}` and
-  `{{sender_name}}` — the button becomes that operator's own link, which is
-  how the CRM knows when they open it. (`/templates` still redirects here.)
-  **Settings** is the letterhead and email defaults — see "Branding the rate
-  sheet" below — and, under it, the **service rate card** and price list PDF,
-  which ride along as optional lines when an agreement is sent.
+  **Email templates** is what the operator receives. The one marked **Default**
+  is the wording the agreement send uses, so the team rewords the covering
+  email without a deploy. Placeholders are filled in as it goes out:
+  `{{contact_name}}`, `{{company_name}}`, `{{org_name}}`, `{{agreement_year}}`,
+  `{{agreement_name}}`, `{{agreement_button}}` and `{{sender_name}}`. Keep
+  `{{agreement_button}}` on a line of its own: it becomes that operator's own
+  link, which is how the CRM knows when they open it, and `send-email` renders
+  that line as a **View STO Agreement** button. **The email carries no prices** —
+  the rates are in the agreement the link opens, and a second copy in the
+  covering note is one nothing keeps in step. (`/templates` still redirects
+  here.) **Settings** is the letterhead and email
+  defaults — see "Branding the rate sheet" below — and, under it, the
+  **service rate card** and price list PDF.
 - **Sending a rate sheet** records the send first (the emailed link is the
   token on that row, so there is nothing to compose until the database has
-  issued it), then opens your email client with the message written out. It is
+  issued it), then sends it — through the provider when `send-email` is
+  deployed and configured, otherwise by opening your own mail client with the
+  message written out. It is
   logged to `sent_messages` like any other share. Sending to the same operator
   again issues a new link; the old one keeps working. A rep can also mark a
   send **Accepted** or **Declined** by hand, for an operator who answers by
@@ -366,18 +373,22 @@ Timestamps are stamped by the database and only ever filled once, so "delivered
 on the 3rd" stays true after the message is later marked viewed.
 - **Price list PDF** — upload the PDF you already send clients, on the STO
   page's Settings tab under the service rate card. It is stored in the
-  `pricing` bucket and reaches the client exactly as uploaded, offered as an
-  optional link when an agreement is sent. (The season's own rate sheet PDF is
-  separate: it is attached to its version and lives in the `sto` bucket.)
-- **Send STO agreement**, on a company's page, is the same send as the one on
+  `pricing` bucket and reaches the client exactly as uploaded. It is the
+  house's own price list, not part of the agreement send. (The season's own
+  rate sheet PDF is separate again: it is attached to its version and lives in
+  the `sto` bucket.)
+- **Share STO Agreement**, on a company's page, is the same send as the one on
   the STO page and the two meet in the middle: there the agreement is picked
   first and the modal chooses the operator; here the operator is known and the
-  agreement is chosen in the modal, newest active season first. Either way the
-  send is recorded once, the operator gets their own tracked link, and it shows
-  up under STO → Sends as viewed and then accepted. Service rate card lines and
-  the price list PDF can be ticked on before it goes, for a client being quoted
-  services alongside the rooms. Every send is logged to `sent_messages` so it
-  shows up in that company's activity and rolls up into reports.
+  agreement is chosen in the modal, out of the active sheets, newest season
+  first. The form asks for the contact, the address it goes to (their own, or
+  another on file at that company), the agreement, an optional personal line
+  that prints under the salutation, and an optional follow-up date. The subject
+  and the body are composed from the contract rather than typed, and the
+  **Email preview** fold shows exactly what will go out. Either way the send is
+  recorded once, the operator gets their own tracked link, and it shows up
+  under STO → Sends as viewed and then accepted, and in that company's activity
+  and the reports.
 - **Reports** (`/reports`) is seven executive reports over one period and one
   set of filters:
 
@@ -583,15 +594,14 @@ it to your own mail client through `mailto:` — honest, but blind: it cannot
 know whether the message arrived. Deploy the two Edge Functions below and the
 same message goes out from Zondela's own domain, with delivery, opens and
 bounces coming back on their own. The app checks which world it is in and says
-so under the message preview before you press send.
+so inside the **Email preview** fold, and on the send button itself, before you
+press it.
 
 Two things are deliberately true of this, and both are worth being clear about:
 
-- **Only the STO agreement is sent by the system.** Pricing shares, template
-  messages, WhatsApp and every mailto link in the CRM still open the sender's
-  own client. A rate contract earns the machinery because it goes to dozens of
-  operators at once and knowing whether it arrived is the point; a one-off note
-  to one contact does not.
+- **The STO agreement is what the system sends.** It is the one message that
+  goes to dozens of operators at once and whose arrival is worth knowing about.
+  Anything else you write to one contact is still yours to send.
 - **Every reply lands in the normal inbox.** The function sets **Reply-To** to
   the address on the letterhead — `org_settings.email_reply_to`, or failing
   that the organisation's own email — so an operator's answer arrives where the

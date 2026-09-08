@@ -10,7 +10,17 @@
 }
 
 .template-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 8px;
+}
+
+/* The one the agreement send reaches for, so it reads as a state rather than
+   another category. */
+.template-default-badge {
+  background: var(--surface-sunk, #efeae1);
+  color: var(--text-soft);
 }
 
 .template-card-name {

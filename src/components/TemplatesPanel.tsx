@@ -20,7 +20,8 @@ const CATEGORY_LABELS: Record<TemplateCategory, string> = {
  * alongside the rate card and the branding they are composed with.
  */
 export default function TemplatesPanel() {
-  const { templates, loading, createTemplate, updateTemplate, deleteTemplate } = useTemplates()
+  const { templates, loading, createTemplate, updateTemplate, deleteTemplate, setDefaultTemplate } =
+    useTemplates()
   const { profile } = useAuth()
   const [editing, setEditing] = useState<EmailTemplate | 'new' | null>(null)
   const [preview, setPreview] = useState<EmailTemplate | null>(null)
@@ -58,6 +59,7 @@ export default function TemplatesPanel() {
                 >
                   {CATEGORY_LABELS[t.category]}
                 </span>
+                {t.is_default && <span className="badge template-default-badge">Default</span>}
               </div>
               <h3 className="template-card-name">{t.name}</h3>
               <p className="template-card-subject">{t.subject}</p>
@@ -69,6 +71,11 @@ export default function TemplatesPanel() {
                 <button className="btn btn-sm" onClick={() => setEditing(t)}>
                   Edit
                 </button>
+                {!t.is_default && (
+                  <button className="btn btn-sm" onClick={() => setDefaultTemplate(t.id)}>
+                    Make default
+                  </button>
+                )}
                 <button
                   className="btn btn-sm btn-ghost"
                   onClick={async () => {

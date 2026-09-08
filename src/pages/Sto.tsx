@@ -251,9 +251,12 @@ export default function Sto() {
       {tab === 'templates' ? (
         <>
           <p className="sto-lede">
-            The email an operator receives with the rate sheet. Placeholders are filled in as it is
-            sent: {PLACEHOLDERS.join(', ')} — the button becomes that operator’s own link, which is
-            how the CRM knows when they open it.
+            The email an operator receives with the agreement. The one marked{' '}
+            <strong>Default</strong> is the wording the send uses; edit it here and the next send
+            carries the change. Placeholders are filled in as it goes out:{' '}
+            {PLACEHOLDERS.join(', ')} — keep <code>{'{{agreement_button}}'}</code> on a line of its
+            own, where it becomes that operator’s own link, which is how the CRM knows when they
+            open it.
           </p>
           <TemplatesPanel />
         </>
@@ -266,8 +269,8 @@ export default function Sto() {
           <StoSettingsPanel />
           <h2 className="sto-section">Service rate card</h2>
           <p className="sto-lede">
-            Separate from the season’s rates: these are the services offered as optional lines when
-            an agreement is sent, along with the price list PDF that can travel with it.
+            Separate from the season’s rates, and from what the agreement send carries: the
+            services the house quotes, and the price list PDF, kept here for the team to work from.
           </p>
           <RateCardPanel />
         </>

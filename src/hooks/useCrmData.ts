@@ -280,7 +280,38 @@ export function useTemplates() {
     await invalidate('email_templates')
   }
 
-  return { templates, loading, refresh, createTemplate, updateTemplate, deleteTemplate }
+  /**
+   * Move the default to one template — the wording the agreement send uses.
+   *
+   * Cleared before it is set, never the other way round: a partial unique index
+   * allows only one row carrying `is_default`, so setting first would collide
+   * with the incumbent. Deleting the default simply leaves none, and the send
+   * modal falls back to its built-in wording.
+   */
+  async function setDefaultTemplate(id: string) {
+    const { error: clearError } = await supabase
+      .from('email_templates')
+      .update({ is_default: false })
+      .eq('is_default', true)
+    if (clearError) throw clearError
+
+    const { error } = await supabase
+      .from('email_templates')
+      .update({ is_default: true })
+      .eq('id', id)
+    if (error) throw error
+    await invalidate('email_templates')
+  }
+
+  return {
+    templates,
+    loading,
+    refresh,
+    createTemplate,
+    updateTemplate,
+    deleteTemplate,
+    setDefaultTemplate,
+  }
 }
 
 /**

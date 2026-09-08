@@ -48,35 +48,49 @@
   border-radius: var(--radius);
 }
 
-/* The optional service lines. Scrolls at a fixed height so a long rate card
-   cannot push the message preview and the send button off the modal. */
-.sv-extras {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 150px;
-  padding: 10px;
-  overflow-y: auto;
+/* The message, folded away. It is composed rather than written, so it is there
+   to be checked rather than filled in — and the send button stays in reach on a
+   laptop screen with it closed. */
+.sv-fold {
+  margin-bottom: 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  background: var(--paper-dim);
 }
 
-.sv-extras label {
+.sv-fold-head {
   display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--text-soft);
-}
-
-.sv-extras input {
-  margin-top: 3px;
-}
-
-.sv-extras strong {
-  color: var(--text);
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.sv-fold-toggle {
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.sv-fold-body {
+  padding: 0 14px 12px;
+}
+
+.sv-fold-subject {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-soft);
 }
 
 /* The message exactly as the mail client will receive it — monospaced, because

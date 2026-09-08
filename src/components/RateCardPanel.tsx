@@ -77,8 +77,8 @@ export default function RateCardPanel() {
         <div>
           <h2>Rate card</h2>
           <p>
-            The services quoted alongside a season's rooms. They are offered as optional lines when
-            an STO agreement is sent.
+            The services quoted alongside a season's rooms, kept here as the house's own price
+            list. The agreement send carries the contract's rates, not these.
           </p>
         </div>
         <button

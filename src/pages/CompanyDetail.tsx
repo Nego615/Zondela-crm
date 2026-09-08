@@ -87,7 +87,7 @@ export default function CompanyDetail() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn" onClick={() => setSendModal(true)}>
-            Send STO agreement
+            Share STO Agreement
           </button>
           <button className="btn" onClick={() => setEditCompany(true)}>
             Edit
