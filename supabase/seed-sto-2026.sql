@@ -47,7 +47,7 @@ begin
   values (
     v_id,
     'Standard Rooms',
-    'Our standard accommodation, in the main house: singles, doubles, twins, triples and a family room, all built from the red clay brick the house is known for. Every room has free Wi-Fi, and guests share the rooftop bar and restaurant and the swimming pool.',
+    'Our standard accommodation, in the main house: singles, doubles, twins and triples, all built from the red clay brick the house is known for. Every room has free Wi-Fi, and guests share the rooftop bar and restaurant and the swimming pool.',
     'Rates are quoted on bed & breakfast, half board and full board. Half board is breakfast and one main meal; full board is all three.',
     'One rate applies for the whole of the 2026 season, 1 January to 31 December.',
     0
@@ -59,7 +59,7 @@ begin
   values (
     v_id,
     'Deluxe Rooms',
-    'Our largest and most comfortable rooms, for guests staying longer or arriving from a long flight. Sleeps up to three, with the same access to the rooftop bar and restaurant, the swimming pool and free Wi-Fi throughout.',
+    'Our largest and most comfortable rooms, for guests staying longer, arriving from a long flight or travelling as a family. Sleeps up to four, with the same access to the rooftop bar and restaurant, the swimming pool and free Wi-Fi throughout.',
     'Rates are quoted on bed & breakfast, half board and full board, as with the standard rooms.',
     'One rate applies for the whole of the 2026 season, 1 January to 31 December.',
     1
@@ -77,8 +77,8 @@ begin
     (v_id, v_standard, '2026 season', 'Standard Double',     2, 170, 210, 250, 2, 'USD', 1),
     (v_id, v_standard, '2026 season', 'Standard Twin Room',  2, 170, 210, 250, 2, 'USD', 2),
     (v_id, v_standard, '2026 season', 'Standard Triple',     3, 230, 290, 350, 3, 'USD', 3),
-    (v_id, v_standard, '2026 season', 'Family Room',         4, 340, 420, 500, 4, 'USD', 4),
-    (v_id, v_deluxe,   '2026 season', 'Deluxe Room',         3, 250, 310, 370, 3, 'USD', 5);
+    (v_id, v_deluxe,   '2026 season', 'Deluxe Room',         3, 250, 310, 370, 3, 'USD', 4),
+    (v_id, v_deluxe,   '2026 season', 'Family Room',         4, 340, 420, 500, 4, 'USD', 5);
 
   insert into sto_version_supplements (version_id, name, price, currency, unit, sort_order)
   values
