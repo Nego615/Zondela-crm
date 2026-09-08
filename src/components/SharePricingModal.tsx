@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRateCard, useTemplates, usePricingDocuments } from '../hooks/useCrmData'
+import { invalidate } from '../hooks/sharedResource'
 import { useAuth } from '../hooks/useAuth'
+import { emailStatus, openMailClient, sendRecordedEmail } from '../lib/email'
 import { supabase } from '../lib/supabase'
 import type { Contact, Company } from '../lib/database.types'
 import './ui.css'
@@ -29,6 +31,20 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
   const [documentChoice, setDocumentChoice] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // How this will actually go out, asked before the button is pressed so the
+  // button can say which of the two it is about to do.
+  const [mail, setMail] = useState<{
+    configured: boolean
+    from: string | null
+    replyTo: string | null
+  } | null>(null)
+  const [delivery, setDelivery] = useState<'provider' | 'mail-client' | null>(null)
+
+  useEffect(() => {
+    emailStatus().then(setMail)
+  }, [])
 
   const contact = contacts.find((c) => c.id === contactId)
 
@@ -76,6 +92,11 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
       .replace(/\n{3,}/g, '\n\n')
   }, [contact, templateId, templates, priceLines, company.name, profile, chosenDocUrl])
 
+  // Sent once from here is enough: a second click would put a second copy in
+  // front of a client who already has one. Only the provider route can say
+  // that — a handoff to the mail client may well have been abandoned there.
+  const alreadySent = delivery === 'provider'
+
   const whatsappNumber = (contact?.whatsapp || contact?.phone || '').replace(/[^\d+]/g, '')
   const whatsappUrl = `https://wa.me/${whatsappNumber.replace('+', '')}?text=${encodeURIComponent(messageBody)}`
 
@@ -83,6 +104,65 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
     await navigator.clipboard.writeText(messageBody)
     setCopied(true)
     setTimeout(() => setCopied(false), 1800)
+  }
+
+  /**
+   * Records the message, then lets the CRM send it.
+   *
+   * The row goes in first and the provider reads the subject and body back off
+   * it server-side, so what leaves the building is what the CRM shows it sent.
+   * With no provider wired up — or when it refuses the message —
+   * sendRecordedEmail opens the user's own mail client instead, and the row
+   * still records that the message went out.
+   */
+  async function handleSendEmail() {
+    if (!contact?.email) return
+    setBusy(true)
+    setError(null)
+    setDelivery(null)
+    try {
+      const { data, error: insertError } = await supabase
+        .from('sent_messages')
+        .insert({
+          company_id: company.id,
+          contact_id: contactId || null,
+          sent_by: profile?.id ?? null,
+          channel: 'email',
+          template_id: templateId || null,
+          subject,
+          body: messageBody,
+          to_name: contact.full_name,
+          to_email: contact.email,
+          // `queued` is the state send-email will only move on from once the
+          // provider has taken it; with no provider the send is the handoff to
+          // the mail client, and that has already happened.
+          status: mail?.configured ? 'queued' : 'sent',
+        })
+        .select('id')
+        .single()
+      if (insertError) throw insertError
+
+      const result = await sendRecordedEmail({
+        messageId: data.id as string,
+        to: contact.email,
+        subject,
+        body: messageBody,
+      })
+
+      setDelivery(result.delivery)
+      if (result.error) setError(result.error)
+      setSaved(true)
+      await invalidate('sent_messages')
+    } catch (err) {
+      // Logging is a convenience; the pricing still has to reach the client
+      // today, so a failure here hands the message to the mail client rather
+      // than stopping.
+      setError(err instanceof Error ? err.message : 'Could not record this send.')
+      openMailClient({ to: contact.email, subject, body: messageBody })
+      setDelivery('mail-client')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function logAndOpen(action: () => void) {
@@ -95,6 +175,7 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
         subject: channel === 'email' ? subject : null,
         body: messageBody,
       })
+      await invalidate('sent_messages')
       setSaved(true)
     } catch {
       // logging failure shouldn't block the send action
@@ -213,7 +294,29 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
           <textarea id="s_preview" value={messageBody} readOnly style={{ minHeight: 160, fontSize: 13 }} />
         </div>
 
-        {saved && <p style={{ fontSize: 12, color: 'var(--stage-won)', marginBottom: 10 }}>Logged to this company's activity.</p>}
+        {channel === 'email' && (
+          <p className="field-hint" style={{ display: 'block', marginBottom: 10 }}>
+            {mail?.configured
+              ? `Sent by the CRM from ${mail.from ?? 'Zondela House'}${
+                  mail.replyTo ? `, with replies going to ${mail.replyTo}` : ''
+                }. The PDF travels as a link, not an attachment.`
+              : 'Email is not connected, so this opens your own mail client with the message already written. See “Connecting email” in the README to have the CRM send it itself.'}
+          </p>
+        )}
+
+        {delivery === 'provider' && (
+          <p style={{ fontSize: 12, color: 'var(--stage-won)', marginBottom: 10 }}>
+            Sent to {contact?.email}, and logged to this company's activity.
+          </p>
+        )}
+        {saved && delivery !== 'provider' && (
+          <p style={{ fontSize: 12, color: 'var(--stage-won)', marginBottom: 10 }}>
+            Logged to this company's activity.
+          </p>
+        )}
+        {error && (
+          <p style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 10 }}>{error}</p>
+        )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           {chosenDocUrl && (
@@ -234,14 +337,16 @@ export default function SharePricingModal({ company, contacts, onClose }: Props)
             <button
               type="button"
               className="btn btn-primary"
-              disabled={!contact?.email}
-              onClick={() =>
-                logAndOpen(() => {
-                  window.location.href = `mailto:${contact?.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(messageBody)}`
-                })
-              }
+              disabled={busy || !contact?.email || alreadySent}
+              onClick={handleSendEmail}
             >
-              Open in email client
+              {busy
+                ? 'Sending…'
+                : alreadySent
+                  ? 'Sent'
+                  : mail?.configured
+                    ? 'Send email'
+                    : 'Open in email client'}
             </button>
           ) : (
             <button

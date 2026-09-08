@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useCompanies, useContacts, useOrgSettings, useTemplates } from '../hooks/useCrmData'
 import { useAgreementSends, agreementLink } from '../hooks/useStoVersions'
+import { invalidate } from '../hooks/sharedResource'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { emailStatus, sendRecordedEmail } from '../lib/email'
@@ -186,8 +187,13 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
       // to `sent` — or straight to `sent` when there is no provider and the
       // user's own mail client does the sending.
       let messageId: string | null = null
+      // Why it fell back, when it does. supabase-js reports a refused insert in
+      // `error` rather than by throwing, so swallowing it here used to send the
+      // user to their mail client with a configured provider and no reason
+      // given — the one failure that looks exactly like not having email set up.
+      let logError: string | null = null
       try {
-        const { data: logged } = await supabase
+        const { data: logged, error: insertError } = await supabase
           .from('sent_messages')
           .insert({
             company_id: company,
@@ -204,9 +210,11 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
           })
           .select('id')
           .single()
+        if (insertError) logError = insertError.message
         messageId = logged?.id ?? null
-      } catch {
+      } catch (err) {
         // history is a convenience; sto_agreement_sends is the record
+        logError = err instanceof Error ? err.message : 'Could not record the message.'
       }
 
       const result = messageId
@@ -219,7 +227,19 @@ export default function SendVersionModal({ version, companyId, onClose, onSent }
           })
         : // No row to send from — hand it to the mail client, which needs
           // nothing from the database.
-          (openMailClientFallback(contact.email, subject, body), { delivery: 'mail-client' as const })
+          (openMailClientFallback(contact.email, subject, body),
+          {
+            delivery: 'mail-client' as const,
+            error: mail?.configured
+              ? `The CRM could not record this message, so it could not send it either — it opened your mail client instead. ${
+                  logError ?? ''
+                }`.trim()
+              : undefined,
+          })
+
+      // The body and the delivery status were written after the row was
+      // created, so the lists reading them need a second look.
+      await invalidate('sto_sends', 'sent_messages')
 
       setDelivery(result.delivery)
       if (result.error) setError(result.error)
