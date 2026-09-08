@@ -25,9 +25,9 @@ export default function UserDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { profile, can } = useAuth()
-  const { user, loading, refresh } = useUser(id)
+  const { user, loading } = useUser(id)
   const { setRole, setStatus, deleteUser, sendPasswordReset, resendInvite } = useUsers()
-  const { logs, loading: logsLoading, refresh: refreshLogs } = useActivityLogs(id, 50)
+  const { logs, loading: logsLoading } = useActivityLogs(id, 50)
 
   const [pendingRole, setPendingRole] = useState<Role | null>(null)
   const [busy, setBusy] = useState(false)
@@ -71,10 +71,10 @@ export default function UserDetail() {
     setError(null)
     setNotice(null)
     try {
+      // The account and its log re-read themselves: every mutation in
+      // useUsers invalidates the `profiles:` and `activity_logs:` keys.
       await work()
       setNotice(success)
-      await refresh()
-      await refreshLogs()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That did not work.')
     } finally {
@@ -295,8 +295,6 @@ export default function UserDetail() {
           onSaved={() => {
             setEditing(false)
             setNotice('Details saved.')
-            refresh()
-            refreshLogs()
           }}
         />
       )}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { invalidate, useSharedResource } from './sharedResource'
 import type { ActivityLog, PermissionRow, Profile, Role, RolePermissionRow, UserStatus } from '../lib/database.types'
 
 /**
@@ -60,17 +61,22 @@ async function callAdminFunction<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke('admin-users', { body })
 
   if (error) {
+    // The request never reached anything: the function is not deployed, or the
+    // browser could not get to it. supabase-js calls this "Failed to send a
+    // request to the Edge Function", which tells the person reading it nothing
+    // about what to do — and because it *has* a message, the fallback below
+    // never used to get its turn.
+    if ((error as { name?: string }).name === 'FunctionsFetchError') {
+      throw new Error(
+        'Could not reach the user service. Deploy the admin-users edge function — see README step 4. Until then, add accounts from the Supabase dashboard (Authentication → Users) and set their role from Admin → Users.',
+      )
+    }
+
     // A non-2xx reply carries the real reason in its body ("Only a Super Admin
     // can create or promote Admins"); supabase-js only reports "Edge Function
     // returned a non-2xx status code", so dig the body out first.
     const reason = await reasonFromResponse((error as { context?: Response }).context)
-    throw new Error(
-      reason ??
-        messageOf(
-          error,
-          'Could not reach the user service. Deploy the admin-users edge function (see README).',
-        ),
-    )
+    throw new Error(reason ?? messageOf(error, 'Could not reach the user service.'))
   }
 
   if (data && typeof data === 'object' && 'error' in data) {
@@ -79,26 +85,33 @@ async function callAdminFunction<T>(body: Record<string, unknown>): Promise<T> {
   return data as T
 }
 
+const NO_USERS: Profile[] = []
+const NO_LOGS: ActivityLog[] = []
+
+/**
+ * The roster shares its key with useProfiles() in useCrmData, so a role or
+ * status change made on the Users page also reaches every list that resolves a
+ * rep's name — and the modal that saved it no longer holds a private copy the
+ * page behind it cannot see.
+ */
 export function useUsers() {
-  const [users, setUsers] = useState<Profile[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('full_name', { ascending: true })
-    if (error) setError(messageOf(error, 'Could not load users.'))
-    else setError(null)
-    setUsers((data ?? []) as Profile[])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: users,
+    loading,
+    error,
+    refresh,
+  } = useSharedResource(
+    'profiles:all',
+    NO_USERS,
+    useCallback(async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('full_name', { ascending: true })
+      if (error) throw new Error(messageOf(error, 'Could not load users.'))
+      return (data ?? []) as Profile[]
+    }, [])
+  )
 
   async function createUser(input: NewUserInput): Promise<CreateUserResult> {
     const result = await callAdminFunction<CreateUserResult>({
@@ -108,7 +121,7 @@ export function useUsers() {
       phone_number: input.phone_number ?? '',
       role: input.role,
     })
-    await refresh()
+    await invalidate('profiles', 'activity_logs')
     return result
   }
 
@@ -119,24 +132,24 @@ export function useUsers() {
       p_phone_number: phoneNumber,
     })
     if (error) throw new Error(messageOf(error, 'Could not save the user.'))
-    await refresh()
+    await invalidate('profiles', 'activity_logs')
   }
 
   async function setRole(id: string, role: Role) {
     const { error } = await supabase.rpc('set_user_role', { p_target: id, p_role: role })
     if (error) throw new Error(messageOf(error, 'Could not change the role.'))
-    await refresh()
+    await invalidate('profiles', 'activity_logs')
   }
 
   async function setStatus(id: string, status: UserStatus) {
     const { error } = await supabase.rpc('set_user_status', { p_target: id, p_status: status })
     if (error) throw new Error(messageOf(error, 'Could not change the account status.'))
-    await refresh()
+    await invalidate('profiles', 'activity_logs')
   }
 
   async function deleteUser(id: string) {
     await callAdminFunction<{ message: string }>({ action: 'delete', user_id: id })
-    await refresh()
+    await invalidate('profiles', 'activity_logs')
   }
 
   /**
@@ -150,6 +163,7 @@ export function useUsers() {
     })
     if (error) throw new Error(messageOf(error, 'Could not send the reset email.'))
     await supabase.rpc('log_password_reset_request', { p_email: email, p_by_admin: true })
+    await invalidate('activity_logs')
   }
 
   /** Re-issues the invitation link for someone who never accepted theirs. */
@@ -175,49 +189,50 @@ export function useUsers() {
   }
 }
 
+/**
+ * One account, for the detail page. Keyed under `profiles:` like the roster,
+ * so the mutations above reach it too — a role changed on this page updates
+ * the header without a reload.
+ */
 export function useUser(id: string | undefined) {
-  const [user, setUser] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    if (!id) {
-      setUser(null)
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    const { data } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
-    setUser((data as Profile | null) ?? null)
-    setLoading(false)
-  }, [id])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: user,
+    loading,
+    refresh,
+  } = useSharedResource<Profile | null>(
+    `profiles:one:${id ?? 'none'}`,
+    null,
+    useCallback(async () => {
+      if (!id) return null
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
+      if (error) throw new Error(messageOf(error, 'Could not load the user.'))
+      return (data as Profile | null) ?? null
+    }, [id])
+  )
 
   return { user, loading, refresh }
 }
 
 export function useActivityLogs(targetUserId?: string, limit = 200) {
-  const [logs, setLogs] = useState<ActivityLog[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    let query = supabase
-      .from('activity_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit)
-    if (targetUserId) query = query.eq('target_user', targetUserId)
-    const { data } = await query
-    setLogs((data ?? []) as ActivityLog[])
-    setLoading(false)
-  }, [targetUserId, limit])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: logs,
+    loading,
+    refresh,
+  } = useSharedResource(
+    `activity_logs:${targetUserId ?? 'all'}:${limit}`,
+    NO_LOGS,
+    useCallback(async () => {
+      let query = supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      if (targetUserId) query = query.eq('target_user', targetUserId)
+      const { data, error } = await query
+      if (error) throw new Error(messageOf(error, 'Could not load the activity log.'))
+      return (data ?? []) as ActivityLog[]
+    }, [targetUserId, limit])
+  )
 
   return { logs, loading, refresh }
 }

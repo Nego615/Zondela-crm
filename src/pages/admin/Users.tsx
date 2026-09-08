@@ -17,7 +17,7 @@ function formatDate(value: string | null) {
 
 export default function Users() {
   const { profile, can } = useAuth()
-  const { users, loading, error, setStatus, sendPasswordReset, refresh } = useUsers()
+  const { users, loading, error, setStatus, sendPasswordReset } = useUsers()
 
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all')
@@ -218,7 +218,6 @@ export default function Users() {
           onSaved={() => {
             setShowForm(false)
             setNotice('User created. The invitation is on its way.')
-            refresh()
           }}
         />
       )}

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { invalidate, useSharedResource } from './sharedResource'
 import type {
   SendStatus,
   StoAgreementSend,
@@ -57,73 +58,72 @@ export interface VersionBody {
   terms: TermInput[]
 }
 
+const NO_VERSIONS: StoVersionWithRates[] = []
+const NO_SENDS: StoAgreementSend[] = []
+
 export function useStoVersions() {
-  const [versions, setVersions] = useState<StoVersionWithRates[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const {
+    data: versions,
+    loading,
+    error,
+    refresh,
+  } = useSharedResource(
+    'sto_versions',
+    NO_VERSIONS,
+    useCallback(async () => {
+      const { data, error } = await supabase
+        .from('sto_agreement_versions')
+        .select('*')
+        .order('year', { ascending: false })
+        .order('created_at', { ascending: false })
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('sto_agreement_versions')
-      .select('*')
-      .order('year', { ascending: false })
-      .order('created_at', { ascending: false })
+      if (error) throw new Error(error.message)
 
-    if (error) {
-      setError(error.message)
-      setVersions([])
-      setLoading(false)
-      return
-    }
+      const rows = (data ?? []) as StoAgreementVersion[]
+      let rates: StoVersionRate[] = []
+      let supplements: StoVersionSupplement[] = []
+      let sections: StoPropertySection[] = []
+      let terms: StoVersionTerm[] = []
+      let images: StoSectionImage[] = []
 
-    const rows = (data ?? []) as StoAgreementVersion[]
-    let rates: StoVersionRate[] = []
-    let supplements: StoVersionSupplement[] = []
-    let sections: StoPropertySection[] = []
-    let terms: StoVersionTerm[] = []
-    let images: StoSectionImage[] = []
+      if (rows.length > 0) {
+        // Five tables, one hook: a contract is never useful in pieces — the
+        // list, the document and the reports all read the whole thing — and a
+        // handful of `in` queries beats a request per version.
+        const ids = rows.map((v) => v.id)
+        const [rateData, supplementData, sectionData, termData] = await Promise.all([
+          supabase.from('sto_version_rates').select('*').in('version_id', ids).order('sort_order'),
+          supabase
+            .from('sto_version_supplements')
+            .select('*')
+            .in('version_id', ids)
+            .order('sort_order'),
+          supabase
+            .from('sto_version_property_sections')
+            .select('*')
+            .in('version_id', ids)
+            .order('sort_order'),
+          supabase.from('sto_version_terms').select('*').in('version_id', ids).order('sort_order'),
+        ])
+        rates = (rateData.data ?? []) as StoVersionRate[]
+        supplements = (supplementData.data ?? []) as StoVersionSupplement[]
+        sections = (sectionData.data ?? []) as StoPropertySection[]
+        terms = (termData.data ?? []) as StoVersionTerm[]
 
-    if (rows.length > 0) {
-      // Five tables, one hook: a contract is never useful in pieces — the
-      // list, the document and the reports all read the whole thing — and a
-      // handful of `in` queries beats a request per version.
-      const ids = rows.map((v) => v.id)
-      const [rateData, supplementData, sectionData, termData] = await Promise.all([
-        supabase.from('sto_version_rates').select('*').in('version_id', ids).order('sort_order'),
-        supabase
-          .from('sto_version_supplements')
-          .select('*')
-          .in('version_id', ids)
-          .order('sort_order'),
-        supabase
-          .from('sto_version_property_sections')
-          .select('*')
-          .in('version_id', ids)
-          .order('sort_order'),
-        supabase.from('sto_version_terms').select('*').in('version_id', ids).order('sort_order'),
-      ])
-      rates = (rateData.data ?? []) as StoVersionRate[]
-      supplements = (supplementData.data ?? []) as StoVersionSupplement[]
-      sections = (sectionData.data ?? []) as StoPropertySection[]
-      terms = (termData.data ?? []) as StoVersionTerm[]
-
-      if (sections.length > 0) {
-        const { data: imageData } = await supabase
-          .from('sto_section_images')
-          .select('*')
-          .in(
-            'section_id',
-            sections.map((x) => x.id)
-          )
-          .order('sort_order')
-        images = (imageData ?? []) as StoSectionImage[]
+        if (sections.length > 0) {
+          const { data: imageData } = await supabase
+            .from('sto_section_images')
+            .select('*')
+            .in(
+              'section_id',
+              sections.map((x) => x.id)
+            )
+            .order('sort_order')
+          images = (imageData ?? []) as StoSectionImage[]
+        }
       }
-    }
 
-    setError(null)
-    setVersions(
-      rows.map((v) => ({
+      return rows.map((v) => ({
         ...v,
         rates: rates.filter((r) => r.version_id === v.id),
         supplements: supplements.filter((r) => r.version_id === v.id),
@@ -135,13 +135,8 @@ export function useStoVersions() {
           })),
         terms_list: terms.filter((r) => r.version_id === v.id),
       }))
-    )
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+    }, [])
+  )
 
   /**
    * Replace everything printed under the header, in order.
@@ -190,7 +185,7 @@ export function useStoVersions() {
       throw err
     }
 
-    await refresh()
+    await invalidate('sto_versions')
     return version
   }
 
@@ -205,7 +200,7 @@ export function useStoVersions() {
       .eq('id', id)
     if (error) throw error
     if (body) await saveBody(id, body)
-    await refresh()
+    await invalidate('sto_versions')
   }
 
   async function setVersionStatus(id: string, status: StoAgreementVersion['status']) {
@@ -218,7 +213,8 @@ export function useStoVersions() {
     // Best effort: the row is gone either way, and a stranded object is
     // invisible rather than harmful.
     if (version.pdf_path) await supabase.storage.from(STO_BUCKET).remove([version.pdf_path])
-    await refresh()
+    // The sends that pointed at it go with it.
+    await invalidate('sto_versions', 'sto_sends')
   }
 
   /**
@@ -254,7 +250,7 @@ export function useStoVersions() {
     }
 
     if (version.pdf_path) await supabase.storage.from(STO_BUCKET).remove([version.pdf_path])
-    await refresh()
+    await invalidate('sto_versions')
   }
 
   /* -------------------------------------------------------------------------
@@ -271,7 +267,7 @@ export function useStoVersions() {
       .select()
       .single()
     if (error) throw error
-    await refresh()
+    await invalidate('sto_versions')
     return data as StoPropertySection
   }
 
@@ -281,7 +277,7 @@ export function useStoVersions() {
       .update(input)
       .eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('sto_versions')
   }
 
   async function deleteSection(section: { id: string; images: StoSectionImage[] }) {
@@ -295,7 +291,7 @@ export function useStoVersions() {
     if (section.images.length > 0) {
       await supabase.storage.from(STO_BUCKET).remove(section.images.map((im) => im.storage_path))
     }
-    await refresh()
+    await invalidate('sto_versions')
   }
 
   /**
@@ -325,7 +321,7 @@ export function useStoVersions() {
       await supabase.storage.from(STO_BUCKET).remove([storagePath])
       throw error
     }
-    await refresh()
+    await invalidate('sto_versions')
   }
 
   async function updateSectionImage(id: string, caption: string) {
@@ -334,14 +330,14 @@ export function useStoVersions() {
       .update({ caption: caption.trim() || null })
       .eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('sto_versions')
   }
 
   async function deleteSectionImage(image: StoSectionImage) {
     const { error } = await supabase.from('sto_section_images').delete().eq('id', image.id)
     if (error) throw error
     await supabase.storage.from(STO_BUCKET).remove([image.storage_path])
-    await refresh()
+    await invalidate('sto_versions')
   }
 
   async function removePdf(version: StoAgreementVersion) {
@@ -351,7 +347,7 @@ export function useStoVersions() {
       .eq('id', version.id)
     if (error) throw error
     if (version.pdf_path) await supabase.storage.from(STO_BUCKET).remove([version.pdf_path])
-    await refresh()
+    await invalidate('sto_versions')
   }
 
   return {
@@ -384,27 +380,23 @@ export function stoPdfUrl(path: string) {
 export const agreementLink = (token: string) => `${window.location.origin}/agreement/${token}`
 
 export function useAgreementSends() {
-  const [sends, setSends] = useState<StoAgreementSend[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('sto_agreement_sends')
-      .select('*')
-      .order('sent_at', { ascending: false })
-    if (error) setError(error.message)
-    else {
-      setError(null)
-      setSends((data ?? []) as StoAgreementSend[])
-    }
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: sends,
+    loading,
+    error,
+    refresh,
+  } = useSharedResource(
+    'sto_sends',
+    NO_SENDS,
+    useCallback(async () => {
+      const { data, error } = await supabase
+        .from('sto_agreement_sends')
+        .select('*')
+        .order('sent_at', { ascending: false })
+      if (error) throw new Error(error.message)
+      return (data ?? []) as StoAgreementSend[]
+    }, [])
+  )
 
   /**
    * Record a send, and hand back the row.
@@ -419,7 +411,7 @@ export function useAgreementSends() {
       .select()
       .single()
     if (error) throw error
-    await refresh()
+    await invalidate('sto_sends')
     return data as StoAgreementSend
   }
 
@@ -429,7 +421,7 @@ export function useAgreementSends() {
       .update({ ...input, updated_at: new Date().toISOString() })
       .eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('sto_sends')
   }
 
   /**
@@ -452,7 +444,7 @@ export function useAgreementSends() {
   async function deleteSend(id: string) {
     const { error } = await supabase.from('sto_agreement_sends').delete().eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('sto_sends')
   }
 
   return { sends, loading, error, refresh, createSend, updateSend, setSendStatus, deleteSend }

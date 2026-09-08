@@ -12,7 +12,7 @@ const FILTERS: Filter[] = ['upcoming', 'past', 'all']
 const isFilter = (val: string | null): val is Filter => val !== null && (FILTERS as string[]).includes(val)
 
 export default function Appointments() {
-  const { visits, loading, updateVisit, refresh } = useSiteVisits()
+  const { visits, loading, updateVisit } = useSiteVisits()
   const { companies } = useCompanies()
   const { profiles } = useProfiles()
   const navigate = useNavigate()
@@ -136,7 +136,6 @@ export default function Appointments() {
           onSaved={() => {
             setShowNew(false)
             setEditing(null)
-            refresh()
           }}
         />
       )}

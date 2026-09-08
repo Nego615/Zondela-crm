@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { invalidate, useSharedResource } from './sharedResource'
 import type {
   Company,
   Contact,
@@ -15,37 +16,58 @@ import type {
   Stage,
 } from '../lib/database.types'
 
+/**
+ * Every hook here reads through the shared store in ./sharedResource, so a
+ * save made in a modal shows up in the list behind it without a page refresh.
+ * Writes end with invalidate(<key prefix>), which re-reads every mounted view
+ * of those rows rather than only the caller's own copy.
+ */
+
+const NO_COMPANIES: Company[] = []
+const NO_CONTACTS: Contact[] = []
+const NO_VISITS: SiteVisit[] = []
+const NO_FOLLOW_UPS: FollowUp[] = []
+const NO_RATE_CARD: StoRateCardItem[] = []
+const NO_TEMPLATES: EmailTemplate[] = []
+const NO_PROFILES: Profile[] = []
+const NO_DOCUMENTS: PricingDocument[] = []
+const NO_MESSAGES: SentMessage[] = []
+
+/** Unwraps a PostgREST reply, turning its error into a thrown one. */
+function rows<T>(result: { data: unknown; error: { message: string } | null }): T[] {
+  if (result.error) throw new Error(result.error.message)
+  return (result.data ?? []) as T[]
+}
+
 export function useCompanies() {
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('companies')
-      .select('*')
-      .order('updated_at', { ascending: false })
-    if (error) setError(error.message)
-    else setCompanies((data ?? []) as Company[])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: companies,
+    loading,
+    error,
+    refresh,
+  } = useSharedResource(
+    'companies',
+    NO_COMPANIES,
+    useCallback(
+      async () =>
+        rows<Company>(
+          await supabase.from('companies').select('*').order('updated_at', { ascending: false })
+        ),
+      []
+    )
+  )
 
   async function createCompany(input: Partial<Company>) {
     const { data, error } = await supabase.from('companies').insert(input).select().single()
     if (error) throw error
-    await refresh()
+    await invalidate('companies')
     return data as Company
   }
 
   async function updateCompany(id: string, input: Partial<Company>) {
     const { error } = await supabase.from('companies').update(input).eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('companies')
   }
 
   async function setStage(id: string, stage: Stage) {
@@ -55,210 +77,207 @@ export function useCompanies() {
   async function deleteCompany(id: string) {
     const { error } = await supabase.from('companies').delete().eq('id', id)
     if (error) throw error
-    await refresh()
+    // A company takes its contacts, visits and follow-ups with it.
+    await invalidate('companies', 'contacts', 'site_visits', 'follow_ups', 'sent_messages')
   }
 
   return { companies, loading, error, refresh, createCompany, updateCompany, setStage, deleteCompany }
 }
 
 export function useContacts(companyId: string | undefined) {
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    if (!companyId) {
-      setContacts([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    const { data } = await supabase
-      .from('contacts')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('is_primary', { ascending: false })
-    setContacts((data ?? []) as Contact[])
-    setLoading(false)
-  }, [companyId])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: contacts,
+    loading,
+    refresh,
+  } = useSharedResource(
+    `contacts:company:${companyId ?? 'none'}`,
+    NO_CONTACTS,
+    useCallback(async () => {
+      if (!companyId) return NO_CONTACTS
+      return rows<Contact>(
+        await supabase
+          .from('contacts')
+          .select('*')
+          .eq('company_id', companyId)
+          .order('is_primary', { ascending: false })
+      )
+    }, [companyId])
+  )
 
   async function createContact(input: Partial<Contact>) {
     const { data, error } = await supabase.from('contacts').insert(input).select().single()
     if (error) throw error
-    await refresh()
+    await invalidate('contacts')
     return data as Contact
   }
 
   async function updateContact(id: string, input: Partial<Contact>) {
     const { error } = await supabase.from('contacts').update(input).eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('contacts')
   }
 
   async function deleteContact(id: string) {
     const { error } = await supabase.from('contacts').delete().eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('contacts')
   }
 
   return { contacts, loading, refresh, createContact, updateContact, deleteContact }
 }
 
 export function useSiteVisits(companyId?: string) {
-  const [visits, setVisits] = useState<SiteVisit[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    let query = supabase.from('site_visits').select('*').order('scheduled_for', { ascending: true })
-    if (companyId) query = query.eq('company_id', companyId)
-    const { data } = await query
-    setVisits((data ?? []) as SiteVisit[])
-    setLoading(false)
-  }, [companyId])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: visits,
+    loading,
+    refresh,
+  } = useSharedResource(
+    `site_visits:${companyId ? `company:${companyId}` : 'all'}`,
+    NO_VISITS,
+    useCallback(async () => {
+      let query = supabase
+        .from('site_visits')
+        .select('*')
+        .order('scheduled_for', { ascending: true })
+      if (companyId) query = query.eq('company_id', companyId)
+      return rows<SiteVisit>(await query)
+    }, [companyId])
+  )
 
   async function createVisit(input: Partial<SiteVisit>) {
     const { data, error } = await supabase.from('site_visits').insert(input).select().single()
     if (error) throw error
-    await refresh()
+    await invalidate('site_visits')
     return data as SiteVisit
   }
 
   async function updateVisit(id: string, input: Partial<SiteVisit>) {
     const { error } = await supabase.from('site_visits').update(input).eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('site_visits')
   }
 
   async function deleteVisit(id: string) {
     const { error } = await supabase.from('site_visits').delete().eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('site_visits')
   }
 
   return { visits, loading, refresh, createVisit, updateVisit, deleteVisit }
 }
 
 export function useFollowUps(companyId?: string) {
-  const [followUps, setFollowUps] = useState<FollowUp[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    let query = supabase.from('follow_ups').select('*').order('due_at', { ascending: true })
-    if (companyId) query = query.eq('company_id', companyId)
-    const { data } = await query
-    setFollowUps((data ?? []) as FollowUp[])
-    setLoading(false)
-  }, [companyId])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: followUps,
+    loading,
+    refresh,
+  } = useSharedResource(
+    `follow_ups:${companyId ? `company:${companyId}` : 'all'}`,
+    NO_FOLLOW_UPS,
+    useCallback(async () => {
+      let query = supabase.from('follow_ups').select('*').order('due_at', { ascending: true })
+      if (companyId) query = query.eq('company_id', companyId)
+      return rows<FollowUp>(await query)
+    }, [companyId])
+  )
 
   async function createFollowUp(input: Partial<FollowUp>) {
     const { data, error } = await supabase.from('follow_ups').insert(input).select().single()
     if (error) throw error
-    await refresh()
+    await invalidate('follow_ups')
     return data as FollowUp
   }
 
   async function updateFollowUp(id: string, input: Partial<FollowUp>) {
     const { error } = await supabase.from('follow_ups').update(input).eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('follow_ups')
   }
 
   async function deleteFollowUp(id: string) {
     const { error } = await supabase.from('follow_ups').delete().eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('follow_ups')
   }
 
   return { followUps, loading, refresh, createFollowUp, updateFollowUp, deleteFollowUp }
 }
 
 export function useRateCard() {
-  const [items, setItems] = useState<StoRateCardItem[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const { data } = await supabase
-      .from('sto_rate_card')
-      .select('*')
-      .order('sort_order', { ascending: true })
-    setItems((data ?? []) as StoRateCardItem[])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: items,
+    loading,
+    refresh,
+  } = useSharedResource(
+    'sto_rate_card',
+    NO_RATE_CARD,
+    useCallback(
+      async () =>
+        rows<StoRateCardItem>(
+          await supabase.from('sto_rate_card').select('*').order('sort_order', { ascending: true })
+        ),
+      []
+    )
+  )
 
   async function createItem(input: Partial<StoRateCardItem>) {
     const { error } = await supabase.from('sto_rate_card').insert(input)
     if (error) throw error
-    await refresh()
+    await invalidate('sto_rate_card')
   }
 
   async function updateItem(id: string, input: Partial<StoRateCardItem>) {
     const { error } = await supabase.from('sto_rate_card').update(input).eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('sto_rate_card')
   }
 
   async function deleteItem(id: string) {
     const { error } = await supabase.from('sto_rate_card').delete().eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('sto_rate_card')
   }
 
   return { items, loading, refresh, createItem, updateItem, deleteItem }
 }
 
 export function useTemplates() {
-  const [templates, setTemplates] = useState<EmailTemplate[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const { data } = await supabase
-      .from('email_templates')
-      .select('*')
-      .order('updated_at', { ascending: false })
-    setTemplates((data ?? []) as EmailTemplate[])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: templates,
+    loading,
+    refresh,
+  } = useSharedResource(
+    'email_templates',
+    NO_TEMPLATES,
+    useCallback(
+      async () =>
+        rows<EmailTemplate>(
+          await supabase
+            .from('email_templates')
+            .select('*')
+            .order('updated_at', { ascending: false })
+        ),
+      []
+    )
+  )
 
   async function createTemplate(input: Partial<EmailTemplate>) {
     const { data, error } = await supabase.from('email_templates').insert(input).select().single()
     if (error) throw error
-    await refresh()
+    await invalidate('email_templates')
     return data as EmailTemplate
   }
 
   async function updateTemplate(id: string, input: Partial<EmailTemplate>) {
     const { error } = await supabase.from('email_templates').update(input).eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('email_templates')
   }
 
   async function deleteTemplate(id: string) {
     const { error } = await supabase.from('email_templates').delete().eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('email_templates')
   }
 
   return { templates, loading, refresh, createTemplate, updateTemplate, deleteTemplate }
@@ -273,22 +292,22 @@ export function useTemplates() {
  * typed one and re-bucketing them in Reports as a separate "no login" row.
  *
  * Managing the accounts themselves is useUsers(), which is where role and
- * status changes go through their permission checks.
+ * status changes go through their permission checks. Both read the same
+ * `profiles:` keys, so a change made there shows up here without a reload.
  */
 export function useProfiles() {
-  const [profiles, setProfiles] = useState<Profile[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const { data } = await supabase.from('profiles').select('*').order('full_name')
-    setProfiles((data ?? []) as Profile[])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: profiles,
+    loading,
+    refresh,
+  } = useSharedResource(
+    'profiles:all',
+    NO_PROFILES,
+    useCallback(
+      async () => rows<Profile>(await supabase.from('profiles').select('*').order('full_name')),
+      []
+    )
+  )
 
   return { profiles, loading, refresh }
 }
@@ -304,22 +323,24 @@ const PRICING_BUCKET = 'pricing'
  * broken link in every quote, which is worse than no row at all.
  */
 export function usePricingDocuments() {
-  const [documents, setDocuments] = useState<PricingDocument[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const { data } = await supabase
-      .from('pricing_documents')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setDocuments((data ?? []) as PricingDocument[])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: documents,
+    loading,
+    refresh,
+  } = useSharedResource(
+    'pricing_documents',
+    NO_DOCUMENTS,
+    useCallback(
+      async () =>
+        rows<PricingDocument>(
+          await supabase
+            .from('pricing_documents')
+            .select('*')
+            .order('created_at', { ascending: false })
+        ),
+      []
+    )
+  )
 
   async function uploadDocument(file: File, uploadedBy: string | null) {
     if (file.type !== 'application/pdf') throw new Error('Only PDF files can be uploaded.')
@@ -353,7 +374,7 @@ export function usePricingDocuments() {
       throw error
     }
 
-    await refresh()
+    await invalidate('pricing_documents')
     return data as PricingDocument
   }
 
@@ -368,9 +389,12 @@ export function usePricingDocuments() {
         .eq('id', current.id)
       if (error) throw error
     }
-    const { error } = await supabase.from('pricing_documents').update({ is_default: true }).eq('id', id)
+    const { error } = await supabase
+      .from('pricing_documents')
+      .update({ is_default: true })
+      .eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('pricing_documents')
   }
 
   async function deleteDocument(doc: PricingDocument) {
@@ -379,7 +403,7 @@ export function usePricingDocuments() {
     // Best effort: the row is gone either way, and a stranded object is
     // invisible rather than harmful.
     await supabase.storage.from(PRICING_BUCKET).remove([doc.storage_path])
-    await refresh()
+    await invalidate('pricing_documents')
   }
 
   /** Permanent public URL — this is what goes to the client. */
@@ -409,19 +433,18 @@ export function usePricingDocuments() {
  * already reach.
  */
 export function useAllContacts() {
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const { data } = await supabase.from('contacts').select('*').order('full_name')
-    setContacts((data ?? []) as Contact[])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: contacts,
+    loading,
+    refresh,
+  } = useSharedResource(
+    'contacts:all',
+    NO_CONTACTS,
+    useCallback(
+      async () => rows<Contact>(await supabase.from('contacts').select('*').order('full_name')),
+      []
+    )
+  )
 
   return { contacts, loading, refresh }
 }
@@ -434,21 +457,19 @@ export function useAllContacts() {
  * was sent about.
  */
 export function useSentMessages(companyId?: string) {
-  const [messages, setMessages] = useState<SentMessage[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    let query = supabase.from('sent_messages').select('*').order('sent_at', { ascending: false })
-    if (companyId) query = query.eq('company_id', companyId)
-    const { data } = await query
-    setMessages((data ?? []) as SentMessage[])
-    setLoading(false)
-  }, [companyId])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: messages,
+    loading,
+    refresh,
+  } = useSharedResource(
+    `sent_messages:${companyId ? `company:${companyId}` : 'all'}`,
+    NO_MESSAGES,
+    useCallback(async () => {
+      let query = supabase.from('sent_messages').select('*').order('sent_at', { ascending: false })
+      if (companyId) query = query.eq('company_id', companyId)
+      return rows<SentMessage>(await query)
+    }, [companyId])
+  )
 
   /**
    * Records where a message got to.
@@ -464,7 +485,7 @@ export function useSentMessages(companyId?: string) {
 
     const { error } = await supabase.from('sent_messages').update(patch).eq('id', id)
     if (error) throw error
-    await refresh()
+    await invalidate('sent_messages')
   }
 
   return { messages, loading, refresh, setMessageStatus }
@@ -478,24 +499,28 @@ export function useSentMessages(companyId?: string) {
  * policy is what enforces that rather than the button being hidden.
  */
 export function useOrgSettings() {
-  const [settings, setSettings] = useState<OrgSettings | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    const { data } = await supabase.from('org_settings').select('*').eq('id', 1).maybeSingle()
-    setSettings((data as OrgSettings | null) ?? null)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const {
+    data: settings,
+    loading,
+    refresh,
+  } = useSharedResource<OrgSettings | null>(
+    'org_settings',
+    null,
+    useCallback(async () => {
+      const { data, error } = await supabase
+        .from('org_settings')
+        .select('*')
+        .eq('id', 1)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      return (data as OrgSettings | null) ?? null
+    }, [])
+  )
 
   async function save(input: Partial<OrgSettings>) {
     const { error } = await supabase.from('org_settings').update(input).eq('id', 1)
     if (error) throw error
-    await refresh()
+    await invalidate('org_settings')
   }
 
   return { settings, loading, refresh, save }

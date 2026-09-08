@@ -9,7 +9,7 @@ import { repLabel } from '../lib/rep'
 import '../components/ui.css'
 
 export default function Companies() {
-  const { companies, loading, refresh } = useCompanies()
+  const { companies, loading } = useCompanies()
   const { profiles } = useProfiles()
   const navigate = useNavigate()
 
@@ -118,7 +118,6 @@ export default function Companies() {
           onClose={() => setShowNew(false)}
           onSaved={() => {
             setShowNew(false)
-            refresh()
           }}
         />
       )}
