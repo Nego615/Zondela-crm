@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { invalidate, useSharedResource } from './sharedResource'
+import { emailSendMessage } from '../lib/authErrors'
 import type { ActivityLog, PermissionRow, Profile, Role, RolePermissionRow, UserStatus } from '../lib/database.types'
 
 /**
@@ -156,12 +157,16 @@ export function useUsers() {
    * Sends the user a reset email through Supabase Auth — the same path the
    * self-service "Forgot password" form uses, so it works whether or not the
    * edge function is deployed.
+   *
+   * Sharing that path means sharing its rate limit: an administrator resetting
+   * several people in a row will hit the project's hourly allowance, so the
+   * refusal is translated rather than shown raw.
    */
   async function sendPasswordReset(email: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     })
-    if (error) throw new Error(messageOf(error, 'Could not send the reset email.'))
+    if (error) throw new Error(emailSendMessage(error, 'Could not send the reset email.'))
     await supabase.rpc('log_password_reset_request', { p_email: email, p_by_admin: true })
     await invalidate('activity_logs')
   }

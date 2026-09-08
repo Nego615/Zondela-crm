@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { emailRateLimitSeconds, emailSendMessage } from '../lib/authErrors'
 import BrandMark from '../components/BrandMark'
 import '../components/ui.css'
 import './login.css'
@@ -23,6 +24,24 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  /**
+   * Seconds left before another reset email may be asked for.
+   *
+   * Supabase throttles auth email per address and per project, and a form that
+   * lets someone press the button ten times spends an allowance the one email
+   * they are waiting for needs. Started after a successful send as well as
+   * after a refusal, so the limit is usually avoided rather than reported.
+   */
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = setTimeout(() => setCooldown((left) => left - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [cooldown])
+
+  // The countdown gates the reset email only, never signing in.
+  const waiting = mode === 'forgot' && cooldown > 0
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -38,6 +57,7 @@ export default function Login() {
       setError('Enter your password.')
       return
     }
+    if (waiting) return
 
     setLoading(true)
     try {
@@ -49,6 +69,8 @@ export default function Login() {
           redirectTo: `${window.location.origin}/reset-password`,
         })
         if (error) throw error
+
+        setCooldown(60)
 
         // Logged as a sensitive action. Writes nothing for an address with no
         // account, and returns the same either way.
@@ -62,7 +84,11 @@ export default function Login() {
         setPassword('')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.')
+      // A rate-limited reset is the one failure with a length to it, so the
+      // button counts down instead of inviting another doomed press.
+      const wait = mode === 'forgot' ? emailRateLimitSeconds(err) : null
+      if (wait !== null) setCooldown(wait)
+      setError(emailSendMessage(err, 'Something went wrong.'))
     } finally {
       setLoading(false)
     }
@@ -137,8 +163,19 @@ export default function Login() {
           {error && <p className="login-error">{error}</p>}
           {info && <p className="login-info">{info}</p>}
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-            {loading ? 'Please wait…' : mode === 'sign_in' ? 'Sign in' : 'Send reset link'}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ width: '100%' }}
+            disabled={loading || waiting}
+          >
+            {loading
+              ? 'Please wait…'
+              : mode === 'sign_in'
+                ? 'Sign in'
+                : waiting
+                  ? `Send reset link (${cooldown}s)`
+                  : 'Send reset link'}
           </button>
         </form>
 

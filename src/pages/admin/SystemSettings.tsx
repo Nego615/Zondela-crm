@@ -69,6 +69,8 @@ export default function SystemSettings() {
               <dd>Authentication → Sign In / Providers → turn off "Allow new users to sign up".</dd>
               <dt>Invitation emails</dt>
               <dd>Project Settings → Authentication → SMTP. Without it, invitations fall back to a link you pass on yourself.</dd>
+              <dt>Email rate limits</dt>
+              <dd>Authentication → Rate Limits. The built-in sender allows only a few emails an hour project-wide; custom SMTP is what lifts it.</dd>
               <dt>Email templates</dt>
               <dd>Authentication → Emails → Invite user, and Reset password.</dd>
               <dt>Redirect URLs</dt>
