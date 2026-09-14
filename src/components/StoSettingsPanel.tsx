@@ -64,6 +64,7 @@ const EMPTY_DRAFT: Draft = {
   email: '',
   website: '',
   logo_url: '',
+  cover_image_url: '',
   brand_color: '#0c3b35',
   accent_color: '#a9463a',
   agreement_intro: '',
@@ -92,7 +93,7 @@ export default function StoSettingsPanel() {
 
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [uploading, setUploading] = useState<'logo' | 'cover' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
@@ -134,27 +135,27 @@ export default function StoSettingsPanel() {
   }
 
   /**
-   * The logo goes to the public `branding` bucket, not into the row as a data
-   * URI: it has to load inside a client's mail client, which will not render a
+   * The logo and the cover go to the public `branding` bucket, not into the row
+   * as data URIs: each has to load inside a client's mail client, which will not render a
    * base64 image reliably and cannot reach anything that needs a session.
    */
-  async function handleLogo(file: File) {
-    setUploading(true)
+  async function handleUpload(file: File, kind: 'logo' | 'cover') {
+    setUploading(kind)
     setError(null)
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
-      const path = `logo-${crypto.randomUUID()}.${ext}`
+      const path = `${kind}-${crypto.randomUUID()}.${ext}`
       const { error: uploadError } = await supabase.storage
         .from(BRANDING_BUCKET)
         .upload(path, file, { upsert: false })
       if (uploadError) throw uploadError
 
       const { data } = supabase.storage.from(BRANDING_BUCKET).getPublicUrl(path)
-      set('logo_url', data.publicUrl)
+      set(kind === 'logo' ? 'logo_url' : 'cover_image_url', data.publicUrl)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not upload that logo.')
+      setError(err instanceof Error ? err.message : `Could not upload that ${kind === 'logo' ? 'logo' : 'cover image'}.`)
     } finally {
-      setUploading(false)
+      setUploading(null)
     }
   }
 
@@ -269,7 +270,7 @@ export default function StoSettingsPanel() {
                 accept="image/png,image/jpeg,image/svg+xml,image/webp"
                 onChange={(e) => {
                   const file = e.target.files?.[0]
-                  if (file) handleLogo(file)
+                  if (file) handleUpload(file, 'logo')
                   e.target.value = ''
                 }}
               />
@@ -282,11 +283,46 @@ export default function StoSettingsPanel() {
             <span className="field-hint">
               {!canChangeLogo
                 ? 'Only an administrator can change the logo. Everything else on this page is yours to edit.'
-                : uploading
+                : uploading === 'logo'
                   ? 'Uploading…'
                   : draft.logo_url
                     ? 'Stored publicly so it loads in a client’s email.'
                     : 'Agreements use the Zondela House mark until a file is uploaded here.'}
+            </span>
+          </fieldset>
+
+          {/* Admin's, like the logo, and for the same reason: the same guard
+              refuses it to anyone else (guard_org_logo, 0010). */}
+          <fieldset className="field" disabled={!canChangeLogo}>
+            <label htmlFor="s_cover">Cover image</label>
+            <div className="sto-logo-row">
+              {draft.cover_image_url && (
+                <img className="sto-cover-thumb" src={draft.cover_image_url} alt="Current cover" />
+              )}
+              <input
+                id="s_cover"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleUpload(file, 'cover')
+                  e.target.value = ''
+                }}
+              />
+              {draft.cover_image_url && (
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => set('cover_image_url', '')}>
+                  Remove
+                </button>
+              )}
+            </div>
+            <span className="field-hint">
+              {!canChangeLogo
+                ? 'Only an administrator can change the cover image.'
+                : uploading === 'cover'
+                  ? 'Uploading…'
+                  : draft.cover_image_url
+                    ? 'Shown full width across the top of every agreement. Save settings to publish it.'
+                    : 'Optional. A wide landscape photograph works best — about 2400 × 800 pixels.'}
             </span>
           </fieldset>
 

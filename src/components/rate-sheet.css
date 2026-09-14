@@ -43,6 +43,15 @@
   border-bottom: 1px solid #e7e1d7;
 }
 
+/* Full width and cropped rather than letterboxed: a photograph of any shape
+   fills the same band, so the marks below never move. */
+.rs-cover {
+  display: block;
+  width: 100%;
+  height: 280px;
+  object-fit: cover;
+}
+
 .rs-banner-inner {
   display: flex;
   flex-direction: column;
@@ -582,6 +591,10 @@
     padding: 24px 16px;
   }
 
+  .rs-cover {
+    height: 180px;
+  }
+
   .rs-banner-title {
     font-size: 25px;
   }
@@ -647,6 +660,12 @@
 
   .rs-card {
     box-shadow: none;
+  }
+
+  /* Shorter on paper, so the title still lands on the first page. */
+  .rs-cover {
+    height: 55mm;
+    margin-bottom: 14px;
   }
 
   /* The badge and the buttons carry the brand; without this they print as

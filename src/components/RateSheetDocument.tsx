@@ -29,6 +29,7 @@ export interface SheetOrg {
   email?: string | null
   website?: string | null
   logo_url?: string | null
+  cover_image_url?: string | null
   brand_color?: string | null
   accent_color?: string | null
   agreement_footer?: string | null
@@ -207,6 +208,9 @@ export default function RateSheetDocument({
 
       {/* The banner: who this is between, what it covers, and how long for. */}
       <header className="rs-banner">
+        {/* The house itself, before a word of the contract. Decorative — the
+            title below says what this is — so it carries no alt text. */}
+        {org?.cover_image_url && <img className="rs-cover" src={org.cover_image_url} alt="" />}
         <div className="rs-banner-inner">
           {/* Both houses, across the top: ours on the left, theirs on the
               right. An uploaded logo wins for ours; otherwise the contract

@@ -465,6 +465,8 @@ export interface OrgSettings {
   email: string | null
   website: string | null
   logo_url: string | null
+  /** A wide photograph across the top of every agreement. Admin's, like the logo. */
+  cover_image_url: string | null
   /** Plain hex — inline styles are the only styling an email client honours. */
   brand_color: string
   accent_color: string
