@@ -327,8 +327,20 @@ export function useStoVersions() {
   }
 
   async function deleteVersion(version: StoAgreementVersion) {
-    const { error } = await supabase.from('sto_agreement_versions').delete().eq('id', version.id)
+    const { data, error } = await supabase
+      .from('sto_agreement_versions')
+      .delete()
+      .eq('id', version.id)
+      .select('id')
     if (error) throw error
+    // Row-level security refuses a delete by matching nothing rather than by
+    // raising, so an empty result *is* the refusal. Without this check the
+    // sheet silently stays put and the page says nothing.
+    if (!data || data.length === 0) {
+      throw new Error(
+        'That rate sheet was not deleted — the database refused it. Your account may not be allowed to delete rate sheets, or it was already removed. Refresh to check.'
+      )
+    }
     // Best effort: the row is gone either way, and a stranded object is
     // invisible rather than harmful.
     if (version.pdf_path) await supabase.storage.from(STO_BUCKET).remove([version.pdf_path])
@@ -569,8 +581,18 @@ export function useAgreementSends() {
   }
 
   async function deleteSend(id: string) {
-    const { error } = await supabase.from('sto_agreement_sends').delete().eq('id', id)
+    const { data, error } = await supabase
+      .from('sto_agreement_sends')
+      .delete()
+      .eq('id', id)
+      .select('id')
     if (error) throw error
+    // As with deleteVersion: a refused delete comes back empty, not as an error.
+    if (!data || data.length === 0) {
+      throw new Error(
+        'That send was not removed — the database refused it. Your account may not be allowed to remove sends, or it was already removed. Refresh to check.'
+      )
+    }
     await invalidate('sto_sends')
   }
 

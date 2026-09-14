@@ -16,6 +16,7 @@ import {
   scopeLabel,
 } from '../lib/stoVersion'
 import { downloadCsv, toCsv } from '../lib/reports'
+import { errorMessage } from '../lib/errorMessage'
 import type {
   StoPropertySectionWithImages,
   StoVersionWithRates,
@@ -149,7 +150,7 @@ export default function VersionDetail() {
       setSaved(note)
       setTimeout(() => setSaved(null), 2200)
     } catch (err) {
-      setProblem(err instanceof Error ? err.message : message)
+      setProblem(errorMessage(err, message))
     } finally {
       setBusy(false)
     }

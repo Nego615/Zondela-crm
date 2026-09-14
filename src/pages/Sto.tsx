@@ -17,6 +17,7 @@ import {
 } from '../lib/stoVersion'
 import { PLACEHOLDERS } from '../lib/stoVersion'
 import { repLabel } from '../lib/rep'
+import { errorMessage } from '../lib/errorMessage'
 import type { SendStatus, StoAgreementSend, StoVersionWithRates } from '../lib/database.types'
 import VersionPreviewModal from '../components/VersionPreviewModal'
 import SendVersionModal from '../components/SendVersionModal'
@@ -169,7 +170,7 @@ export default function Sto() {
     try {
       await action()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : message)
+      setActionError(errorMessage(err, message))
     }
   }
 
