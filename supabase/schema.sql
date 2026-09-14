@@ -47,7 +47,7 @@ create table if not exists companies (
       ('new', 'existing_partner', 'works_zondela', 'dormant', 'not_interested')),
   main_market text
     check (main_market is null or main_market in
-      ('arusha', 'dar_es_salaam', 'dodoma', 'mwanza', 'zanzibar', 'tanzania',
+      ('arusha', 'dar_es_salaam', 'dodoma', 'moshi', 'mwanza', 'zanzibar', 'tanzania',
        'east_africa', 'international')),
   stage text not null default 'lead'
     check (stage in ('lead', 'contacted', 'site_visit', 'proposal_sent', 'negotiation', 'won', 'lost')),
@@ -294,7 +294,7 @@ alter table companies add constraint companies_relationship_check
 alter table companies drop constraint if exists companies_main_market_check;
 alter table companies add constraint companies_main_market_check
   check (main_market is null or main_market in
-    ('arusha', 'dar_es_salaam', 'dodoma', 'mwanza', 'zanzibar', 'tanzania',
+    ('arusha', 'dar_es_salaam', 'dodoma', 'moshi', 'mwanza', 'zanzibar', 'tanzania',
      'east_africa', 'international'));
 
 -- Free-typed rep names, for people who do the work but have no app login.
@@ -3383,6 +3383,28 @@ revoke all on function public.sto_public_agreement(text) from public;
 grant execute on function public.sto_public_agreement(text) to anon, authenticated;
 
 -- @@END:migrations/0010_agreement_cover_image.sql@@
+
+-- @@BEGIN:migrations/0011_moshi_main_market.sql@@
+-- Generated from supabase/migrations/0011_moshi_main_market.sql by supabase/build-schema.mjs.
+-- Edit that file, then run `npm run sync:schema`.
+
+-- ============================================================================
+-- 0011 — MOSHI AS A MAIN MARKET
+-- ============================================================================
+-- Moshi sits at the foot of Kilimanjaro and has its own operators, who until
+-- now could only be filed under Arusha or Tanzania-wide. The list of markets is
+-- a check constraint, so a new one is a constraint swap: dropped and re-added
+-- with the wider list. Nothing already stored falls outside it, so no row needs
+-- touching first.
+-- ----------------------------------------------------------------------------
+
+alter table companies drop constraint if exists companies_main_market_check;
+alter table companies add constraint companies_main_market_check
+  check (main_market is null or main_market in
+    ('arusha', 'dar_es_salaam', 'dodoma', 'moshi', 'mwanza', 'zanzibar', 'tanzania',
+     'east_africa', 'international'));
+
+-- @@END:migrations/0011_moshi_main_market.sql@@
 
 -- ============================================================================
 -- SEED DATA

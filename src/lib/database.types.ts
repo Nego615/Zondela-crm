@@ -30,6 +30,7 @@ export type MainMarket =
   | 'arusha'
   | 'dar_es_salaam'
   | 'dodoma'
+  | 'moshi'
   | 'mwanza'
   | 'zanzibar'
   | 'tanzania'

@@ -14,6 +14,7 @@ export const MAIN_MARKET_OPTIONS: { value: MainMarket; label: string }[] = [
   { value: 'arusha', label: 'Arusha' },
   { value: 'dar_es_salaam', label: 'Dar es Salaam' },
   { value: 'dodoma', label: 'Dodoma' },
+  { value: 'moshi', label: 'Moshi' },
   { value: 'mwanza', label: 'Mwanza' },
   { value: 'zanzibar', label: 'Zanzibar' },
   { value: 'tanzania', label: 'Tanzania-wide' },
