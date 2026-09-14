@@ -56,6 +56,7 @@ export default function Sto() {
     loading,
     error,
     createVersion,
+    duplicateVersion,
     setVersionStatus,
     deleteVersion,
   } = useStoVersions()
@@ -84,6 +85,7 @@ export default function Sto() {
   }
 
   const [creating, setCreating] = useState(false)
+  const [duplicating, setDuplicating] = useState<string | null>(null)
   const [previewFor, setPreviewFor] = useState<string | null>(null)
   const [sendFor, setSendFor] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -311,6 +313,18 @@ export default function Sto() {
                   onToggle={() => setExpanded(expanded === version.id ? null : version.id)}
                   onEdit={() => navigate(`/sto/versions/${version.id}`)}
                   onPreview={() => setPreviewFor(version.id)}
+                  duplicating={duplicating === version.id}
+                  onDuplicate={() =>
+                    guard(async () => {
+                      setDuplicating(version.id)
+                      try {
+                        const copy = await duplicateVersion(version, profile?.id ?? null)
+                        navigate(`/sto/versions/${copy.id}`)
+                      } finally {
+                        setDuplicating(null)
+                      }
+                    }, 'Could not duplicate that rate sheet.')
+                  }
                   onSend={() => setSendFor(version.id)}
                   onStatus={(status) =>
                     guard(
@@ -642,6 +656,8 @@ function VersionCard({
   onToggle,
   onEdit,
   onPreview,
+  duplicating,
+  onDuplicate,
   onSend,
   onStatus,
   onDelete,
@@ -652,6 +668,8 @@ function VersionCard({
   onToggle: () => void
   onEdit: () => void
   onPreview: () => void
+  duplicating: boolean
+  onDuplicate: () => void
   onSend: () => void
   onStatus: (status: StoVersionWithRates['status']) => void
   onDelete: () => void
@@ -687,6 +705,14 @@ function VersionCard({
           </button>
           <button className="btn btn-ghost btn-sm" onClick={onEdit}>
             Open
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={duplicating}
+            title="Copy this sheet into a new draft to edit"
+            onClick={onDuplicate}
+          >
+            {duplicating ? 'Duplicating…' : 'Duplicate'}
           </button>
           {version.status !== 'active' ? (
             <button className="btn btn-ghost btn-sm" onClick={() => onStatus('active')}>

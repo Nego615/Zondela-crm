@@ -7,6 +7,7 @@ import {
   type SupplementInput,
   type TermInput,
 } from '../hooks/useStoVersions'
+import { useAuth } from '../hooks/useAuth'
 import {
   MEAL_PLANS,
   VERSION_STATUS_LIST,
@@ -105,12 +106,14 @@ const blankRate = (sectionId: string, season: string, currency: string): DraftRa
 export default function VersionDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const {
     versions,
     loading,
     error,
     refresh,
     updateVersion,
+    duplicateVersion,
     deleteVersion,
     uploadPdf,
     removePdf,
@@ -186,6 +189,23 @@ export default function VersionDetail() {
         <div className="vd-actions">
           <button className="btn btn-sm" onClick={() => setPreview(true)}>
             Preview
+          </button>
+          <button
+            className="btn btn-sm"
+            disabled={busy}
+            title="Copy this contract into a new draft to edit"
+            onClick={() =>
+              guard(
+                async () => {
+                  const copy = await duplicateVersion(version, profile?.id ?? null)
+                  navigate(`/sto/versions/${copy.id}`)
+                },
+                'Could not duplicate that contract.',
+                'Duplicated — you are now editing the copy.'
+              )
+            }
+          >
+            Duplicate
           </button>
           <button
             className="btn btn-sm"

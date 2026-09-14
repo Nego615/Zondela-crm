@@ -203,6 +203,125 @@ export function useStoVersions() {
     await invalidate('sto_versions')
   }
 
+  /**
+   * Copy a contract into a new draft, to be edited into next season's.
+   *
+   * Everything printed comes across — categories, photographs, rates,
+   * supplements, clauses and the PDF. The sends do not: a copy has not been
+   * sent to anyone, and its answers would be somebody else's.
+   *
+   * Files are copied rather than shared. Deleting a photograph or a version
+   * removes its object from the bucket, so a shared path would let tidying up
+   * the copy strip the original.
+   */
+  async function duplicateVersion(source: StoVersionWithRates, createdBy: string | null) {
+    const copiedPaths: string[] = []
+
+    async function copyObject(path: string, folder: string) {
+      const extension = path.split('.').pop() || 'bin'
+      const target = `${folder}${crypto.randomUUID()}.${extension}`
+      const { error } = await supabase.storage.from(STO_BUCKET).copy(path, target)
+      if (error) throw error
+      copiedPaths.push(target)
+      return target
+    }
+
+    const header = without(
+      source,
+      'id',
+      'created_at',
+      'updated_at',
+      'rates',
+      'supplements',
+      'sections',
+      'terms_list',
+      'pdf_path',
+      'pdf_name',
+      'pdf_size_bytes'
+    )
+    const { data, error } = await supabase
+      .from('sto_agreement_versions')
+      .insert({ ...header, name: `${source.name} (copy)`, status: 'draft', created_by: createdBy })
+      .select()
+      .single()
+    if (error) throw error
+    const version = data as StoAgreementVersion
+
+    try {
+      if (source.pdf_path) {
+        const pdfPath = await copyObject(source.pdf_path, '')
+        const { error: pdfError } = await supabase
+          .from('sto_agreement_versions')
+          .update({
+            pdf_path: pdfPath,
+            pdf_name: source.pdf_name,
+            pdf_size_bytes: source.pdf_size_bytes,
+          })
+          .eq('id', version.id)
+        if (pdfError) throw pdfError
+      }
+
+      // Categories first, one at a time: a rate line points at its category,
+      // so each new id has to be known before the rates can follow.
+      const sectionIds = new Map<string, string>()
+      for (const section of source.sections) {
+        const { data: sectionData, error: sectionError } = await supabase
+          .from('sto_version_property_sections')
+          .insert({ ...without(section, 'id', 'images'), version_id: version.id })
+          .select()
+          .single()
+        if (sectionError) throw sectionError
+        const copy = sectionData as StoPropertySection
+        sectionIds.set(section.id, copy.id)
+
+        for (const image of section.images) {
+          const storagePath = await copyObject(image.storage_path, 'sections/')
+          const { error: imageError } = await supabase.from('sto_section_images').insert({
+            ...without(image, 'id'),
+            section_id: copy.id,
+            storage_path: storagePath,
+          })
+          if (imageError) throw imageError
+        }
+      }
+
+      const lines: [string, Record<string, unknown>[]][] = [
+        [
+          'sto_version_rates',
+          source.rates.map((rate) => ({
+            ...without(rate, 'id'),
+            version_id: version.id,
+            section_id: rate.section_id ? (sectionIds.get(rate.section_id) ?? null) : null,
+          })),
+        ],
+        [
+          'sto_version_supplements',
+          source.supplements.map((row) => ({ ...without(row, 'id'), version_id: version.id })),
+        ],
+        [
+          'sto_version_terms',
+          source.terms_list.map((row) => ({ ...without(row, 'id'), version_id: version.id })),
+        ],
+      ]
+
+      for (const [table, rows] of lines) {
+        if (rows.length === 0) continue
+        const { error: insertError } = await supabase.from(table).insert(rows)
+        if (insertError) throw insertError
+      }
+    } catch (err) {
+      // All or nothing, as with createVersion: a copy missing half its rates
+      // looks finished and is not. The rows cascade with the header; the
+      // files have to be removed by hand.
+      await supabase.from('sto_agreement_versions').delete().eq('id', version.id)
+      if (copiedPaths.length > 0) await supabase.storage.from(STO_BUCKET).remove(copiedPaths)
+      throw err
+    }
+
+    await invalidate('sto_versions')
+    return version
+  }
+
   async function setVersionStatus(id: string, status: StoAgreementVersion['status']) {
     await updateVersion(id, { status })
   }
@@ -357,6 +476,7 @@ export function useStoVersions() {
     refresh,
     createVersion,
     updateVersion,
+    duplicateVersion,
     setVersionStatus,
     deleteVersion,
     uploadPdf,
@@ -368,6 +488,13 @@ export function useStoVersions() {
     updateSectionImage,
     deleteSectionImage,
   }
+}
+
+/** A row with the named fields taken off, ready to insert under a new parent. */
+function without<T extends object, K extends keyof T>(row: T, ...keys: K[]): Omit<T, K> {
+  const copy = { ...row }
+  for (const key of keys) delete copy[key]
+  return copy
 }
 
 /** Permanent public URL for anything in the STO bucket — a PDF, a photograph. */
