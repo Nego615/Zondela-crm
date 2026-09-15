@@ -23,6 +23,7 @@ import type {
   VersionStatus,
 } from '../lib/database.types'
 import VersionPreviewModal from '../components/VersionPreviewModal'
+import ConfirmDialog from '../components/ConfirmDialog'
 import '../components/ui.css'
 import './version-detail.css'
 
@@ -138,9 +139,17 @@ export default function VersionDetail() {
 
   const version = versions.find((v) => v.id === id)
   const [preview, setPreview] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
+  const problemRef = useRef<HTMLParagraphElement>(null)
+
+  // As on the list: the message sits under the tabs, and a failure deep in a
+  // long tab would otherwise go unseen.
+  useEffect(() => {
+    if (problem) problemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [problem])
 
   async function guard(action: () => Promise<void>, message: string, note = 'Saved.') {
     setBusy(true)
@@ -208,29 +217,30 @@ export default function VersionDetail() {
           >
             Duplicate
           </button>
-          <button
-            className="btn btn-sm"
-            onClick={() =>
-              guard(
-                async () => {
-                  if (
-                    confirm(
-                      `Delete ${version.name}? Everything sent from it goes too. This cannot be undone.`
-                    )
-                  ) {
-                    await deleteVersion(version)
-                    navigate('/sto')
-                  }
-                },
-                'Could not delete that contract.',
-                'Deleted.'
-              )
-            }
-          >
+          <button className="btn btn-sm" disabled={busy} onClick={() => setConfirmingDelete(true)}>
             Delete
           </button>
         </div>
       </div>
+      {confirmingDelete && (
+        <ConfirmDialog
+          title={`Delete ${version.name}?`}
+          message="Everything sent from it goes too. This cannot be undone."
+          confirmLabel="Delete contract"
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false)
+            guard(
+              async () => {
+                await deleteVersion(version)
+                navigate('/sto')
+              },
+              'Could not delete that contract.',
+              'Deleted.'
+            )
+          }}
+        />
+      )}
       <p className="vd-validity">
         Valid {formatDay(version.valid_from)} → {formatDay(version.valid_to)}
       </p>
@@ -249,7 +259,11 @@ export default function VersionDetail() {
         ))}
       </div>
 
-      {(error || problem) && <p className="vd-error">{error || problem}</p>}
+      {(error || problem) && (
+        <p ref={problemRef} className="vd-error" role="alert">
+          {error || problem}
+        </p>
+      )}
       {saved && <p className="vd-saved">{saved}</p>}
 
       {tab === 'overview' ? (

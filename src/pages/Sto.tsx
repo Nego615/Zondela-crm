@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useCompanies, useOrgSettings, useProfiles } from '../hooks/useCrmData'
 import { useAuth } from '../hooks/useAuth'
@@ -21,6 +21,7 @@ import { errorMessage } from '../lib/errorMessage'
 import type { SendStatus, StoAgreementSend, StoVersionWithRates } from '../lib/database.types'
 import VersionPreviewModal from '../components/VersionPreviewModal'
 import SendVersionModal from '../components/SendVersionModal'
+import ConfirmDialog from '../components/ConfirmDialog'
 import TemplatesPanel from '../components/TemplatesPanel'
 import StoSettingsPanel from '../components/StoSettingsPanel'
 import RateCardPanel from '../components/RateCardPanel'
@@ -49,6 +50,16 @@ const TABS: { value: Tab; label: string }[] = [
 ]
 
 type SendFilter = SendStatus | 'all'
+
+/** A destructive action waiting on the reader's yes. */
+interface PendingConfirm {
+  title: string
+  message: string
+  confirmLabel: string
+  /** What the page says if the action itself fails. */
+  failure: string
+  run: () => Promise<void>
+}
 const SEND_FILTERS: SendFilter[] = ['all', ...SEND_STATUS_LIST]
 
 export default function Sto() {
@@ -91,7 +102,16 @@ export default function Sto() {
   const [sendFor, setSendFor] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState<PendingConfirm | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const actionErrorRef = useRef<HTMLParagraphElement>(null)
+
+  // The message prints at the top of the page, but the button that failed is
+  // often a card further down — so a failure brings the message to the reader
+  // rather than leaving the click looking as if it did nothing.
+  useEffect(() => {
+    if (actionError) actionErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [actionError])
 
   const companyName = (id: string) => companies.find((c) => c.id === id)?.name ?? 'Unknown company'
   const versionById = useMemo(
@@ -249,7 +269,11 @@ export default function Sto() {
         ))}
       </div>
 
-      {(error || actionError) && <p className="sto-error">{error || actionError}</p>}
+      {(error || actionError) && (
+        <p ref={actionErrorRef} className="sto-error" role="alert">
+          {error || actionError}
+        </p>
+      )}
 
       {tab === 'templates' ? (
         <>
@@ -334,14 +358,13 @@ export default function Sto() {
                     )
                   }
                   onDelete={() =>
-                    guard(async () => {
-                      if (
-                        confirm(
-                          `Delete ${version.name}? Everything sent from it goes too. This cannot be undone.`
-                        )
-                      )
-                        await deleteVersion(version)
-                    }, 'Could not delete that rate sheet.')
+                    setConfirming({
+                      title: `Delete ${version.name}?`,
+                      message: 'Everything sent from it goes too. This cannot be undone.',
+                      confirmLabel: 'Delete rate sheet',
+                      failure: 'Could not delete that rate sheet.',
+                      run: () => deleteVersion(version),
+                    })
                   }
                 />
               ))}
@@ -498,14 +521,13 @@ export default function Sto() {
                           <button
                             className="btn btn-ghost btn-sm"
                             onClick={() =>
-                              guard(async () => {
-                                if (
-                                  confirm(
-                                    `Remove this send to ${companyName(send.company_id)}? Their link stops working.`
-                                  )
-                                )
-                                  await deleteSend(send.id)
-                              }, 'Could not remove that send.')
+                              setConfirming({
+                                title: 'Remove this send?',
+                                message: `The link sent to ${companyName(send.company_id)} stops working.`,
+                                confirmLabel: 'Remove send',
+                                failure: 'Could not remove that send.',
+                                run: () => deleteSend(send.id),
+                              })
                             }
                           >
                             Remove
@@ -625,6 +647,19 @@ export default function Sto() {
         </>
       )}
 
+      {confirming && (
+        <ConfirmDialog
+          title={confirming.title}
+          message={confirming.message}
+          confirmLabel={confirming.confirmLabel}
+          onCancel={() => setConfirming(null)}
+          onConfirm={() => {
+            const job = confirming
+            setConfirming(null)
+            guard(job.run, job.failure)
+          }}
+        />
+      )}
       {previewing && (
         <VersionPreviewModal version={previewing} onClose={() => setPreviewFor(null)} />
       )}
