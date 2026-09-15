@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useUsers } from '../../hooks/useUsers'
 import UserFormModal from '../../components/UserFormModal'
+import ConfirmDialog from '../../components/ConfirmDialog'
 import { ROLE_LABELS, ROLES, STATUS_LABELS, canManageUser } from '../../lib/permissions'
 import type { Profile, Role, UserStatus } from '../../lib/database.types'
 import '../../components/ui.css'
@@ -26,6 +27,7 @@ export default function Users() {
   const [notice, setNotice] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<Profile | null>(null)
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -50,12 +52,6 @@ export default function Users() {
    */
   async function handleDelete(user: Profile) {
     const name = user.full_name || user.email
-    const confirmed = window.confirm(
-      `Delete ${name}? Their login and profile are removed for good. ` +
-        'Their companies, follow-ups and agreements stay, unassigned. ' +
-        'If you only want to block access, deactivate them instead.',
-    )
-    if (!confirmed) return
     await run(user.id, () => deleteUser(user.id), `${name} deleted.`)
   }
 
@@ -224,7 +220,7 @@ export default function Users() {
                           <button
                             className="btn btn-sm btn-danger"
                             disabled={busy}
-                            onClick={() => handleDelete(user)}
+                            onClick={() => setPendingDelete(user)}
                           >
                             Delete
                           </button>
@@ -237,6 +233,20 @@ export default function Users() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={`Delete ${pendingDelete.full_name || pendingDelete.email}?`}
+          message="Their login and profile are removed for good. Their companies, follow-ups and agreements stay, unassigned. If you only want to block access, deactivate them instead."
+          confirmLabel="Delete user"
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            const user = pendingDelete
+            setPendingDelete(null)
+            handleDelete(user)
+          }}
+        />
       )}
 
       {showForm && (

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import './ui.css'
 
 interface Props {
@@ -16,6 +17,9 @@ interface Props {
  * been told to stop this site's dialogs, or an embedded preview that sandboxes
  * them, answers confirm() with an instant, invisible "Cancel" — so the button
  * does nothing, says nothing, and looks broken.
+ *
+ * Portalled to <body>: it is opened from inside cards and list rows, and a
+ * fixed overlay drawn there can be clipped by whatever contains it.
  */
 export default function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }: Props) {
   useEffect(() => {
@@ -26,7 +30,7 @@ export default function ConfirmDialog({ title, message, confirmLabel, onConfirm,
     return () => window.removeEventListener('keydown', onKey)
   }, [onCancel])
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onCancel}>
       <div
         className="modal"
@@ -52,6 +56,7 @@ export default function ConfirmDialog({ title, message, confirmLabel, onConfirm,
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

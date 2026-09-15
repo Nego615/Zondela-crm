@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useRateCard } from '../hooks/useCrmData'
 import PricingDocuments from './PricingDocuments'
+import ConfirmDialog from './ConfirmDialog'
 import './ui.css'
 
 /**
@@ -19,6 +20,7 @@ export default function RateCardPanel() {
   const [unit, setUnit] = useState('per month')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState<(typeof items)[number] | null>(null)
 
   function resetForm() {
     setServiceName('')
@@ -146,9 +148,7 @@ export default function RateCardPanel() {
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"
-                        onClick={async () => {
-                          if (confirm(`Remove ${item.service_name} from the rate card?`)) await deleteItem(item.id)
-                        }}
+                        onClick={() => setRemoving(item)}
                       >
                         Remove
                       </button>
@@ -207,6 +207,20 @@ export default function RateCardPanel() {
             </form>
           </div>
         </div>
+      )}
+
+      {removing && (
+        <ConfirmDialog
+          title={`Remove ${removing.service_name} from the rate card?`}
+          message="This cannot be undone."
+          confirmLabel="Remove item"
+          onCancel={() => setRemoving(null)}
+          onConfirm={() => {
+            const item = removing
+            setRemoving(null)
+            deleteItem(item.id)
+          }}
+        />
       )}
     </div>
   )

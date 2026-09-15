@@ -10,6 +10,7 @@ import ContactFormModal from '../components/ContactFormModal'
 import AppointmentFormModal from '../components/AppointmentFormModal'
 import FollowUpFormModal from '../components/FollowUpFormModal'
 import SendVersionModal from '../components/SendVersionModal'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { repLabel } from '../lib/rep'
 import '../components/ui.css'
 import './company-detail.css'
@@ -30,6 +31,13 @@ export default function CompanyDetail() {
   const [visitModal, setVisitModal] = useState<'new' | string | null>(null)
   const [followUpModal, setFollowUpModal] = useState<'new' | string | null>(null)
   const [sendModal, setSendModal] = useState(false)
+  // One removal waiting on a yes, whichever list it came from.
+  const [pending, setPending] = useState<{
+    title: string
+    message: string
+    confirmLabel: string
+    run: () => Promise<unknown>
+  } | null>(null)
 
   if (!company) {
     return (
@@ -46,10 +54,16 @@ export default function CompanyDetail() {
   const meta = STAGE_META[company.stage]
 
 
-  async function handleDeleteCompany() {
-    if (!confirm(`Delete ${company!.name}? This removes all contacts, appointments, and follow-ups too.`)) return
-    await deleteCompany(company!.id)
-    navigate('/companies')
+  function handleDeleteCompany() {
+    setPending({
+      title: `Delete ${company!.name}?`,
+      message: 'This removes all its contacts, appointments and follow-ups too. This cannot be undone.',
+      confirmLabel: 'Delete company',
+      run: async () => {
+        await deleteCompany(company!.id)
+        navigate('/companies')
+      },
+    })
   }
 
   const editingContact = contactModal && contactModal !== 'new' ? contacts.find((c) => c.id === contactModal) : undefined
@@ -133,9 +147,14 @@ export default function CompanyDetail() {
                     </button>
                     <button
                       className="btn btn-ghost btn-sm"
-                      onClick={async () => {
-                        if (confirm(`Remove contact ${c.full_name}?`)) await deleteContact(c.id)
-                      }}
+                      onClick={() =>
+                        setPending({
+                          title: `Remove contact ${c.full_name}?`,
+                          message: 'This cannot be undone.',
+                          confirmLabel: 'Remove contact',
+                          run: () => deleteContact(c.id),
+                        })
+                      }
                     >
                       Remove
                     </button>
@@ -201,9 +220,14 @@ export default function CompanyDetail() {
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"
-                        onClick={async () => {
-                          if (confirm('Delete this appointment?')) await deleteVisit(v.id)
-                        }}
+                        onClick={() =>
+                          setPending({
+                            title: 'Delete this appointment?',
+                            message: 'This cannot be undone.',
+                            confirmLabel: 'Delete appointment',
+                            run: () => deleteVisit(v.id),
+                          })
+                        }
                       >
                         Remove
                       </button>
@@ -260,9 +284,14 @@ export default function CompanyDetail() {
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"
-                        onClick={async () => {
-                          if (confirm('Delete this follow-up?')) await deleteFollowUp(f.id)
-                        }}
+                        onClick={() =>
+                          setPending({
+                            title: 'Delete this follow-up?',
+                            message: 'This cannot be undone.',
+                            confirmLabel: 'Delete follow-up',
+                            run: () => deleteFollowUp(f.id),
+                          })
+                        }
                       >
                         Remove
                       </button>
@@ -300,6 +329,19 @@ export default function CompanyDetail() {
           followUp={editingFollowUp}
           onClose={() => setFollowUpModal(null)}
           onSaved={() => setFollowUpModal(null)}
+        />
+      )}
+      {pending && (
+        <ConfirmDialog
+          title={pending.title}
+          message={pending.message}
+          confirmLabel={pending.confirmLabel}
+          onCancel={() => setPending(null)}
+          onConfirm={() => {
+            const job = pending
+            setPending(null)
+            job.run()
+          }}
         />
       )}
       {/* No version handed in: from here the operator is the known half and the

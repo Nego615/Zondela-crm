@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useActivityLogs, useUser, useUsers } from '../../hooks/useUsers'
 import UserFormModal from '../../components/UserFormModal'
+import ConfirmDialog from '../../components/ConfirmDialog'
 import ActivityLogList from '../../components/ActivityLogList'
 import {
   ROLE_DESCRIPTIONS,
@@ -35,6 +36,7 @@ export default function UserDetail() {
   const [notice, setNotice] = useState<string | null>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   // The dropdown starts on whatever the user's role is now, and re-syncs when
   // the row reloads after a save.
@@ -93,13 +95,6 @@ export default function UserDetail() {
   }
 
   async function handleDelete() {
-    const confirmed = window.confirm(
-      `Delete ${target.full_name || target.email}? Their login and profile are removed for good. ` +
-        'Their companies, follow-ups and agreements stay, unassigned. ' +
-        'If you only want to block access, deactivate them instead.',
-    )
-    if (!confirmed) return
-
     setBusy(true)
     setError(null)
     try {
@@ -127,7 +122,7 @@ export default function UserDetail() {
             </button>
           )}
           {can('users.delete') && manageable && (
-            <button className="btn btn-danger" onClick={handleDelete} disabled={busy}>
+            <button className="btn btn-danger" onClick={() => setConfirmingDelete(true)} disabled={busy}>
               Delete
             </button>
           )}
@@ -287,6 +282,19 @@ export default function UserDetail() {
           )}
         </div>
       </div>
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          title={`Delete ${target.full_name || target.email}?`}
+          message="Their login and profile are removed for good. Their companies, follow-ups and agreements stay, unassigned. If you only want to block access, deactivate them instead."
+          confirmLabel="Delete user"
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => {
+            setConfirmingDelete(false)
+            handleDelete()
+          }}
+        />
+      )}
 
       {editing && (
         <UserFormModal

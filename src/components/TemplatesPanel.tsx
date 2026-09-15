@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useTemplates } from '../hooks/useCrmData'
 import { useAuth } from '../hooks/useAuth'
+import ConfirmDialog from './ConfirmDialog'
 import type { EmailTemplate, TemplateCategory } from '../lib/database.types'
 import './ui.css'
 import './templates.css'
@@ -25,6 +26,7 @@ export default function TemplatesPanel() {
   const { profile } = useAuth()
   const [editing, setEditing] = useState<EmailTemplate | 'new' | null>(null)
   const [preview, setPreview] = useState<EmailTemplate | null>(null)
+  const [deleting, setDeleting] = useState<EmailTemplate | null>(null)
 
   return (
     <div>
@@ -78,9 +80,7 @@ export default function TemplatesPanel() {
                 )}
                 <button
                   className="btn btn-sm btn-ghost"
-                  onClick={async () => {
-                    if (confirm(`Delete template "${t.name}"?`)) await deleteTemplate(t.id)
-                  }}
+                  onClick={() => setDeleting(t)}
                 >
                   Delete
                 </button>
@@ -88,6 +88,20 @@ export default function TemplatesPanel() {
             </div>
           ))}
         </div>
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title={`Delete template "${deleting.name}"?`}
+          message="This cannot be undone."
+          confirmLabel="Delete template"
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => {
+            const template = deleting
+            setDeleting(null)
+            deleteTemplate(template.id)
+          }}
+        />
       )}
 
       {editing && (

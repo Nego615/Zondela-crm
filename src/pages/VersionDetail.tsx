@@ -631,6 +631,7 @@ function SectionCard({
   const [captions, setCaptions] = useState<Record<string, string>>(
     Object.fromEntries(section.images.map((im) => [im.id, im.caption ?? '']))
   )
+  const [confirmingRemove, setConfirmingRemove] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
   // The card is a form over a row that its own saves replace; when the row
@@ -650,21 +651,21 @@ function SectionCard({
     <section className="card vd-card">
       <div className="vd-card-head">
         <h2>{section.name}</h2>
-        <button
-          className="btn btn-ghost btn-sm"
-          disabled={busy}
-          onClick={() =>
-            onSave(
-              async () => {
-                if (confirm(`Remove ${section.name} and its photographs?`)) await remove(section)
-              },
-              'Could not remove that category.',
-              'Removed.'
-            )
-          }
-        >
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setConfirmingRemove(true)}>
           Remove
         </button>
+        {confirmingRemove && (
+          <ConfirmDialog
+            title={`Remove ${section.name}?`}
+            message="Its photographs go with it. This cannot be undone."
+            confirmLabel="Remove category"
+            onCancel={() => setConfirmingRemove(false)}
+            onConfirm={() => {
+              setConfirmingRemove(false)
+              onSave(() => remove(section), 'Could not remove that category.', 'Removed.')
+            }}
+          />
+        )}
       </div>
 
       <label className="field">
