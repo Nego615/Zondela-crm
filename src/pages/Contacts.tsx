@@ -81,94 +81,87 @@ export default function Contacts() {
           </p>
         </div>
       ) : (
-        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Job title</th>
-                <th>Company</th>
-                <th>Email</th>
-                <th>Phone</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((contact) => {
-                const company = companyById.get(contact.company_id)
-                const meta = company ? STAGE_META[company.stage] : null
-                return (
-                  <tr key={contact.id}>
-                    <td>
+        <ul className="contacts-grid">
+          {filtered.map((contact) => {
+            const company = companyById.get(contact.company_id)
+            const meta = company ? STAGE_META[company.stage] : null
+            return (
+              <li key={contact.id} className="card contacts-card">
+                <div className="contacts-card-head">
+                  <button
+                    className="contacts-link contacts-name"
+                    onClick={() => navigate(`/companies/${contact.company_id}`)}
+                  >
+                    {contact.full_name}
+                  </button>
+                  {contact.is_primary && (
+                    <span
+                      className="badge"
+                      style={{ background: 'var(--brand-teal-tint)', color: 'var(--brand-teal)' }}
+                    >
+                      Primary
+                    </span>
+                  )}
+                </div>
+                <div className="contacts-title">{contact.job_title || '—'}</div>
+
+                <div className="contacts-company">
+                  {company ? (
+                    <>
                       <button
                         className="contacts-link"
-                        onClick={() => navigate(`/companies/${contact.company_id}`)}
+                        onClick={() => navigate(`/companies/${company.id}`)}
                       >
-                        {contact.full_name}
+                        {company.name}
                       </button>
-                      {contact.is_primary && (
-                        <span
-                          className="badge contacts-primary"
-                          style={{ background: 'var(--brand-teal-tint)', color: 'var(--brand-teal)' }}
-                        >
-                          Primary
+                      {meta && (
+                        <span className="badge" style={{ background: meta.bg, color: meta.color }}>
+                          {meta.label}
                         </span>
                       )}
-                    </td>
-                    <td style={{ color: 'var(--text-soft)' }}>{contact.job_title || '—'}</td>
-                    <td>
-                      {company ? (
-                        <span className="contacts-company">
-                          <button
-                            className="contacts-link"
-                            onClick={() => navigate(`/companies/${company.id}`)}
+                    </>
+                  ) : (
+                    // Defensive only. contacts_access matches purely on
+                    // can_access_company, so a visible contact always has a
+                    // visible company — but a stale list beats a crash.
+                    <span className="contacts-unknown">Unknown company</span>
+                  )}
+                </div>
+
+                <dl className="contacts-details">
+                  <dt>Email</dt>
+                  <dd>
+                    {contact.email ? (
+                      <a href={`mailto:${contact.email}`}>{contact.email}</a>
+                    ) : (
+                      <span className="contacts-empty">—</span>
+                    )}
+                  </dd>
+                  <dt>Phone</dt>
+                  <dd className="contacts-phone">
+                    {contact.phone || contact.whatsapp ? (
+                      <>
+                        {contact.phone && <a href={`tel:${contact.phone}`}>{contact.phone}</a>}
+                        {contact.whatsapp && (
+                          <a
+                            href={`https://wa.me/${contact.whatsapp.replace(/[^\d]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="contacts-wa"
                           >
-                            {company.name}
-                          </button>
-                          {meta && (
-                            <span className="badge" style={{ background: meta.bg, color: meta.color }}>
-                              {meta.label}
-                            </span>
-                          )}
-                        </span>
-                      ) : (
-                        // Defensive only. contacts_access matches purely on
-                        // can_access_company, so a visible contact always has a
-                        // visible company — but a stale list beats a crash.
-                        <span className="contacts-unknown">Unknown company</span>
-                      )}
-                    </td>
-                    <td>
-                      {contact.email ? (
-                        <a href={`mailto:${contact.email}`}>{contact.email}</a>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>—</span>
-                      )}
-                    </td>
-                    <td className="contacts-phone">
-                      {contact.phone || contact.whatsapp ? (
-                        <>
-                          {contact.phone && <a href={`tel:${contact.phone}`}>{contact.phone}</a>}
-                          {contact.whatsapp && (
-                            <a
-                              href={`https://wa.me/${contact.whatsapp.replace(/[^\d]/g, '')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="contacts-wa"
-                            >
-                              WhatsApp
-                            </a>
-                          )}
-                        </>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>—</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                            WhatsApp
+                          </a>
+                        )}
+                      </>
+                    ) : (
+                      <span className="contacts-empty">—</span>
+                    )}
+                  </dd>
+                </dl>
+              </li>
+            )
+          })}
+        </ul>
       )}
     </div>
   )
