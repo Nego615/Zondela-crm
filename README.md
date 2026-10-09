@@ -180,6 +180,8 @@ supabase/
   build-schema.mjs Expands the migration include in schema.sql
   functions/admin-users/
                    Edge function: creates, re-invites and deletes accounts
+  functions/scan-card/
+                   Edge function: reads a photographed business card
   reset-data.sql   Deletes every business record (run in the SQL editor)
 ```
 
@@ -202,6 +204,14 @@ supabase/
   see, searchable by name, job title, company, email or phone, with a
   primary-only filter. It is a read-and-reach view — email, call and WhatsApp
   links are live; adding and editing happen on the company's page.
+- **Scanning a business card** fills the form instead of typing it. **Scan
+  card** on the Companies page (or **Scan business card** at the top of the
+  add-company and add-contact forms) opens the camera. A QR code on the card
+  is read the moment it is in frame; for a printed card, press **Capture** or
+  upload a photo. From the Companies page, one scan fills the company *and*
+  its primary contact, saved together. Nothing is saved until you press Add,
+  and a company name that already exists is flagged with a link to it. See
+  "Scanning business cards" below for setup.
 - **Company detail** (`/companies/:id`) is where the day-to-day work
   happens: manage contacts, schedule appointments, schedule follow-ups,
   and share STO pricing. A company records its **country**, **main market**
@@ -299,7 +309,11 @@ supabase/
   which is the only delivery signal the CRM gets without an email provider
   wired up, and accepting marks it **accepted** the moment they do it — after
   which the document's signature block prints who accepted and when instead of
-  a blank rule.
+  a blank rule. **Keep a copy**, at the foot of the page, saves the rate sheet
+  as a PDF through the browser's print window (the form and footer are left
+  out, and an accepted sheet includes who accepted), with the official signed
+  PDF beside it when one is attached. The file is named after the rates —
+  *Zondela House – STO Rates 2026 – Company* — from the page title.
 
   The page reaches the database through two `security definer` functions —
   `sto_public_agreement(token)` and
@@ -689,6 +703,39 @@ which is a larger job — and, given the above, not obviously one worth doing.
 One thing works regardless of any of this: an operator opening their agreement
 link marks that send **viewed**. That signal comes from their browser, not from
 email.
+
+## Scanning business cards
+
+There are two readers, and only one needs setting up.
+
+**QR codes work out of the box.** A vCard or MECARD QR code is decoded in the
+browser (with [jsQR](https://github.com/cozmo/jsQR), which unlike the built-in
+`BarcodeDetector` works in Safari and Firefox too) and never leaves the device.
+A QR code that is only a link is kept as the website, and the scanner stays
+open for the printed side.
+
+**Printed cards need the `scan-card` function.** The photo is sent to Claude
+(Anthropic's model), which reads it into the same fields and returns them as
+structured JSON. The API key can spend money on your account, so like the
+email key it lives only as a function secret:
+
+```bash
+supabase functions deploy scan-card
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-xxx
+```
+
+Get a key from [console.anthropic.com](https://console.anthropic.com). The
+function serves only signed-in, active users who can write data, and saves
+nothing — the fields go back to the form for the rep to check. Photos are
+downscaled to 1600 px before upload; a card costs roughly two to three US
+cents to read.
+Until it is deployed, the scanner says that printed cards cannot be read yet
+and QR codes keep working.
+
+The camera needs a secure origin — the deployed `https://` site, or
+`localhost` in development. Opening the dev server from a phone over the LAN
+(`http://192.168…`) gets no camera; **Upload photo** still works there, and on
+a phone it offers the camera app anyway.
 
 ## Notes and next steps
 

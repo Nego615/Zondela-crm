@@ -159,6 +159,19 @@
   border: 1px solid var(--line-strong, #d9d2c6);
   border-radius: 999px;
   cursor: pointer;
+  transition: background 0.12s ease, filter 0.12s ease;
+}
+
+.pa-btn:hover:not(:disabled) {
+  background: var(--paper-dim, #f6f3ee);
+}
+
+/* The brand-filled buttons carry their colour inline (it comes from the
+   letterhead), which the rule above cannot override — so they brighten
+   instead, as the rate sheet's own buttons do. */
+.pa-btn-primary:hover:not(:disabled),
+.pa-btn-download:hover {
+  filter: brightness(1.12);
 }
 
 .pa-btn:disabled {
@@ -185,6 +198,57 @@
   white-space: pre-wrap;
 }
 
+/* Keep a copy: the last thing on the page, after the decision. */
+.pa-download {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding: 20px 24px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(12, 59, 53, 0.08);
+}
+
+.pa-download-text {
+  flex: 1 1 280px;
+}
+
+.pa-download h2 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--ink, #22201c);
+}
+
+.pa-download p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-soft);
+}
+
+.pa-download-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pa-download-actions .pa-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.pa-btn-download {
+  color: #fff;
+  border-color: transparent;
+}
+
 .pa-foot {
   max-width: 960px;
   margin: 22px auto 0;
@@ -202,8 +266,15 @@
     grid-template-columns: 1fr;
   }
 
-  .pa-accept {
+  .pa-accept,
+  .pa-download {
     padding: 18px;
+  }
+
+  /* Full-width buttons on a phone: a thumb-sized target, one per row. */
+  .pa-download-actions,
+  .pa-download-actions .pa-btn {
+    width: 100%;
   }
 }
 
@@ -214,6 +285,7 @@
   }
 
   .pa-accept,
+  .pa-download,
   .pa-foot {
     display: none;
   }

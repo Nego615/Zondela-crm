@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { useContacts } from '../hooks/useCrmData'
 import type { Contact } from '../lib/database.types'
+import { primaryPhone, type ScanSource, type ScannedCard } from '../lib/businessCard'
+import CardScanModal, { CameraIcon } from './CardScanModal'
 import './ui.css'
+import './card-scan.css'
 
 interface Props {
   companyId: string
@@ -21,6 +24,20 @@ export default function ContactFormModal({ companyId, contact, onClose, onSaved 
   const [isPrimary, setIsPrimary] = useState(contact?.is_primary ?? false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [scannedFrom, setScannedFrom] = useState<ScanSource | null>(null)
+
+  // Only what the card says replaces what is in the form: a field the card
+  // leaves empty keeps anything already typed.
+  function applyCard(card: ScannedCard, source: ScanSource) {
+    if (card.full_name) setFullName(card.full_name)
+    if (card.job_title) setJobTitle(card.job_title)
+    if (card.email) setEmail(card.email)
+    if (primaryPhone(card)) setPhone(primaryPhone(card))
+    if (card.whatsapp) setWhatsapp(card.whatsapp)
+    setScannedFrom(source)
+    setScanning(false)
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -64,6 +81,21 @@ export default function ContactFormModal({ companyId, contact, onClose, onSaved 
         </div>
 
         <form onSubmit={handleSubmit}>
+          {!contact &&
+            (scannedFrom ? (
+              <p className="scan-card-notice">
+                Filled from the card's {scannedFrom === 'qr' ? 'QR code' : 'photo'}. Check each field before saving.
+                <button type="button" onClick={() => setScanning(true)}>
+                  Scan again
+                </button>
+              </p>
+            ) : (
+              <button type="button" className="btn scan-card-trigger" onClick={() => setScanning(true)}>
+                <CameraIcon />
+                Scan business card
+              </button>
+            ))}
+
           <div className="field">
             <label htmlFor="ct_name">Full name</label>
             <input id="ct_name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Mushi" />
@@ -107,6 +139,10 @@ export default function ContactFormModal({ companyId, contact, onClose, onSaved 
             </button>
           </div>
         </form>
+        {/* Inside .modal, whose stopPropagation keeps a click on the
+            scanner's backdrop (portalled, but bubbling through React) from
+            reaching this form's backdrop and closing it too. */}
+        {scanning && <CardScanModal onClose={() => setScanning(false)} onResult={applyCard} />}
       </div>
     </div>
   )

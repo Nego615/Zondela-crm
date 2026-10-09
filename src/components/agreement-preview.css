@@ -58,9 +58,14 @@
 }
 
 @media print {
-  /* Hide the app behind the modal. The modal itself is a child of body, so
-     everything else at that level goes. */
-  body > *:not(.modal-backdrop) {
+  /* Hide the app behind the modal. The modal is portalled to be a child of
+     body, so everything else at that level goes.
+
+     Only while the preview is open — the class is set by VersionPreviewModal.
+     Every stylesheet ships in one bundle, so an unscoped rule here hid #root
+     on every page that printed, and the operator's "Download as PDF" came out
+     blank. */
+  body.agr-previewing > *:not(.agr-preview-backdrop) {
     display: none !important;
   }
 

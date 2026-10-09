@@ -726,7 +726,7 @@ function ShieldIcon() {
   )
 }
 
-function DownloadIcon() {
+export function DownloadIcon() {
   return (
     <svg {...iconProps}>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

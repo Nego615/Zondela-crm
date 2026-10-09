@@ -3,9 +3,14 @@
   gap: 4px;
   margin-bottom: 18px;
   border-bottom: 1px solid var(--line);
+  /* Five tabs outgrow a phone; they scroll sideways rather than spill. */
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .sto-tab {
+  flex-shrink: 0;
+  white-space: nowrap;
   padding: 9px 14px;
   font-family: var(--font-body);
   font-size: 14px;
@@ -385,6 +390,150 @@
 .sto-followup:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* --------------------------------------------------------------------------
+   Sent and accepted agreements
+   --------------------------------------------------------------------------
+   Every cell is a short stack — a strong first line, quiet lines under it —
+   so rows align to the top rather than floating each stack to its middle.
+   -------------------------------------------------------------------------- */
+.sto-table-card {
+  /* The sends list switches to cards by the width it actually has, not the
+     window's: with the sidebar open a 1100px window leaves it ~800px. */
+  container-type: inline-size;
+}
+
+/* table.data-table in the selector to outrank ui.css's own `td` rule. */
+table.data-table.sto-sends td {
+  vertical-align: top;
+}
+
+.sto-cell-operator {
+  min-width: 200px;
+}
+
+/* Operator email addresses run long and have nowhere to break. */
+.sto-row-contact {
+  overflow-wrap: anywhere;
+}
+
+.sto-sends .badge + .sto-row-sub {
+  margin-top: 5px;
+}
+
+.sto-followup-field {
+  display: block;
+  margin-top: 10px;
+}
+
+.sto-followup-field span {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.sto-cell-actions {
+  width: 1%;
+}
+
+/* One column, so the same action sits in the same place on every row even
+   when a row has fewer of them — an accepted send has no "Mark accepted". */
+.sto-cell-actions .sto-actions {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.sto-cell-actions .sto-actions .btn {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.sto-action-remove {
+  color: var(--danger);
+}
+
+.sto-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Too narrow for columns: each send becomes a card — operator across the top,
+   the facts beneath it in label-over-value pairs, the actions last. */
+@container (max-width: 760px) {
+  table.sto-sends,
+  table.sto-sends tbody,
+  table.data-table.sto-sends td {
+    display: block;
+  }
+
+  table.data-table.sto-sends thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  table.data-table.sto-sends tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px 20px;
+    padding: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  table.data-table.sto-sends tr:last-child {
+    border-bottom: 0;
+  }
+
+  table.data-table.sto-sends td {
+    padding: 0;
+    border: 0;
+  }
+
+  /* Ruled off from the facts above, so the buttons read as the card's
+     actions rather than one more fact. */
+  table.data-table.sto-sends .sto-cell-actions {
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+
+  table.data-table.sto-sends tr:hover td {
+    background: none;
+  }
+
+  table.data-table.sto-sends .sto-cell-operator,
+  table.data-table.sto-sends .sto-cell-actions {
+    grid-column: 1 / -1;
+    width: auto;
+    min-width: 0;
+  }
+
+  table.data-table.sto-sends td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    color: var(--text-soft);
+  }
+
+  table.data-table.sto-sends .sto-said {
+    max-width: none;
+  }
+
+  .sto-cell-actions .sto-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding-top: 4px;
+  }
 }
 
 /* --------------------------------------------------------------------------

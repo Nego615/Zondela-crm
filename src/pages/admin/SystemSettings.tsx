@@ -40,7 +40,7 @@ export default function SystemSettings() {
       </div>
 
       <div className="admin-detail-grid">
-        <div style={{ display: 'grid', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 20 }}>
           <div className="card">
             <div className="panel-header">
               <h2>Access model</h2>

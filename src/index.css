@@ -45,6 +45,9 @@
 
   --accent: var(--brand-brick);
   --accent-hover: var(--brand-brick-deep);
+  /* Brick links turn teal under the pointer: a change of hue reads as
+     "this responds", where a darker brick barely registers. */
+  --link-hover: var(--brand-teal);
   --danger: #b23b3b;
 
   --font-display: 'Archivo', system-ui, sans-serif;
@@ -101,6 +104,15 @@ button {
 
 a {
   color: var(--accent);
+  transition: color 0.12s ease;
+}
+
+/* Every link changes colour under the pointer. :where() keeps this at the
+   weight of a single class, so a link styled as a button — white text on a
+   coloured fill, declared in a later stylesheet — keeps its own colour rather
+   than turning teal on teal. */
+:where(a):hover {
+  color: var(--link-hover);
 }
 
 ::selection {

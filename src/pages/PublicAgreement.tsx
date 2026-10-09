@@ -3,7 +3,9 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { stoPdfUrl } from '../hooks/useStoVersions'
 import { formatDayTime } from '../lib/stoVersion'
+import { printPage } from '../lib/print'
 import RateSheetDocument, {
+  DownloadIcon,
   type SheetOrg,
   type SheetRate,
   type SheetPropertySection,
@@ -87,6 +89,24 @@ export default function PublicAgreement() {
   useEffect(() => {
     load()
   }, [load])
+
+  // The tab's name, and — because browsers use it — the file name a saved PDF
+  // is offered under. "Zondela House CRM" is the staff app's name, and means
+  // nothing to an operator looking for these rates in their downloads.
+  useEffect(() => {
+    if (!data) return
+    const previous = document.title
+    document.title = [
+      data.org?.org_name || 'Zondela House',
+      `STO Rates ${data.version.year}`,
+      data.send.company_name,
+    ]
+      .filter(Boolean)
+      .join(' – ')
+    return () => {
+      document.title = previous
+    }
+  }, [data])
 
   async function respond(accept: boolean) {
     if (accept && !name.trim()) {
@@ -292,6 +312,30 @@ export default function PublicAgreement() {
             <p className="pa-quote">{send.responded_note}</p>
           </section>
         )}
+
+        {/* The browser's print window is the export, as it is for the staff
+            preview: its "Save as PDF" keeps the text selectable and the rate
+            tables sharp, where a PDF assembled in JavaScript would be a
+            screenshot. The print styles already drop the form and footer. */}
+        <section className="pa-download" aria-labelledby="pa-download-title">
+          <div className="pa-download-text">
+            <h2 id="pa-download-title">Keep a copy</h2>
+            <p>
+              Download these rates and terms as a PDF. In the window that opens, choose{' '}
+              <strong>Save as PDF</strong> as the destination.
+            </p>
+          </div>
+          <div className="pa-download-actions">
+            <button className="pa-btn pa-btn-download" style={{ background: brand }} onClick={() => printPage()}>
+              <DownloadIcon /> Download as PDF
+            </button>
+            {version.pdf_path && (
+              <a className="pa-btn" href={stoPdfUrl(version.pdf_path)} target="_blank" rel="noreferrer">
+                Official signed PDF
+              </a>
+            )}
+          </div>
+        </section>
       </main>
 
       <footer className="pa-foot">

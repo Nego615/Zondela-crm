@@ -43,7 +43,7 @@ export default function RolesPermissions() {
         </div>
       </div>
 
-      <div className="admin-detail-grid">
+      <div className="admin-detail-grid admin-roles-grid">
         <div className="card" style={{ order: 2 }}>
           <div className="panel-header">
             <h2>Permissions</h2>

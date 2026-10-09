@@ -77,10 +77,10 @@ export default function RateCardPanel() {
     <div>
       <div className="panel-header">
         <div>
-          <h2>Rate card</h2>
+          <h2>Service rate card</h2>
           <p>
-            The services quoted alongside a season's rooms, kept here as the house's own price
-            list. The agreement send carries the contract's rates, not these.
+            The services the house quotes alongside a season's rooms, and the price list PDF, kept
+            here for the team to work from. Agreement sends carry the contract's rates, not these.
           </p>
         </div>
         <button

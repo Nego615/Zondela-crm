@@ -25,9 +25,39 @@ interface AuthContextValue {
   clearBlockedReason: () => void
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
+  /** The signed-in account's own role, whatever role is being previewed. */
+  realRole: Role | null
+  /**
+   * Dev builds only: the role the UI is drawn as, or null for the real one.
+   * Always null in production — see DEV_ROLE_KEY.
+   */
+  previewRole: Role | null
+  setPreviewRole: (role: Role | null) => void
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+
+/**
+ * "View as" for development: redraws the UI as another role without a second
+ * account. It swaps the role and permission set the app reads, and nothing
+ * else — the session is still the real one, so RLS still returns and accepts
+ * exactly what the real role would. It shows what a role's screens look like,
+ * not which rows that role can see.
+ *
+ * Gated on import.meta.env.DEV, which Vite replaces with `false` in a
+ * production build, so the override and the switcher are compiled out.
+ */
+const DEV_ROLE_KEY = 'zondela.devPreviewRole'
+
+function readStoredPreviewRole(): Role | null {
+  if (!import.meta.env.DEV) return null
+  try {
+    const stored = localStorage.getItem(DEV_ROLE_KEY)
+    return stored && stored in ROLE_PERMISSIONS ? (stored as Role) : null
+  } catch {
+    return null
+  }
+}
 
 const INACTIVE_MESSAGE =
   'This account has been deactivated. Ask an administrator to switch it back on.'
@@ -60,6 +90,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [loading, setLoading] = useState(true)
   const [blockedReason, setBlockedReason] = useState<string | null>(null)
+  const [previewRole, setPreviewRoleState] = useState<Role | null>(readStoredPreviewRole)
+
+  function setPreviewRole(role: Role | null) {
+    if (!import.meta.env.DEV) return
+    setPreviewRoleState(role)
+    try {
+      if (role) localStorage.setItem(DEV_ROLE_KEY, role)
+      else localStorage.removeItem(DEV_ROLE_KEY)
+    } catch {
+      // Storage blocked: the preview still applies until the next reload.
+    }
+  }
 
   /**
    * Loads the profile and the permission set that goes with it.
@@ -152,19 +194,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session?.user) await loadProfile(session.user.id)
   }
 
+  // Every screen reads the role off the profile or through can(), so swapping
+  // both here is enough to redraw the whole app as the previewed role.
+  const previewing = import.meta.env.DEV && profile && previewRole ? previewRole : null
+  const shownProfile = previewing && profile ? { ...profile, role: previewing } : profile
+  const shownPermissions = previewing ? ROLE_PERMISSIONS[previewing] : permissions
+
   const value: AuthContextValue = {
     session,
-    profile,
+    profile: shownProfile,
     loading,
-    role: profile?.role ?? null,
-    permissions,
-    can: (permission) => permissions.includes(permission),
-    isSuperAdmin: profile?.role === 'super_admin',
-    isOwner: permissions.includes('data.view_all'),
+    role: shownProfile?.role ?? null,
+    permissions: shownPermissions,
+    can: (permission) => shownPermissions.includes(permission),
+    isSuperAdmin: shownProfile?.role === 'super_admin',
+    isOwner: shownPermissions.includes('data.view_all'),
     blockedReason,
     clearBlockedReason: () => setBlockedReason(null),
     signOut,
     refreshProfile,
+    realRole: profile?.role ?? null,
+    previewRole: previewing,
+    setPreviewRole,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

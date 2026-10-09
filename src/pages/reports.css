@@ -373,9 +373,16 @@
 }
 
 @media print {
-  @page {
+  /* A named page, not a bare @page: every stylesheet ships in one bundle, and
+     a bare rule here turned the STO rate sheet landscape too. Browsers without
+     named pages print the report portrait, which still reads. */
+  @page report {
     margin: 14mm;
     size: A4 landscape;
+  }
+
+  .rp {
+    page: report;
   }
 
   .shell-rail,

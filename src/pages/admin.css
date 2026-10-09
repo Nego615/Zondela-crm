@@ -102,7 +102,9 @@
   text-decoration: none;
 }
 
+/* Ink to brick, as the price list names do: teal on ink would barely show. */
 .admin-name-link:hover {
+  color: var(--accent);
   text-decoration: underline;
 }
 
@@ -121,7 +123,23 @@
 
 @media (max-width: 900px) {
   .admin-detail-grid {
-    grid-template-columns: 1fr;
+    /* minmax(0, …) for the same reason as the shell: the permissions table
+       would otherwise widen the column instead of scrolling in its card. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Roles: the permission matrix is the page's real content and needs five role
+   columns, so it takes the wide track and the short hierarchy the narrow one.
+   Below 1200px even that squeezes each description to a word a line, so the
+   two stack — hierarchy first, matrix full width beneath it. */
+.admin-detail-grid.admin-roles-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr);
+}
+
+@media (max-width: 1199px) {
+  .admin-detail-grid.admin-roles-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -139,6 +157,21 @@
 .admin-facts dd {
   margin: 0;
   color: var(--text);
+  /* File paths like supabase/migrations/… are one unbreakable word; without
+     this they hold the card open past a phone's width. */
+  overflow-wrap: anywhere;
+}
+
+/* On a phone the 130px label column leaves the value a sliver; stack them. */
+@media (max-width: 480px) {
+  .admin-facts {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 2px;
+  }
+
+  .admin-facts dd + dt {
+    margin-top: 10px;
+  }
 }
 
 /* The role editor: the dropdown plus its save button, as one block. */

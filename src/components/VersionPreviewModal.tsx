@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useOrgSettings } from '../hooks/useCrmData'
 import { stoPdfUrl } from '../hooks/useStoVersions'
+import { printPage } from '../lib/print'
 import RateSheetDocument from './RateSheetDocument'
 import type { StoVersionWithRates } from '../lib/database.types'
 import './ui.css'
@@ -20,6 +22,10 @@ interface Props {
  * platform the team uses, which is a better PDF than anything this app could
  * assemble, and it needs no library. Reuses the preview chrome the old
  * agreement document had — same job, same toolbar.
+ *
+ * Portalled to <body>, and marks <body> while open: the print styles hide
+ * every other child of body, which only works if this is one of them and only
+ * should while it is on screen.
  */
 export default function VersionPreviewModal({ version, recipient, onClose }: Props) {
   const { settings } = useOrgSettings()
@@ -32,7 +38,12 @@ export default function VersionPreviewModal({ version, recipient, onClose }: Pro
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
-  return (
+  useEffect(() => {
+    document.body.classList.add('agr-previewing')
+    return () => document.body.classList.remove('agr-previewing')
+  }, [])
+
+  return createPortal(
     <div className="modal-backdrop agr-preview-backdrop" onClick={onClose}>
       <div className="agr-preview" onClick={(e) => e.stopPropagation()}>
         <div className="agr-preview-bar">
@@ -41,7 +52,7 @@ export default function VersionPreviewModal({ version, recipient, onClose }: Pro
             <span> · {version.rates.length} rates</span>
           </div>
           <div className="agr-preview-actions">
-            <button className="btn btn-primary btn-sm" onClick={() => window.print()}>
+            <button className="btn btn-primary btn-sm" onClick={() => printPage()}>
               Print / Save as PDF
             </button>
             <button className="btn btn-ghost btn-sm" onClick={onClose}>
@@ -66,6 +77,7 @@ export default function VersionPreviewModal({ version, recipient, onClose }: Pro
           />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

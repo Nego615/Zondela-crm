@@ -1,5 +1,11 @@
 /* STO → Settings: the branding form beside a live preview of the document. */
 
+/* Laid out by the width the panel has, not the window's: the sidebar takes
+   232px of a desktop window and none of a tablet's. */
+.sto-settings-wrap {
+  container-type: inline-size;
+}
+
 .sto-settings {
   display: grid;
   grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
@@ -7,15 +13,38 @@
   align-items: start;
 }
 
-@media (max-width: 1100px) {
+/* Laptop width. The preview stays beside the form — it says "updates as you
+   type", which is only true if it is on screen while you type — and the
+   document is drawn at 70%, so it lays out at the width it is printed at
+   rather than squeezing its rate table into the narrower column. */
+@container (max-width: 999px) {
   .sto-settings {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  }
+
+  .sto-settings-preview-frame {
+    padding: 10px;
+  }
+
+  .sto-settings-preview-frame .rs-doc {
+    zoom: 0.7;
+  }
+}
+
+/* Too narrow for two columns: the form, then the preview under it. */
+@container (max-width: 719px) {
+  .sto-settings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sto-settings-preview {
+    position: static;
   }
 }
 
 .sto-settings-form fieldset {
   border: none;
-  margin: 0;
+  margin: 0 0 14px;
   padding: 0;
   min-width: 0;
 }
@@ -42,15 +71,25 @@
   line-height: 1.5;
 }
 
+/* minmax(0, …), not 1fr: an input's default width is ~180px, and a bare 1fr
+   column will not shrink below it — two of them pushed the right-hand field
+   out past the card's edge. */
 .sto-settings-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
 }
 
-@media (max-width: 520px) {
+.sto-settings-form .field input,
+.sto-settings-form .field select,
+.sto-settings-form .field textarea {
+  width: 100%;
+  min-width: 0;
+}
+
+@container (max-width: 480px) {
   .sto-settings-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -167,8 +206,10 @@
   overflow: hidden;
 }
 
-@media (max-width: 1100px) {
-  .sto-settings-preview {
-    position: static;
-  }
+/* The service rate card below the branding: a separate concern, so ruled off
+   rather than run on. */
+.sto-ratecard {
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
 }

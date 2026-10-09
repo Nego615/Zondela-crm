@@ -5,6 +5,7 @@ import { STAGE_LIST, STAGE_META } from '../lib/stage'
 import { mainMarketLabel, relationshipLabel } from '../lib/company'
 import type { Stage } from '../lib/database.types'
 import CompanyFormModal from '../components/CompanyFormModal'
+import { CameraIcon } from '../components/CardScanModal'
 import { repLabel } from '../lib/rep'
 import '../components/ui.css'
 
@@ -15,7 +16,7 @@ export default function Companies() {
 
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState<Stage | 'all'>('all')
-  const [showNew, setShowNew] = useState(false)
+  const [showNew, setShowNew] = useState<'form' | 'scan' | null>(null)
 
 
 
@@ -39,9 +40,15 @@ export default function Companies() {
           <h1>Companies</h1>
           <p>{companies.length} companies in the system.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowNew(true)}>
-          + Add company
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn" onClick={() => setShowNew('scan')}>
+            <CameraIcon />
+            Scan card
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowNew('form')}>
+            + Add company
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
@@ -51,6 +58,7 @@ export default function Companies() {
           placeholder="Search by name, country, market, or relationship"
           style={{
             flex: 1,
+            minWidth: 0,
             padding: '8px 12px',
             border: '1px solid var(--line-strong)',
             borderRadius: 'var(--radius)',
@@ -115,9 +123,10 @@ export default function Companies() {
 
       {showNew && (
         <CompanyFormModal
-          onClose={() => setShowNew(false)}
+          startWithScan={showNew === 'scan'}
+          onClose={() => setShowNew(null)}
           onSaved={() => {
-            setShowNew(false)
+            setShowNew(null)
           }}
         />
       )}

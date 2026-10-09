@@ -1,6 +1,9 @@
 .shell {
   display: grid;
-  grid-template-columns: 232px 1fr;
+  /* minmax(0, …), not 1fr: a bare 1fr track never shrinks below its widest
+     unbreakable child, so one long tab strip pushed the whole page past the
+     window instead of scrolling inside its own box. */
+  grid-template-columns: 232px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -84,6 +87,52 @@
 .shell-nav-item.active {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
+}
+
+/* Dev-only "View as" role switcher and the banner it raises. */
+.shell-dev-role {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.shell-dev-role select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.shell-dev-role option {
+  color: var(--text);
+}
+
+.shell-dev-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 10px 14px;
+  border: 1px dashed var(--brand-brick);
+  border-radius: var(--radius);
+  background: var(--brand-brick-tint);
+  color: var(--brand-brick-deep);
+  font-size: 13px;
 }
 
 .shell-user {

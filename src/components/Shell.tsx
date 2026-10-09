@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { roleLabel, type Permission } from '../lib/permissions'
+import { ROLES, roleLabel, type Permission } from '../lib/permissions'
+import type { Role } from '../lib/database.types'
 import BrandMark from './BrandMark'
 import './shell.css'
 
@@ -31,7 +32,7 @@ const ADMIN_NAV_ITEMS: { to: string; label: string; permission: Permission }[] =
 ]
 
 export default function Shell() {
-  const { profile, signOut, can } = useAuth()
+  const { profile, signOut, can, realRole, previewRole, setPreviewRole } = useAuth()
   const location = useLocation()
 
   // Only ever true below the 1024px breakpoint; above it the rail is always
@@ -163,6 +164,24 @@ export default function Shell() {
           )}
         </nav>
 
+        {/* Dev builds only; compiled out of production. See DEV_ROLE_KEY. */}
+        {import.meta.env.DEV && (
+          <label className="shell-dev-role">
+            <span>View as (dev)</span>
+            <select
+              value={previewRole ?? ''}
+              onChange={(e) => setPreviewRole((e.target.value || null) as Role | null)}
+            >
+              <option value="">{roleLabel(realRole)} (you)</option>
+              {ROLES.filter((r) => r !== realRole).map((r) => (
+                <option key={r} value={r}>
+                  {roleLabel(r)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <div className="shell-user">
           <div className="shell-user-avatar">{initials}</div>
           <div className="shell-user-info">
@@ -178,6 +197,17 @@ export default function Shell() {
       {/* inert rather than aria-hidden: it also stops the page behind the
           drawer taking tab focus or a stray tap. */}
       <main className="shell-main" inert={menuOpen}>
+        {import.meta.env.DEV && previewRole && (
+          <div className="shell-dev-banner" role="status">
+            <span>
+              Viewing as <strong>{roleLabel(previewRole)}</strong>. The screens are theirs; the data
+              and every save are still your {roleLabel(realRole)} account’s.
+            </span>
+            <button className="btn btn-sm" onClick={() => setPreviewRole(null)}>
+              Exit preview
+            </button>
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

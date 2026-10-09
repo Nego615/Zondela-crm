@@ -294,12 +294,11 @@ export default function Sto() {
             printed on the document the operator opens.
           </p>
           <StoSettingsPanel />
-          <h2 className="sto-section">Service rate card</h2>
-          <p className="sto-lede">
-            Separate from the season’s rates, and from what the agreement send carries: the
-            services the house quotes, and the price list PDF, kept here for the team to work from.
-          </p>
-          <RateCardPanel />
+          {/* The panel brings its own heading; a second one here said the
+              same thing twice, one above the other. */}
+          <div className="sto-ratecard">
+            <RateCardPanel />
+          </div>
         </>
       ) : tab === 'versions' ? (
         <>
@@ -415,45 +414,44 @@ export default function Sto() {
               </p>
             </div>
           ) : (
+            // Four columns where there were nine. Who it went to is one cell,
+            // when and what is another, and where it got to is the badge with
+            // its own timestamp under it — so the row reads left to right as
+            // the send's story, and the actions stay on screen at laptop width.
             <div className="card sto-table-card">
-              <table className="data-table">
+              <table className="data-table sto-sends">
                 <thead>
                   <tr>
                     <th>Operator</th>
-                    <th>Contact</th>
-                    <th>Rate sheet</th>
                     <th>Sent</th>
                     <th>Status</th>
-                    <th>Opened</th>
-                    <th>Answered</th>
-                    <th>Follow-up</th>
-                    <th></th>
+                    <th>
+                      <span className="sto-sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {sentRows.map((send) => (
                     <tr key={send.id}>
-                      <td>
+                      <td className="sto-cell-operator">
                         <button
                           className="sto-company-link"
                           onClick={() => navigate(`/companies/${send.company_id}`)}
                         >
                           {companyName(send.company_id)}
                         </button>
+                        <span className="sto-row-sub sto-row-contact">
+                          {send.to_name ?? 'No contact named'}
+                          {send.to_email && <> — {send.to_email}</>}
+                        </span>
                         {send.note && <span className="sto-row-note">{send.note}</span>}
                       </td>
-                      <td>
-                        <span className="sto-strong">{send.to_name ?? '—'}</span>
-                        {send.to_email && <span className="sto-row-sub">{send.to_email}</span>}
+                      <td data-label="Sent">
+                        <span className="sto-strong sto-date">{formatDay(send.sent_at)}</span>
+                        <span className="sto-row-sub">{versionName(send.version_id)}</span>
+                        <span className="sto-row-sub">By {senderName(send.sent_by)}</span>
                       </td>
-                      <td>
-                        <span className="sto-strong">{versionName(send.version_id)}</span>
-                        <span className="sto-row-sub">
-                          Sent by {senderName(send.sent_by)}
-                        </span>
-                      </td>
-                      <td className="sto-date">{formatDay(send.sent_at)}</td>
-                      <td>
+                      <td data-label="Status">
                         <span
                           className="badge"
                           title={SEND_STATUS_META[send.status].hint}
@@ -464,32 +462,28 @@ export default function Sto() {
                         >
                           {SEND_STATUS_META[send.status].label}
                         </span>
+                        <span className="sto-row-sub sto-date">{progressLine(send)}</span>
+                        {/* With the status rather than in a column of its own:
+                            both answer "does this need chasing?". */}
+                        <label className="sto-followup-field">
+                          <span>Follow up on</span>
+                          <input
+                            className="sto-followup"
+                            type="date"
+                            aria-label={`Follow up with ${companyName(send.company_id)} on`}
+                            value={send.follow_up_at ?? ''}
+                            onChange={(e) =>
+                              guard(
+                                () => updateSend(send.id, { follow_up_at: e.target.value || null }),
+                                'Could not save that follow-up date.'
+                              )
+                            }
+                          />
+                        </label>
                       </td>
-                      <td className="sto-date">{send.viewed_at ? formatDayTime(send.viewed_at) : '—'}</td>
-                      <td className="sto-date">
-                        {send.accepted_at
-                          ? formatDayTime(send.accepted_at)
-                          : send.declined_at
-                            ? formatDayTime(send.declined_at)
-                            : '—'}
-                      </td>
-                      <td>
-                        <input
-                          className="sto-followup"
-                          type="date"
-                          aria-label={`Follow up with ${companyName(send.company_id)}`}
-                          value={send.follow_up_at ?? ''}
-                          onChange={(e) =>
-                            guard(
-                              () => updateSend(send.id, { follow_up_at: e.target.value || null }),
-                              'Could not save that follow-up date.'
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
+                      <td className="sto-cell-actions">
                         <div className="sto-actions">
-                          <button className="btn btn-ghost btn-sm" onClick={() => copyLink(send)}>
+                          <button className="btn btn-sm" onClick={() => copyLink(send)}>
                             {copied === send.id ? 'Copied' : 'Copy link'}
                           </button>
                           {send.status !== 'accepted' && (
@@ -502,7 +496,7 @@ export default function Sto() {
                                 )
                               }
                             >
-                              Accepted
+                              Mark accepted
                             </button>
                           )}
                           {send.status !== 'declined' && (
@@ -515,11 +509,11 @@ export default function Sto() {
                                 )
                               }
                             >
-                              Declined
+                              Mark declined
                             </button>
                           )}
                           <button
-                            className="btn btn-ghost btn-sm"
+                            className="btn btn-ghost btn-sm sto-action-remove"
                             onClick={() =>
                               setConfirming({
                                 title: 'Remove this send?',
@@ -561,36 +555,49 @@ export default function Sto() {
             </div>
           ) : (
             <div className="card sto-table-card">
-              <table className="data-table">
+              <table className="data-table sto-sends">
                 <thead>
                   <tr>
                     <th>Operator</th>
-                    <th>Sent to</th>
-                    <th>Rate sheet</th>
                     <th>Accepted</th>
-                    <th>Accepted by</th>
+                    <th>Rate sheet</th>
                     <th>What they said</th>
-                    <th>Documents</th>
+                    <th>
+                      <span className="sto-sr-only">Documents</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {acceptedRows.map((send) => {
                     const version = versionById.get(send.version_id)
+                    const signer = send.responded_name ?? send.to_name
                     return (
                       <tr key={send.id}>
-                        <td>
+                        <td className="sto-cell-operator">
                           <button
                             className="sto-company-link"
                             onClick={() => navigate(`/companies/${send.company_id}`)}
                           >
                             {companyName(send.company_id)}
                           </button>
+                          <span className="sto-row-sub sto-row-contact">
+                            Sent to {send.to_name ?? 'no named contact'}
+                            {send.to_email && <> — {send.to_email}</>}
+                          </span>
                         </td>
-                        <td>
-                          <span className="sto-strong">{send.to_name ?? '—'}</span>
-                          {send.to_email && <span className="sto-row-sub">{send.to_email}</span>}
+                        {/* Who said yes and when, together: the date alone does
+                            not tell you whether the right person signed. */}
+                        <td data-label="Accepted">
+                          <span className="sto-strong sto-date">{formatDayTime(send.accepted_at)}</span>
+                          {signer && <span className="sto-row-sub">By {signer}</span>}
+                          {send.responded_title && (
+                            <span className="sto-row-sub">{send.responded_title}</span>
+                          )}
+                          {send.responded_email && send.responded_email !== send.to_email && (
+                            <span className="sto-row-sub sto-row-contact">{send.responded_email}</span>
+                          )}
                         </td>
-                        <td>
+                        <td data-label="Rate sheet">
                           <span className="sto-strong">{versionName(send.version_id)}</span>
                           {version && (
                             <span className="sto-row-sub">
@@ -598,32 +605,22 @@ export default function Sto() {
                             </span>
                           )}
                         </td>
-                        <td className="sto-date">{formatDayTime(send.accepted_at)}</td>
-                        <td>
-                          <span className="sto-strong">{send.responded_name ?? send.to_name ?? '—'}</span>
-                          {send.responded_title && (
-                            <span className="sto-row-sub">{send.responded_title}</span>
-                          )}
-                          {send.responded_email && (
-                            <span className="sto-row-sub">{send.responded_email}</span>
-                          )}
-                        </td>
-                        <td className="sto-said">
+                        <td className="sto-said" data-label="What they said">
                           {send.responded_note ? (
                             send.responded_note
                           ) : (
                             <span className="sto-muted">Accepted without a note</span>
                           )}
                         </td>
-                        <td>
+                        <td className="sto-cell-actions">
                           <div className="sto-actions">
                             <a
-                              className="btn btn-ghost btn-sm"
+                              className="btn btn-sm"
                               href={agreementLink(send.token)}
                               target="_blank"
                               rel="noreferrer"
                             >
-                              Agreement
+                              Open agreement
                             </a>
                             {version?.pdf_path && (
                               <a
@@ -632,7 +629,7 @@ export default function Sto() {
                                 target="_blank"
                                 rel="noreferrer"
                               >
-                                PDF
+                                Open PDF
                               </a>
                             )}
                           </div>
@@ -675,6 +672,18 @@ export default function Sto() {
       )}
     </div>
   )
+}
+
+/**
+ * The line under a send's status badge: when it got there. The badge says
+ * where a send stands; this says since when, which is what decides whether
+ * it needs chasing.
+ */
+function progressLine(send: StoAgreementSend) {
+  if (send.status === 'accepted' && send.accepted_at) return `Accepted ${formatDayTime(send.accepted_at)}`
+  if (send.status === 'declined' && send.declined_at) return `Declined ${formatDayTime(send.declined_at)}`
+  if (send.viewed_at) return `Opened ${formatDayTime(send.viewed_at)}`
+  return 'Not opened yet'
 }
 
 /**

@@ -168,260 +168,262 @@ export default function StoSettingsPanel() {
   }
 
   return (
-    <div className="sto-settings">
-      <form className="card sto-settings-form" onSubmit={handleSubmit}>
-        {!editable && (
-          <p className="sto-settings-locked">
-            You can see how agreements are branded, but not change it. Ask an Admin or Manager.
-          </p>
-        )}
-
-        <fieldset disabled={!editable || saving}>
-          <h3>Identity</h3>
-          <p className="sto-settings-sub">Heads every agreement and signs off every email.</p>
-
-          <div className="sto-settings-grid">
-            <div className="field">
-              <label htmlFor="s_org">Organisation name</label>
-              <input id="s_org" value={draft.org_name} onChange={(e) => set('org_name', e.target.value)} placeholder="Zondela House" />
-            </div>
-            <div className="field">
-              <label htmlFor="s_legal">Legal name</label>
-              <input id="s_legal" value={draft.legal_name ?? ''} onChange={(e) => set('legal_name', e.target.value)} placeholder="Zondela House Ltd" />
-            </div>
-          </div>
-
-          <div className="field">
-            <label htmlFor="s_tagline">Tagline</label>
-            <input id="s_tagline" value={draft.tagline ?? ''} onChange={(e) => set('tagline', e.target.value)} placeholder="Search and traffic optimisation" />
-          </div>
-
-          <div className="sto-settings-grid">
-            <div className="field">
-              <label htmlFor="s_address">Address</label>
-              <input id="s_address" value={draft.address ?? ''} onChange={(e) => set('address', e.target.value)} placeholder="Street, area" />
-            </div>
-            <div className="field">
-              <label htmlFor="s_city">City</label>
-              <input id="s_city" value={draft.city ?? ''} onChange={(e) => set('city', e.target.value)} placeholder="Arusha" />
-            </div>
-          </div>
-
-          <div className="sto-settings-grid">
-            <div className="field">
-              <label htmlFor="s_country">Country</label>
-              <input id="s_country" value={draft.country ?? ''} onChange={(e) => set('country', e.target.value)} placeholder="Tanzania" />
-            </div>
-            <div className="field">
-              <label htmlFor="s_phone">Phone</label>
-              <input id="s_phone" value={draft.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="+255 7XX XXX XXX" />
-            </div>
-          </div>
-
-          <div className="sto-settings-grid">
-            <div className="field">
-              <label htmlFor="s_email">Email</label>
-              <input id="s_email" type="email" value={draft.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="hello@zondelahouse.com" />
-            </div>
-            <div className="field">
-              <label htmlFor="s_website">Website</label>
-              <input id="s_website" value={draft.website ?? ''} onChange={(e) => set('website', e.target.value)} placeholder="zondelahouse.com" />
-            </div>
-          </div>
-
-          <h3>Look</h3>
-          <p className="sto-settings-sub">
-            Applied inline on the document, so it survives print and paste into an email.
-          </p>
-
-          <div className="sto-settings-grid">
-            <div className="field">
-              <label htmlFor="s_brand">Brand colour</label>
-              <div className="sto-color">
-                <input id="s_brand" type="color" value={draft.brand_color} onChange={(e) => set('brand_color', e.target.value)} />
-                <input aria-label="Brand colour hex" value={draft.brand_color} onChange={(e) => set('brand_color', e.target.value)} />
+    <div className="sto-settings-wrap">
+      <div className="sto-settings">
+        <form className="card sto-settings-form" onSubmit={handleSubmit}>
+          {!editable && (
+            <p className="sto-settings-locked">
+              You can see how agreements are branded, but not change it. Ask an Admin or Manager.
+            </p>
+          )}
+  
+          <fieldset disabled={!editable || saving}>
+            <h3>Identity</h3>
+            <p className="sto-settings-sub">Heads every agreement and signs off every email.</p>
+  
+            <div className="sto-settings-grid">
+              <div className="field">
+                <label htmlFor="s_org">Organisation name</label>
+                <input id="s_org" value={draft.org_name} onChange={(e) => set('org_name', e.target.value)} placeholder="Zondela House" />
+              </div>
+              <div className="field">
+                <label htmlFor="s_legal">Legal name</label>
+                <input id="s_legal" value={draft.legal_name ?? ''} onChange={(e) => set('legal_name', e.target.value)} placeholder="Zondela House Ltd" />
               </div>
             </div>
+  
             <div className="field">
-              <label htmlFor="s_accent">Accent colour</label>
-              <div className="sto-color">
-                <input id="s_accent" type="color" value={draft.accent_color} onChange={(e) => set('accent_color', e.target.value)} />
-                <input aria-label="Accent colour hex" value={draft.accent_color} onChange={(e) => set('accent_color', e.target.value)} />
+              <label htmlFor="s_tagline">Tagline</label>
+              <input id="s_tagline" value={draft.tagline ?? ''} onChange={(e) => set('tagline', e.target.value)} placeholder="Search and traffic optimisation" />
+            </div>
+  
+            <div className="sto-settings-grid">
+              <div className="field">
+                <label htmlFor="s_address">Address</label>
+                <input id="s_address" value={draft.address ?? ''} onChange={(e) => set('address', e.target.value)} placeholder="Street, area" />
+              </div>
+              <div className="field">
+                <label htmlFor="s_city">City</label>
+                <input id="s_city" value={draft.city ?? ''} onChange={(e) => set('city', e.target.value)} placeholder="Arusha" />
               </div>
             </div>
-          </div>
-
-          {/* The logo is the one branding field a Manager may not touch. The
-              nested fieldset disables it inside the outer one; Postgres
-              refuses the write regardless (guard_org_logo, 0006). */}
-          <fieldset className="field" disabled={!canChangeLogo}>
-            <label htmlFor="s_logo">Logo</label>
-            <div className="sto-logo-row">
-              {draft.logo_url ? (
-                <img className="sto-logo-thumb" src={draft.logo_url} alt="Current logo" />
-              ) : (
-                <span className="sto-logo-empty">
-                  <BrandMark size={30} />
-                </span>
-              )}
-              <input
-                id="s_logo"
-                type="file"
-                accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) handleUpload(file, 'logo')
-                  e.target.value = ''
-                }}
-              />
-              {draft.logo_url && (
-                <button type="button" className="btn btn-sm btn-ghost" onClick={() => set('logo_url', '')}>
-                  Remove
-                </button>
-              )}
+  
+            <div className="sto-settings-grid">
+              <div className="field">
+                <label htmlFor="s_country">Country</label>
+                <input id="s_country" value={draft.country ?? ''} onChange={(e) => set('country', e.target.value)} placeholder="Tanzania" />
+              </div>
+              <div className="field">
+                <label htmlFor="s_phone">Phone</label>
+                <input id="s_phone" value={draft.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="+255 7XX XXX XXX" />
+              </div>
             </div>
-            <span className="field-hint">
-              {!canChangeLogo
-                ? 'Only an administrator can change the logo. Everything else on this page is yours to edit.'
-                : uploading === 'logo'
-                  ? 'Uploading…'
-                  : draft.logo_url
-                    ? 'Stored publicly so it loads in a client’s email.'
-                    : 'Agreements use the Zondela House mark until a file is uploaded here.'}
-            </span>
+  
+            <div className="sto-settings-grid">
+              <div className="field">
+                <label htmlFor="s_email">Email</label>
+                <input id="s_email" type="email" value={draft.email ?? ''} onChange={(e) => set('email', e.target.value)} placeholder="hello@zondelahouse.com" />
+              </div>
+              <div className="field">
+                <label htmlFor="s_website">Website</label>
+                <input id="s_website" value={draft.website ?? ''} onChange={(e) => set('website', e.target.value)} placeholder="zondelahouse.com" />
+              </div>
+            </div>
+  
+            <h3>Look</h3>
+            <p className="sto-settings-sub">
+              Applied inline on the document, so it survives print and paste into an email.
+            </p>
+  
+            <div className="sto-settings-grid">
+              <div className="field">
+                <label htmlFor="s_brand">Brand colour</label>
+                <div className="sto-color">
+                  <input id="s_brand" type="color" value={draft.brand_color} onChange={(e) => set('brand_color', e.target.value)} />
+                  <input aria-label="Brand colour hex" value={draft.brand_color} onChange={(e) => set('brand_color', e.target.value)} />
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="s_accent">Accent colour</label>
+                <div className="sto-color">
+                  <input id="s_accent" type="color" value={draft.accent_color} onChange={(e) => set('accent_color', e.target.value)} />
+                  <input aria-label="Accent colour hex" value={draft.accent_color} onChange={(e) => set('accent_color', e.target.value)} />
+                </div>
+              </div>
+            </div>
+  
+            {/* The logo is the one branding field a Manager may not touch. The
+                nested fieldset disables it inside the outer one; Postgres
+                refuses the write regardless (guard_org_logo, 0006). */}
+            <fieldset className="field" disabled={!canChangeLogo}>
+              <label htmlFor="s_logo">Logo</label>
+              <div className="sto-logo-row">
+                {draft.logo_url ? (
+                  <img className="sto-logo-thumb" src={draft.logo_url} alt="Current logo" />
+                ) : (
+                  <span className="sto-logo-empty">
+                    <BrandMark size={30} />
+                  </span>
+                )}
+                <input
+                  id="s_logo"
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleUpload(file, 'logo')
+                    e.target.value = ''
+                  }}
+                />
+                {draft.logo_url && (
+                  <button type="button" className="btn btn-sm btn-ghost" onClick={() => set('logo_url', '')}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              <span className="field-hint">
+                {!canChangeLogo
+                  ? 'Only an administrator can change the logo. Everything else on this page is yours to edit.'
+                  : uploading === 'logo'
+                    ? 'Uploading…'
+                    : draft.logo_url
+                      ? 'Stored publicly so it loads in a client’s email.'
+                      : 'Agreements use the Zondela House mark until a file is uploaded here.'}
+              </span>
+            </fieldset>
+  
+            {/* Admin's, like the logo, and for the same reason: the same guard
+                refuses it to anyone else (guard_org_logo, 0010). */}
+            <fieldset className="field" disabled={!canChangeLogo}>
+              <label htmlFor="s_cover">Cover image</label>
+              <div className="sto-logo-row">
+                {draft.cover_image_url && (
+                  <img className="sto-cover-thumb" src={draft.cover_image_url} alt="Current cover" />
+                )}
+                <input
+                  id="s_cover"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleUpload(file, 'cover')
+                    e.target.value = ''
+                  }}
+                />
+                {draft.cover_image_url && (
+                  <button type="button" className="btn btn-sm btn-ghost" onClick={() => set('cover_image_url', '')}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              <span className="field-hint">
+                {!canChangeLogo
+                  ? 'Only an administrator can change the cover image.'
+                  : uploading === 'cover'
+                    ? 'Uploading…'
+                    : draft.cover_image_url
+                      ? 'Shown full width across the top of every agreement. Save settings to publish it.'
+                      : 'Optional. A wide landscape photograph works best — about 2400 × 800 pixels.'}
+              </span>
+            </fieldset>
+  
+            <h3>Agreement wording</h3>
+  
+            <div className="field">
+              <label htmlFor="s_intro">Opening paragraph</label>
+              <textarea id="s_intro" value={draft.agreement_intro ?? ''} onChange={(e) => set('agreement_intro', e.target.value)} placeholder="Thank you for considering Zondela House. The services below are quoted for the period stated." />
+            </div>
+  
+            <div className="field">
+              <label htmlFor="s_terms">Default terms</label>
+              <textarea id="s_terms" value={draft.agreement_terms_default ?? ''} onChange={(e) => set('agreement_terms_default', e.target.value)} placeholder="Payment within 14 days of invoice. Either party may cancel with 30 days' notice." />
+              <span className="field-hint">Used when an agreement has no terms of its own.</span>
+            </div>
+  
+            <div className="field">
+              <label htmlFor="s_footer">Footer line</label>
+              <input id="s_footer" value={draft.agreement_footer ?? ''} onChange={(e) => set('agreement_footer', e.target.value)} placeholder="Zondela House Ltd · TIN 123-456-789 · Arusha, Tanzania" />
+            </div>
+  
+            <div className="sto-settings-grid">
+              <div className="field">
+                <label htmlFor="s_sig_name">Signatory name</label>
+                <input id="s_sig_name" value={draft.signatory_name ?? ''} onChange={(e) => set('signatory_name', e.target.value)} placeholder="Asha Mwangi" />
+              </div>
+              <div className="field">
+                <label htmlFor="s_sig_title">Signatory title</label>
+                <input id="s_sig_title" value={draft.signatory_title ?? ''} onChange={(e) => set('signatory_title', e.target.value)} placeholder="Managing Director" />
+              </div>
+            </div>
+  
+            <h3>Email settings</h3>
+            <p className="sto-settings-sub">
+              Used to compose what goes out. Sending still opens your own mail client — nothing here
+              sends on your behalf.
+            </p>
+  
+            <div className="sto-settings-grid">
+              <div className="field">
+                <label htmlFor="s_from_name">From name</label>
+                <input id="s_from_name" value={draft.email_from_name ?? ''} onChange={(e) => set('email_from_name', e.target.value)} placeholder="Zondela House" />
+              </div>
+              <div className="field">
+                <label htmlFor="s_from_addr">From address</label>
+                <input id="s_from_addr" type="email" value={draft.email_from_address ?? ''} onChange={(e) => set('email_from_address', e.target.value)} placeholder="info@zondelahouse.com" />
+              </div>
+            </div>
+  
+            <div className="sto-settings-grid">
+              <div className="field">
+                <label htmlFor="s_reply">Reply-to</label>
+                <input id="s_reply" type="email" value={draft.email_reply_to ?? ''} onChange={(e) => set('email_reply_to', e.target.value)} placeholder="hello@zondelahouse.com" />
+              </div>
+              <div className="field">
+                <label htmlFor="s_bcc">BCC every send to</label>
+                <input id="s_bcc" type="email" value={draft.email_bcc ?? ''} onChange={(e) => set('email_bcc', e.target.value)} placeholder="records@zondelahouse.com" />
+                <span className="field-hint">Added to the mail client's BCC line.</span>
+              </div>
+            </div>
+  
+            <div className="field">
+              <label htmlFor="s_signature">Email signature</label>
+              <textarea id="s_signature" value={draft.email_signature ?? ''} onChange={(e) => set('email_signature', e.target.value)} placeholder={'Zondela House\n+255 7XX XXX XXX · zondelahouse.com'} />
+              <span className="field-hint">Closes every agreement email, under the sender's name.</span>
+            </div>
           </fieldset>
-
-          {/* Admin's, like the logo, and for the same reason: the same guard
-              refuses it to anyone else (guard_org_logo, 0010). */}
-          <fieldset className="field" disabled={!canChangeLogo}>
-            <label htmlFor="s_cover">Cover image</label>
-            <div className="sto-logo-row">
-              {draft.cover_image_url && (
-                <img className="sto-cover-thumb" src={draft.cover_image_url} alt="Current cover" />
-              )}
-              <input
-                id="s_cover"
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) handleUpload(file, 'cover')
-                  e.target.value = ''
-                }}
-              />
-              {draft.cover_image_url && (
-                <button type="button" className="btn btn-sm btn-ghost" onClick={() => set('cover_image_url', '')}>
-                  Remove
-                </button>
-              )}
+  
+          {error && <p className="sto-settings-error">{error}</p>}
+          {saved && <p className="sto-settings-saved">Saved. New agreements use this straight away.</p>}
+  
+          {editable && (
+            <div className="sto-settings-actions">
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? 'Saving…' : 'Save settings'}
+              </button>
             </div>
-            <span className="field-hint">
-              {!canChangeLogo
-                ? 'Only an administrator can change the cover image.'
-                : uploading === 'cover'
-                  ? 'Uploading…'
-                  : draft.cover_image_url
-                    ? 'Shown full width across the top of every agreement. Save settings to publish it.'
-                    : 'Optional. A wide landscape photograph works best — about 2400 × 800 pixels.'}
-            </span>
-          </fieldset>
-
-          <h3>Agreement wording</h3>
-
-          <div className="field">
-            <label htmlFor="s_intro">Opening paragraph</label>
-            <textarea id="s_intro" value={draft.agreement_intro ?? ''} onChange={(e) => set('agreement_intro', e.target.value)} placeholder="Thank you for considering Zondela House. The services below are quoted for the period stated." />
+          )}
+        </form>
+  
+        <div className="sto-settings-preview">
+          <div className="panel-header">
+            <h2>Preview</h2>
+            <p>Sample rates, your branding. Updates as you type.</p>
           </div>
-
-          <div className="field">
-            <label htmlFor="s_terms">Default terms</label>
-            <textarea id="s_terms" value={draft.agreement_terms_default ?? ''} onChange={(e) => set('agreement_terms_default', e.target.value)} placeholder="Payment within 14 days of invoice. Either party may cancel with 30 days' notice." />
-            <span className="field-hint">Used when an agreement has no terms of its own.</span>
+          <div className="sto-settings-preview-frame">
+            <RateSheetDocument
+              version={SAMPLE_VERSION}
+              rates={SAMPLE_RATES}
+              supplements={[{ name: 'Dinner', price: 20, currency: 'USD', unit: 'per person' }]}
+              sections={[
+                {
+                  title: 'Check-In / Check-Out',
+                  body: 'Check-in: 2:00 PM\nCheck-out: 10:00 AM',
+                },
+              ]}
+              org={previewSettings}
+              recipient={{ company: 'Serengeti Trails Safaris Ltd' }}
+            />
           </div>
-
-          <div className="field">
-            <label htmlFor="s_footer">Footer line</label>
-            <input id="s_footer" value={draft.agreement_footer ?? ''} onChange={(e) => set('agreement_footer', e.target.value)} placeholder="Zondela House Ltd · TIN 123-456-789 · Arusha, Tanzania" />
-          </div>
-
-          <div className="sto-settings-grid">
-            <div className="field">
-              <label htmlFor="s_sig_name">Signatory name</label>
-              <input id="s_sig_name" value={draft.signatory_name ?? ''} onChange={(e) => set('signatory_name', e.target.value)} placeholder="Asha Mwangi" />
-            </div>
-            <div className="field">
-              <label htmlFor="s_sig_title">Signatory title</label>
-              <input id="s_sig_title" value={draft.signatory_title ?? ''} onChange={(e) => set('signatory_title', e.target.value)} placeholder="Managing Director" />
-            </div>
-          </div>
-
-          <h3>Email settings</h3>
-          <p className="sto-settings-sub">
-            Used to compose what goes out. Sending still opens your own mail client — nothing here
-            sends on your behalf.
-          </p>
-
-          <div className="sto-settings-grid">
-            <div className="field">
-              <label htmlFor="s_from_name">From name</label>
-              <input id="s_from_name" value={draft.email_from_name ?? ''} onChange={(e) => set('email_from_name', e.target.value)} placeholder="Zondela House" />
-            </div>
-            <div className="field">
-              <label htmlFor="s_from_addr">From address</label>
-              <input id="s_from_addr" type="email" value={draft.email_from_address ?? ''} onChange={(e) => set('email_from_address', e.target.value)} placeholder="info@zondelahouse.com" />
-            </div>
-          </div>
-
-          <div className="sto-settings-grid">
-            <div className="field">
-              <label htmlFor="s_reply">Reply-to</label>
-              <input id="s_reply" type="email" value={draft.email_reply_to ?? ''} onChange={(e) => set('email_reply_to', e.target.value)} placeholder="hello@zondelahouse.com" />
-            </div>
-            <div className="field">
-              <label htmlFor="s_bcc">BCC every send to</label>
-              <input id="s_bcc" type="email" value={draft.email_bcc ?? ''} onChange={(e) => set('email_bcc', e.target.value)} placeholder="records@zondelahouse.com" />
-              <span className="field-hint">Added to the mail client's BCC line.</span>
-            </div>
-          </div>
-
-          <div className="field">
-            <label htmlFor="s_signature">Email signature</label>
-            <textarea id="s_signature" value={draft.email_signature ?? ''} onChange={(e) => set('email_signature', e.target.value)} placeholder={'Zondela House\n+255 7XX XXX XXX · zondelahouse.com'} />
-            <span className="field-hint">Closes every agreement email, under the sender's name.</span>
-          </div>
-        </fieldset>
-
-        {error && <p className="sto-settings-error">{error}</p>}
-        {saved && <p className="sto-settings-saved">Saved. New agreements use this straight away.</p>}
-
-        {editable && (
-          <div className="sto-settings-actions">
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Save settings'}
-            </button>
-          </div>
-        )}
-      </form>
-
-      <div className="sto-settings-preview">
-        <div className="panel-header">
-          <h2>Preview</h2>
-          <p>Sample rates, your branding. Updates as you type.</p>
-        </div>
-        <div className="sto-settings-preview-frame">
-          <RateSheetDocument
-            version={SAMPLE_VERSION}
-            rates={SAMPLE_RATES}
-            supplements={[{ name: 'Dinner', price: 20, currency: 'USD', unit: 'per person' }]}
-            sections={[
-              {
-                title: 'Check-In / Check-Out',
-                body: 'Check-in: 2:00 PM\nCheck-out: 10:00 AM',
-              },
-            ]}
-            org={previewSettings}
-            recipient={{ company: 'Serengeti Trails Safaris Ltd' }}
-          />
         </div>
       </div>
     </div>
